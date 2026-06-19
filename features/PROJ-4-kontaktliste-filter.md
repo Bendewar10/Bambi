@@ -63,16 +63,46 @@ _Keine offenen Fragen — siehe Decision Log._
 | Keine Pagination | Persönliches Netzwerk, überschaubare Kontaktanzahl erwartet, client-seitiges Filtern ausreichend performant | 2026-06-19 |
 
 ### Technical Decisions
-<!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _Example: localStorage over Supabase_ | _No user accounts needed; data is device-local_ | YYYY-MM-DD |
+| Client-seitiges Filtern/Sortieren statt Server-Roundtrip | Sofortiges Feedback, keine Latenz pro Tastenanschlag, ausreichend bei überschaubarer Datenmenge | 2026-06-19 |
+| `ContactFormDialog` aus PROJ-3 unverändert wiederverwendet | Keine Logik-Duplikation, nur neuer Einstiegspunkt (Karte statt Liste) | 2026-06-19 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Component Structure
+
+```
+/ (Startseite, ersetzt die PROJ-3-Übergangsliste vollständig)
+├── Filter-Leiste
+│   ├── Namenssuche (Textfeld, live)
+│   ├── Kategorie-Filter (Auswahl)
+│   └── Beziehungsstärke-Filter (Auswahl)
+├── "Kontakt hinzufügen"-Button
+├── Kontakt-Karten (sortiert nach Follow-up-Dringlichkeit)
+│   └── Pro Karte: Name, Kategorie-Badge, Stärke-Badge, letzter Kontakt,
+│       nächstes Follow-up (rot hervorgehoben wenn überfällig)
+│       → Klick öffnet das bestehende Bearbeiten-Formular aus PROJ-3
+├── Empty State ("Noch keine Kontakte") — aus PROJ-3 übernommen
+└── No-Results State ("Keine Kontakte zu diesen Filtern") — neu für Filter-Fall
+```
+
+### Data Model (plain language)
+
+Keine Änderung — nutzt die bestehende `contacts`-Tabelle aus PROJ-1 unverändert. Kein neues Feld, keine neue Tabelle.
+
+### Tech Decisions (justified)
+
+- **Client-seitiges Filtern/Sortieren statt Server-Roundtrip pro Filteränderung:** Alle Kontakte werden einmal geladen (wie schon in PROJ-3), Filter/Suche operieren auf den bereits geladenen Daten im Browser — sofortiges Feedback ohne Netzwerk-Latenz bei jedem Tastenanschlag, sinnvoll bei der erwarteten überschaubaren Kontaktanzahl eines persönlichen Netzwerks.
+- **Bestehendes `ContactFormDialog` aus PROJ-3 unverändert wiederverwendet:** Gleiche Felder, gleiche Validierung, keine Logik-Duplikation — nur der Einstiegspunkt (Karten-Klick statt Listenzeile) ändert sich.
+- **shadcn `Card` + `Badge` für die Kontakt-Darstellung:** Standard-Komponenten bereits installiert, passen zum bestehenden Design-System ohne Custom-CSS.
+- **Überfällig-Markierung rein visuell (rote Border/Text), keine Datenbank-Logik:** Berechnung (`next_followup_at < jetzt`) passiert client-seitig beim Rendern, kein zusätzliches DB-Feld oder Trigger nötig.
+
+### Dependencies (Packages)
+Keine neuen Packages — `Card`, `Badge`, `Input`, `Select` bereits installiert (shadcn/ui).
 
 ## QA Test Results
 _To be added by /qa_
