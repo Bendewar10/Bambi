@@ -17,7 +17,7 @@
 |----|---------|--------|------|---------|---------------|
 | PROJ-1 | Supabase Infrastructure Setup | Deployed | [Spec](PROJ-1-supabase-infrastructure-setup.md) | 2026-06-19 | None |
 | PROJ-2 | Auth (Login) | Deployed | [Spec](PROJ-2-auth-login-signup.md) | 2026-06-19 | PROJ-1 |
-| PROJ-3 | Kontakt anlegen & verwalten | Roadmap | - | 2026-06-19 | PROJ-1, PROJ-2 |
+| PROJ-3 | Kontakt anlegen & verwalten | Planned | [Spec](PROJ-3-kontakt-anlegen-verwalten.md) | 2026-06-19 | PROJ-1, PROJ-2 |
 | PROJ-4 | Kontaktliste & Filter | Roadmap | - | 2026-06-19 | PROJ-3 |
 | PROJ-5 | Interaktions-Log | Roadmap | - | 2026-06-19 | PROJ-3 |
 | PROJ-6 | Follow-up Dashboard & Tagesansicht | Roadmap | - | 2026-06-19 | PROJ-5 |
