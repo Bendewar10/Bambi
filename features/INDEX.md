@@ -15,7 +15,7 @@
 
 | ID | Feature | Status | Spec | Created | Dependencies |
 |----|---------|--------|------|---------|---------------|
-| PROJ-1 | Supabase Infrastructure Setup | Approved | [Spec](PROJ-1-supabase-infrastructure-setup.md) | 2026-06-19 | None |
+| PROJ-1 | Supabase Infrastructure Setup | Deployed | [Spec](PROJ-1-supabase-infrastructure-setup.md) | 2026-06-19 | None |
 | PROJ-2 | Auth (Login/Signup) | Roadmap | - | 2026-06-19 | PROJ-1 |
 | PROJ-3 | Kontakt anlegen & verwalten | Roadmap | - | 2026-06-19 | PROJ-1, PROJ-2 |
 | PROJ-4 | Kontaktliste & Filter | Roadmap | - | 2026-06-19 | PROJ-3 |

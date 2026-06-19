@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-06-19
 **Last Updated:** 2026-06-19 (DB-Migration ausgeführt, RLS verifiziert; App-Start mit echten Env-Vars noch nicht getestet — AC1/AC4 offen)
 
@@ -138,4 +138,8 @@ Keine offenen Bugs. (1 Bug während Implementierung gefunden und sofort gefixt �
 ### Production-Ready: **YES**
 
 ## Deployment
-_To be added by /deploy_
+
+**Date:** 2026-06-19
+**Production URL:** https://bambi-w26q.vercel.app
+**Vercel Project:** bambi-w26q
+**Verification:** `curl` → 200, env vars (`NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`) added to Vercel production env, Supabase migration already live on project `srxatexcffjebolqttaq`
