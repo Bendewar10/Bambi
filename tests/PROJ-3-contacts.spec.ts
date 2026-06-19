@@ -15,6 +15,19 @@ function uniqueName(label: string) {
   return `${label} ${Date.now()}-${Math.floor(Math.random() * 10000)}`
 }
 
+function cardFor(page: Page, name: string) {
+  return page.locator('.cursor-pointer', { hasText: name })
+}
+
+async function deleteContact(page: Page, name: string) {
+  const deleteResponse = page.waitForResponse(
+    (res) => res.url().includes('/rest/v1/contacts') && res.request().method() === 'DELETE'
+  )
+  await cardFor(page, name).getByRole('button', { name: 'Löschen' }).click()
+  await page.getByRole('button', { name: 'Löschen' }).last().click()
+  await deleteResponse
+}
+
 test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
   test('AC1: only Name filled creates contact with other fields empty/default', async ({ page }) => {
     await login(page)
@@ -24,9 +37,7 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
-    // cleanup
-    await page.getByRole('listitem').filter({ hasText: name }).getByRole('button', { name: 'Löschen' }).click()
-    await page.getByRole('button', { name: 'Löschen' }).last().click()
+    await deleteContact(page, name)
   })
 
   test('AC2: full form (all fields) saves all values correctly', async ({ page }) => {
@@ -44,14 +55,13 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await expect(page.getByText(name)).toBeVisible()
 
     // re-open to verify persisted values
-    await page.getByRole('listitem').filter({ hasText: name }).getByRole('button', { name: 'Bearbeiten' }).click()
+    await page.getByText(name, { exact: true }).click()
     await expect(page.getByLabel('Kontext')).toHaveValue('Beim Sport kennengelernt')
     await expect(page.getByLabel('Notizen')).toHaveValue('Mag Kaffee')
     await expect(page.getByLabel('Follow-up-Intervall (Tage)')).toHaveValue('14')
     await page.getByRole('button', { name: 'Abbrechen' }).click()
 
-    await page.getByRole('listitem').filter({ hasText: name }).getByRole('button', { name: 'Löschen' }).click()
-    await page.getByRole('button', { name: 'Löschen' }).last().click()
+    await deleteContact(page, name)
   })
 
   test('AC3: empty Name shows validation error, contact not created', async ({ page }) => {
@@ -70,12 +80,11 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
-    await page.getByRole('listitem').filter({ hasText: name }).getByRole('button', { name: 'Bearbeiten' }).click()
+    await page.getByText(name, { exact: true }).click()
     await expect(page.getByLabel('Follow-up-Intervall (Tage)')).toHaveValue('')
     await page.getByRole('button', { name: 'Abbrechen' }).click()
 
-    await page.getByRole('listitem').filter({ hasText: name }).getByRole('button', { name: 'Löschen' }).click()
-    await page.getByRole('button', { name: 'Löschen' }).last().click()
+    await deleteContact(page, name)
   })
 
   test('AC5: choosing strength auto-fills the correct default interval', async ({ page }) => {
@@ -89,8 +98,7 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
-    await page.getByRole('listitem').filter({ hasText: name }).getByRole('button', { name: 'Löschen' }).click()
-    await page.getByRole('button', { name: 'Löschen' }).last().click()
+    await deleteContact(page, name)
   })
 
   test('AC5b: manually edited interval is not overwritten when strength changes', async ({ page }) => {
@@ -116,14 +124,13 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
-    await page.getByRole('listitem').filter({ hasText: name }).getByRole('button', { name: 'Bearbeiten' }).click()
+    await page.getByText(name, { exact: true }).click()
     await expect(page.getByLabel('Name')).toHaveValue(name)
     await page.getByLabel('Name').fill(renamed)
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(renamed)).toBeVisible()
 
-    await page.getByRole('listitem').filter({ hasText: renamed }).getByRole('button', { name: 'Löschen' }).click()
-    await page.getByRole('button', { name: 'Löschen' }).last().click()
+    await deleteContact(page, renamed)
   })
 
   test('AC8/AC9: delete shows confirmation dialog, removes contact on confirm', async ({ page }) => {
@@ -134,16 +141,22 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
-    await page.getByRole('listitem').filter({ hasText: name }).getByRole('button', { name: 'Löschen' }).click()
+    await cardFor(page, name).getByRole('button', { name: 'Löschen' }).click()
     await expect(page.getByText('Kontakt löschen?')).toBeVisible()
+    const deleteResponse = page.waitForResponse(
+      (res) => res.url().includes('/rest/v1/contacts') && res.request().method() === 'DELETE'
+    )
     await page.getByRole('button', { name: 'Löschen' }).last().click()
+    await deleteResponse
     await expect(page.getByText(name)).not.toBeVisible()
   })
 
   test('AC10: empty state shows hint when no contacts exist', async ({ page }) => {
     await login(page)
-    await expect(page.getByText('Lädt...')).not.toBeVisible({ timeout: 10000 })
-    const hasItems = await page.getByRole('listitem').count()
+    await expect(async () => {
+      expect(await page.getByText('Lädt...').count()).toBe(0)
+    }).toPass({ timeout: 10000 })
+    const hasItems = await page.locator('[class*="truncate"]').count()
     if (hasItems === 0) {
       await expect(page.getByText('Noch keine Kontakte.')).toBeVisible()
     }

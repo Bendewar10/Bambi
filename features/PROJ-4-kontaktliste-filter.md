@@ -1,6 +1,6 @@
 # PROJ-4: Kontaktliste & Filter
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-06-19
 **Last Updated:** 2026-06-19 (Frontend implementiert)
 
@@ -113,7 +113,44 @@ Keine Änderung — nutzt die bestehende `contacts`-Tabelle aus PROJ-1 unveränd
 Keine neuen Packages — `Card`, `Badge`, `Input`, `Select` bereits installiert (shadcn/ui).
 
 ## QA Test Results
-_To be added by /qa_
+
+**Date:** 2026-06-19
+**Tested by:** /qa (live gegen echten Account, Test-Daten via REST-API geseedet/aufgeräumt)
+
+### Acceptance Criteria
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Karten zeigen Name, Kategorie, Stärke, Follow-up-Infos | ✅ Pass (E2E) |
+| 2 | Sortierung nach `next_followup_at`, null ans Ende | ✅ Pass (E2E) |
+| 3 | Überfälliger Kontakt visuell hervorgehoben | ✅ Pass (E2E) |
+| 4 | Kategorie-Filter zeigt nur passende Kontakte | ✅ Pass (E2E) |
+| 5 | Stärke-Filter zeigt nur passende Kontakte | ✅ Pass (E2E) |
+| 6 | Kategorie+Stärke kombiniert (UND) | ✅ Pass (E2E) |
+| 7 | Namenssuche live, case-insensitive | ✅ Pass (E2E) |
+| 8 | No-Results-Hinweis bei 0 Treffern trotz Filter | ✅ Pass (E2E) |
+| 9 | Empty State bei 0 Kontakten überhaupt | ✅ Pass — bereits durch PROJ-3 AC10 abgedeckt (gleiche UI-Logik, kein neuer Test nötig) |
+| 10 | Klick auf Karte öffnet Bearbeiten-Formular vorausgefüllt | ✅ Pass (E2E) |
+
+### Automated Tests
+- `npm test` → 1 file, 2/2 passed (Regression PROJ-1)
+- `npm run test:e2e` → **46/46 passed** (PROJ-2, PROJ-3, PROJ-4, alle ACs × Chromium + Mobile Safari)
+- Playwright Browser-Binaries waren bereits installiert
+
+### Bugs Found
+
+**🔴 High (gefunden + sofort gefixt):** PROJ-3's E2E-Suite (`PROJ-3-contacts.spec.ts`) nutzte `getByRole('listitem')`-Selektoren von der alten `<li>`-basierten Übergangsliste. PROJ-4 ersetzte diese durch `<Card>`-Divs ohne `listitem`-Rolle — die Selektoren fanden dadurch nichts mehr. Da die Tests in `describe.serial` liefen, brach die Suite nach dem ersten Fehlschlag ab und alle nachfolgenden PROJ-3-ACs wurden als "did not run" stillschweigend übersprungen, ohne dass dies in der Konsolen-Zusammenfassung auffiel. Dies ist kein Produktbug, aber ein kritischer Regressionstest-Ausfall: PROJ-3 hätte bei echten Bugs nicht mehr zuverlässig getestet werden können. Fix: alle Selektoren auf die neue Card-Struktur (`.cursor-pointer`-Klasse) umgestellt, alle Delete-Cleanups warten jetzt explizit auf die DELETE-Response.
+
+**Keine offenen Produktbugs.**
+
+### Security Audit (Red Team)
+- **XSS-Versuch:** Kontakt mit Name `<script>alert(1)</script>` angelegt — React rendert als reiner Text (kein `dangerouslySetInnerHTML` verwendet), kein Script-Execute, kein `dialog`-Event ausgelöst
+- **Cross-User-Isolation:** keine neue Prüfung nötig — Liste nutzt dieselbe `.select('*')`-Query + RLS-Policy wie PROJ-3, dort bereits mit echtem zweiten Account verifiziert (siehe PROJ-3 QA)
+- **Client-seitige Filter:** Filter/Suche laufen rein im Browser auf bereits durch RLS vorgefilterten Daten — kein zusätzlicher Angriffsvektor, da kein neuer Server-Request pro Filteränderung
+
+### Test-Infrastruktur-Hinweise (nicht produktrelevant)
+- Gleiche bekannte Flakes wie bei PROJ-2/3: Next.js Dev-Mode Cold-Compile bei allererster Interaktion, parallele Logins desselben Accounts invalidieren sich gegenseitig — Suite muss seriell (`--workers=1`) mit echten Accounts laufen
+
+### Production-Ready: **YES**
 
 ## Deployment
 _To be added by /deploy_
