@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
+import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,6 +44,11 @@ export function LoginForm() {
         email: values.email,
         password: values.password,
       })
+
+      if (error && isAuthRetryableFetchError(error)) {
+        setSubmitError('Verbindung zu Supabase fehlgeschlagen. Bitte erneut versuchen.')
+        return
+      }
 
       if (error || !data.session) {
         setSubmitError('Email oder Passwort falsch.')

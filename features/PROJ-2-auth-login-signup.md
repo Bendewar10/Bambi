@@ -127,7 +127,7 @@ Account selbst wird einmalig manuell über Supabase Dashboard angelegt (siehe Ou
 | 4 | Nicht eingeloggt + geschützte Route → Redirect zu `/login` | ✅ Pass (E2E) — **nach Bugfix, siehe unten** |
 | 5 | Eingeloggt + `/login` aufrufen → Redirect zu `/` | ✅ Pass (live gegen echten Account getestet) |
 | 6 | Logout → Session beendet, Redirect zu `/login` | ✅ Pass (live gegen echten Account getestet) |
-| 7 | Netzwerkfehler beim Login → Fehlermeldung, Eingabe bleibt erhalten | ⚠️ Nicht getestet — schwer zuverlässig simulierbar ohne echten Account/Request |
+| 7 | Netzwerkfehler beim Login → Fehlermeldung, Eingabe bleibt erhalten | ✅ Pass (E2E, nach Bugfix, siehe unten) |
 
 ### Automated Tests
 - `npm test` → 1 file, 2/2 passed (PROJ-1 Supabase-Client-Tests, Regression ok)
@@ -141,6 +141,8 @@ Account selbst wird einmalig manuell über Supabase Dashboard angelegt (siehe Ou
 
 **🟡 Low (Config-Bug, gefixt):** Vitest las versehentlich den `tests/`-Ordner (Playwright-E2E-Specs) mit ein → Testlauf schlug mit Config-Fehler fehl, keine echte Funktionsregression. Fix: `exclude: ['tests/**']` in `vitest.config.ts` ergänzt.
 
+**🟠 Medium (gefunden + sofort gefixt):** `@supabase/supabase-js` gibt bei echten Netzwerkfehlern (Fetch schlägt fehl) ein `AuthRetryableFetchError`-Objekt im `error`-Feld zurück statt eine Exception zu werfen — der ursprüngliche `try/catch`-Block in `login-form.tsx` griff dadurch nie, jeder Netzwerkfehler zeigte fälschlich "Email oder Passwort falsch" statt einer Netzwerk-Fehlermeldung. Verifiziert via Playwright-Route-Abort-Test. Fix: `isAuthRetryableFetchError(error)`-Check vor dem generischen Fehlerfall ergänzt. E2E-Test `tests/PROJ-2-auth-login-network.spec.ts` deckt das jetzt ab.
+
 **Keine offenen Bugs.**
 
 ### Security Audit (Red Team)
@@ -150,7 +152,6 @@ Account selbst wird einmalig manuell über Supabase Dashboard angelegt (siehe Ou
 - **Statische Assets:** `_next/static`, Bild-Dateien, `favicon.ico` korrekt vom Matcher ausgeschlossen (kein Redirect-Overhead)
 
 ### Open Items (nicht blockierend)
-- AC7 (Netzwerkfehler-Pfad) bleibt ungetestet — niedriges Risiko, Code-Pfad ist simpler try/catch, gleiches Muster wie AC2 (Fehlerfall) nur anderer Trigger
 - Next.js 16 deprecated `middleware.ts` zugunsten `proxy.ts` (nur Warning, noch funktional) — Rename von Auto-Mode-Classifier als riskant geblockt (berührt Auth-Schutzmechanismus), Entscheidung liegt beim User
 
 ### Production-Ready: **YES**
