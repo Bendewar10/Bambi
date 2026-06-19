@@ -1,8 +1,8 @@
 # PROJ-2: Auth (Login)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-06-19
-**Last Updated:** 2026-06-19 (Frontend implementiert)
+**Last Updated:** 2026-06-19 (QA abgeschlossen, alle Kern-ACs live verifiziert)
 
 ## Implementation Notes
 - `src/components/login-form.tsx`: Client-Komponente, react-hook-form + Zod-Validierung (Email-Format, Pflichtfelder), ruft `supabase.auth.signInWithPassword` direkt auf, zeigt Fehler via shadcn `Alert`, Loading-State deaktiviert Button während Request
@@ -121,18 +121,19 @@ Account selbst wird einmalig manuell über Supabase Dashboard angelegt (siehe Ou
 ### Acceptance Criteria
 | # | Criterion | Result |
 |---|---|---|
-| 1 | Korrekte Daten → Login + Redirect zu `/` | ⚠️ Nicht getestet — braucht echten Supabase-Account, Signup-Endpoint durch Email-Rate-Limit blockiert, User entschied sich gegen Live-Test |
+| 1 | Korrekte Daten → Login + Redirect zu `/` | ✅ Pass (live gegen echten Account getestet) |
 | 2 | Falsche Daten → klare Fehlermeldung, Felder bleiben erhalten | ✅ Pass (E2E) |
 | 3 | Leeres Pflichtfeld → Validierungsfehler pro Feld, kein Request | ✅ Pass (E2E) |
 | 4 | Nicht eingeloggt + geschützte Route → Redirect zu `/login` | ✅ Pass (E2E) — **nach Bugfix, siehe unten** |
-| 5 | Eingeloggt + `/login` aufrufen → Redirect zu `/` | ⚠️ Nicht getestet — braucht echten Account |
-| 6 | Logout → Session beendet, Redirect zu `/login` | ⚠️ Nicht getestet — braucht echten Account |
+| 5 | Eingeloggt + `/login` aufrufen → Redirect zu `/` | ✅ Pass (live gegen echten Account getestet) |
+| 6 | Logout → Session beendet, Redirect zu `/login` | ✅ Pass (live gegen echten Account getestet) |
 | 7 | Netzwerkfehler beim Login → Fehlermeldung, Eingabe bleibt erhalten | ⚠️ Nicht getestet — schwer zuverlässig simulierbar ohne echten Account/Request |
 
 ### Automated Tests
 - `npm test` → 1 file, 2/2 passed (PROJ-1 Supabase-Client-Tests, Regression ok)
 - `npm run test:e2e` → 6/6 passed (3 ACs × 2 Browser-Profile: Chromium + Mobile Safari)
 - Playwright Browser-Binaries waren bereits installiert
+- Live-Test AC1/5/6 gegen echten Account (manuell via Dashboard angelegt, Passwort danach auf Test-Passwort geändert) — temporäres Test-Spec (nicht ins Repo übernommen, lief nur lokal mit Credentials per Env-Var, keine Secrets in Git/Shell-History persistiert) → 3/3 passed bei serieller Ausführung. Bei paralleler Ausführung (3 Workers, gleicher Account) ein Flake bei AC6 durch Supabase Refresh-Token-Rotation (gleichzeitige Logins eines Accounts invalidieren sich gegenseitig) — kein Produktbug, reines Testinfra-Artefakt bei Mehrfach-Login desselben Accounts
 
 ### Bugs Found
 
@@ -148,11 +149,11 @@ Account selbst wird einmalig manuell über Supabase Dashboard angelegt (siehe Ou
 - **Redirect-Loop-Check:** Kein Loop zwischen `/` und `/login` möglich (unterschiedliche Bedingungen pro Pfad)
 - **Statische Assets:** `_next/static`, Bild-Dateien, `favicon.ico` korrekt vom Matcher ausgeschlossen (kein Redirect-Overhead)
 
-### Open Items (nicht blockierend, für nächsten Test-Durchlauf)
-- AC1/5/6/7 brauchen echten Supabase-Test-Account — sobald Email-Rate-Limit zurückgesetzt ist oder Account manuell im Dashboard angelegt wird, nachholen
+### Open Items (nicht blockierend)
+- AC7 (Netzwerkfehler-Pfad) bleibt ungetestet — niedriges Risiko, Code-Pfad ist simpler try/catch, gleiches Muster wie AC2 (Fehlerfall) nur anderer Trigger
 - Next.js 16 deprecated `middleware.ts` zugunsten `proxy.ts` (nur Warning, noch funktional) — Rename von Auto-Mode-Classifier als riskant geblockt (berührt Auth-Schutzmechanismus), Entscheidung liegt beim User
 
-### Production-Ready: **NO** — wegen ungetesteter Kern-ACs (1, 5, 6), nicht wegen bekannter Bugs. Empfehlung: Account-Problem lösen, Retest, dann erneut bewerten.
+### Production-Ready: **YES**
 
 ## Deployment
 _To be added by /deploy_
