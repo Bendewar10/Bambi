@@ -1,8 +1,16 @@
 # PROJ-4: Kontaktliste & Filter
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-06-19
-**Last Updated:** 2026-06-19
+**Last Updated:** 2026-06-19 (Frontend implementiert)
+
+## Implementation Notes
+- `src/lib/contacts.ts`: `Contact`-Interface um `last_contacted_at`/`next_followup_at` ergänzt (fehlten bisher, werden für Anzeige/Sortierung benötigt)
+- `src/components/contact-card.tsx`: neue Karten-Komponente — Name, Kategorie-/Stärke-Badges, letzter Kontakt, nächstes Follow-up (rot + "(überfällig)" wenn in der Vergangenheit), Klick öffnet Edit, Löschen-Button mit `stopPropagation`
+- `src/components/contact-list.tsx`: komplett ersetzt — Filter-Leiste (Namenssuche, Kategorie-Select, Stärke-Select, alle UND-verknüpft, client-seitig via `useMemo`), Sortierung nach `next_followup_at` (null ans Ende), Empty-State vs. No-Results-State unterschieden
+- `ContactFormDialog` aus PROJ-3 unverändert wiederverwendet
+- Live verifiziert mit 3 Test-Kontakten (überfällig/zukünftig/ohne Follow-up): Sortierreihenfolge korrekt, Overdue-Highlight korrekt, Kategorie-Filter korrekt
+- **Wichtiger Hinweis:** `next_followup_at` wird aktuell von keinem Feature aktiv gesetzt — der DB-Trigger dafür greift erst bei einem Interaction-Insert (PROJ-5, noch nicht gebaut). Bis dahin haben alle über PROJ-3 angelegten Kontakte `next_followup_at = null` und landen alle gleichrangig am Ende der Sortierung — funktional korrekt, aber Overdue-Highlight kommt erst mit PROJ-5 wirklich zum Einsatz
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — `contacts`-Tabelle, CRUD-Operationen und Übergangsliste existieren bereits

@@ -1,10 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Contact } from '@/lib/contacts'
+import { Contact, CATEGORY_LABELS, STRENGTH_LABELS } from '@/lib/contacts'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { ContactCard } from '@/components/contact-card'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +25,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
+const ALL = 'all'
+
+function sortByFollowup(a: Contact, b: Contact) {
+  if (!a.next_followup_at && !b.next_followup_at) return 0
+  if (!a.next_followup_at) return 1
+  if (!b.next_followup_at) return -1
+  return new Date(a.next_followup_at).getTime() - new Date(b.next_followup_at).getTime()
+}
+
 export function ContactList() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -23,11 +41,14 @@ export function ContactList() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [deletingContact, setDeletingContact] = useState<Contact | null>(null)
 
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
+  const [strengthFilter, setStrengthFilter] = useState<string>(ALL)
+
   function loadContacts() {
     return supabase
       .from('contacts')
       .select('*')
-      .order('created_at', { ascending: false })
       .then(({ data }) => {
         setContacts(data ?? [])
         setIsLoading(false)
@@ -55,35 +76,79 @@ export function ContactList() {
     loadContacts()
   }
 
+  const filteredContacts = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return contacts
+      .filter((contact) => !term || contact.name.toLowerCase().includes(term))
+      .filter((contact) => categoryFilter === ALL || contact.category === categoryFilter)
+      .filter((contact) => strengthFilter === ALL || String(contact.strength) === strengthFilter)
+      .sort(sortByFollowup)
+  }, [contacts, search, categoryFilter, strengthFilter])
+
+  const hasAnyContacts = contacts.length > 0
+  const hasFiltersActive = search.trim() !== '' || categoryFilter !== ALL || strengthFilter !== ALL
+
   return (
-    <div className="w-full max-w-md space-y-4">
-      <Button onClick={openCreate} className="w-full">
-        Kontakt hinzufügen
-      </Button>
+    <div className="w-full max-w-4xl space-y-4">
+      <div className="flex flex-wrap items-end gap-2">
+        <Input
+          placeholder="Name suchen..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Kategorie" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Alle Kategorien</SelectItem>
+            {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={strengthFilter} onValueChange={setStrengthFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Stärke" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Alle Stärken</SelectItem>
+            {Object.entries(STRENGTH_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={openCreate} className="ml-auto">
+          Kontakt hinzufügen
+        </Button>
+      </div>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Lädt...</p>
-      ) : contacts.length === 0 ? (
+      ) : !hasAnyContacts ? (
         <p className="text-sm text-muted-foreground">Noch keine Kontakte.</p>
+      ) : filteredContacts.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {hasFiltersActive
+            ? 'Keine Kontakte zu diesen Filtern.'
+            : 'Noch keine Kontakte.'}
+        </p>
       ) : (
-        <ul className="space-y-2">
-          {contacts.map((contact) => (
-            <li
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredContacts.map((contact) => (
+            <ContactCard
               key={contact.id}
-              className="flex items-center justify-between rounded-md border p-2"
-            >
-              <span>{contact.name}</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => openEdit(contact)}>
-                  Bearbeiten
-                </Button>
-                <Button variant="destructive" size="sm" onClick={() => setDeletingContact(contact)}>
-                  Löschen
-                </Button>
-              </div>
-            </li>
+              contact={contact}
+              onEdit={() => openEdit(contact)}
+              onDelete={() => setDeletingContact(contact)}
+            />
           ))}
-        </ul>
+        </div>
       )}
 
       <ContactFormDialog

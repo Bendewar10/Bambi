@@ -29,5 +29,7 @@ export interface Contact {
   context: string | null
   notes: string | null
   followup_interval_days: number | null
+  last_contacted_at: string | null
+  next_followup_at: string | null
   created_at: string
 }
