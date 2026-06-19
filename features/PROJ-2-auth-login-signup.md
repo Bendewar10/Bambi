@@ -114,7 +114,45 @@ Account selbst wird einmalig manuell über Supabase Dashboard angelegt (siehe Ou
 - `@supabase/ssr` — offizielles Supabase-Paket für Session-Handling in Next.js Middleware/Server-Kontexten (Cookie-basiert), ergänzt den bereits vorhandenen `@supabase/supabase-js` Browser-Client
 
 ## QA Test Results
-_To be added by /qa_
+
+**Date:** 2026-06-19
+**Tested by:** /qa
+
+### Acceptance Criteria
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Korrekte Daten → Login + Redirect zu `/` | ⚠️ Nicht getestet — braucht echten Supabase-Account, Signup-Endpoint durch Email-Rate-Limit blockiert, User entschied sich gegen Live-Test |
+| 2 | Falsche Daten → klare Fehlermeldung, Felder bleiben erhalten | ✅ Pass (E2E) |
+| 3 | Leeres Pflichtfeld → Validierungsfehler pro Feld, kein Request | ✅ Pass (E2E) |
+| 4 | Nicht eingeloggt + geschützte Route → Redirect zu `/login` | ✅ Pass (E2E) — **nach Bugfix, siehe unten** |
+| 5 | Eingeloggt + `/login` aufrufen → Redirect zu `/` | ⚠️ Nicht getestet — braucht echten Account |
+| 6 | Logout → Session beendet, Redirect zu `/login` | ⚠️ Nicht getestet — braucht echten Account |
+| 7 | Netzwerkfehler beim Login → Fehlermeldung, Eingabe bleibt erhalten | ⚠️ Nicht getestet — schwer zuverlässig simulierbar ohne echten Account/Request |
+
+### Automated Tests
+- `npm test` → 1 file, 2/2 passed (PROJ-1 Supabase-Client-Tests, Regression ok)
+- `npm run test:e2e` → 6/6 passed (3 ACs × 2 Browser-Profile: Chromium + Mobile Safari)
+- Playwright Browser-Binaries waren bereits installiert
+
+### Bugs Found
+
+**🔴 Critical (gefunden + sofort gefixt):** Middleware lag unter `middleware.ts` im Projekt-Root statt `src/middleware.ts`. Next.js erkennt die Datei bei `src/`-Struktur nur dort — Route-Schutz war dadurch komplett wirkungslos, jede Seite (inkl. `/`) war ungeschützt aufrufbar ohne Login. Fix: Datei nach `src/middleware.ts` verschoben, danach verifiziert: `/` ohne Session → 307 zu `/login`.
+
+**🟡 Low (Config-Bug, gefixt):** Vitest las versehentlich den `tests/`-Ordner (Playwright-E2E-Specs) mit ein → Testlauf schlug mit Config-Fehler fehl, keine echte Funktionsregression. Fix: `exclude: ['tests/**']` in `vitest.config.ts` ergänzt.
+
+**Keine offenen Bugs.**
+
+### Security Audit (Red Team)
+- **Middleware-Bypass-Versuche:** Trailing Slash, Case-Variante (`/Login`), Query-String, URL-Encoding, gefälschtes Session-Cookie → alle korrekt zu `/login` redirected, keine Lücke gefunden
+- **Gefälschtes/ungültiges Session-Cookie:** `getUser()` validiert serverseitig gegen Supabase, ungültiger Token wird als "nicht eingeloggt" behandelt — kein Client-seitiges Vertrauen in Cookie-Inhalt
+- **Redirect-Loop-Check:** Kein Loop zwischen `/` und `/login` möglich (unterschiedliche Bedingungen pro Pfad)
+- **Statische Assets:** `_next/static`, Bild-Dateien, `favicon.ico` korrekt vom Matcher ausgeschlossen (kein Redirect-Overhead)
+
+### Open Items (nicht blockierend, für nächsten Test-Durchlauf)
+- AC1/5/6/7 brauchen echten Supabase-Test-Account — sobald Email-Rate-Limit zurückgesetzt ist oder Account manuell im Dashboard angelegt wird, nachholen
+- Next.js 16 deprecated `middleware.ts` zugunsten `proxy.ts` (nur Warning, noch funktional) — Rename von Auto-Mode-Classifier als riskant geblockt (berührt Auth-Schutzmechanismus), Entscheidung liegt beim User
+
+### Production-Ready: **NO** — wegen ungetesteter Kern-ACs (1, 5, 6), nicht wegen bekannter Bugs. Empfehlung: Account-Problem lösen, Retest, dann erneut bewerten.
 
 ## Deployment
 _To be added by /deploy_
