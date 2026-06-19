@@ -11,7 +11,7 @@ Der Nutzer selbst — Person mit großem, diversem Netzwerk über Business und P
 | Priority | Feature | Status |
 |----------|---------|--------|
 | P0 (MVP) | Supabase Infrastructure Setup | Planned (spec done) |
-| P0 (MVP) | Auth (Login/Signup) | Planned |
+| P0 (MVP) | Auth (Login) | Planned (spec done) |
 | P0 (MVP) | Kontakt anlegen & verwalten (Profil + Quick-Add) | Planned |
 | P0 (MVP) | Kontaktliste & Filter | Planned |
 | P0 (MVP) | Interaktions-Log | Planned |
