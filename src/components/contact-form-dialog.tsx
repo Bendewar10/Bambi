@@ -122,9 +122,14 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
         return
       }
 
-      const { error } = contact
+      const { error, status } = contact
         ? await supabase.from('contacts').update(payload).eq('id', contact.id)
         : await supabase.from('contacts').insert({ ...payload, user_id: userData.user.id })
+
+      if (error && status === 0) {
+        setSubmitError('Verbindung zu Supabase fehlgeschlagen. Bitte erneut versuchen.')
+        return
+      }
 
       if (error) {
         setSubmitError('Speichern fehlgeschlagen. Bitte erneut versuchen.')

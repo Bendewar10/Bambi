@@ -1,6 +1,6 @@
 # PROJ-3: Kontakt anlegen & verwalten
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-06-19
 **Last Updated:** 2026-06-19 (Frontend implementiert)
 
@@ -124,7 +124,52 @@ Keine neue Tabelle, keine Schema-Änderung — `contacts` existiert bereits seit
 Keine neuen Packages — `react-hook-form`, `zod`, `@hookform/resolvers`, `@supabase/supabase-js` bereits installiert.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Date:** 2026-06-19
+**Tested by:** /qa (live gegen echten Account + zweiten Test-Account für RLS-Check)
+
+### Acceptance Criteria
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Nur Name → Kontakt mit Default/leeren Restfeldern | ✅ Pass (E2E) |
+| 2 | Volles Formular → alle Werte korrekt gespeichert | ✅ Pass (E2E, inkl. Re-Open-Verifikation) |
+| 3 | Leerer Name → Validierungsfehler, kein Insert | ✅ Pass (E2E) |
+| 4 | Keine Stärke gewählt → Follow-up-Intervall bleibt leer | ✅ Pass (E2E) — **nach Bugfix, siehe unten** |
+| 5 | Stärke gewählt → Intervall-Default automatisch gesetzt (14/30/90) | ✅ Pass (E2E) |
+| 5b | Manuell editiertes Intervall bleibt bei Stärke-Wechsel erhalten | ✅ Pass (E2E) |
+| 6 | Bearbeiten öffnet Formular vorausgefüllt | ✅ Pass (E2E) |
+| 7 | Änderung wird gespeichert, sofort in Liste sichtbar | ✅ Pass (E2E) |
+| 8 | Löschen zeigt Bestätigungsdialog | ✅ Pass (E2E) |
+| 9 | Bestätigtes Löschen entfernt Kontakt | ✅ Pass (E2E) |
+| 10 | Empty State bei 0 Kontakten | ✅ Pass (E2E) |
+| 11 | Netzwerkfehler beim Speichern → Fehlermeldung, Eingabe bleibt | ✅ Pass (E2E) — **nach Bugfix, siehe unten** |
+| 12 | Cross-User-Isolation (RLS) | ✅ Pass — verifiziert via REST-API mit zweitem echten Account: User B bekommt `[]` bei SELECT/UPDATE/DELETE auf User A's Kontakt, Daten unverändert |
+
+### Automated Tests
+- `npm test` → 1 file, 2/2 passed (Regression PROJ-1)
+- `npm run test:e2e` (PROJ-3-contacts.spec.ts, 10 Tests) → 10/10 passed, seriell gegen echten Account
+- Regression: PROJ-2-auth-login.spec.ts + PROJ-2-auth-login-network.spec.ts weiterhin grün
+
+### Bugs Found
+
+**🔴 High (gefunden + sofort gefixt):** `followup_interval_days` war in der PROJ-1-Migration `NOT NULL DEFAULT 30` — widersprach AC4 (Feld soll ohne gewählte Stärke leer/null bleiben), jeder Insert ohne Stärke schlug fehl. Migration `make_followup_interval_nullable` angewendet.
+
+**🟠 Medium (gefunden + sofort gefixt):** Gleiches Muster wie PROJ-2 AC7 — `postgrest-js` gibt bei echten Netzwerkfehlern ein Error-Objekt mit `status: 0` zurück statt zu werfen, der ursprüngliche Code zeigte fälschlich "Speichern fehlgeschlagen" statt einer Netzwerk-Fehlermeldung. Fix: `status === 0` Check vor dem generischen Fehlerfall in `contact-form-dialog.tsx`.
+
+**Keine offenen Bugs.**
+
+### Security Audit (Red Team)
+- **Cross-User RLS-Isolation (AC12):** Zweiter echter Test-Account erstellt, versuchte SELECT/UPDATE/DELETE auf Kontakt von User A → alle drei Operationen liefern `[]` (keine Zeile betroffen), Originaldaten bei User A unverändert (kein "HACKED"-Update durchgekommen)
+- **Direkter REST-Delete via curl (Owner):** funktioniert korrekt mit `204`, bestätigt dass RLS Owner-Zugriff nicht fälschlich blockiert
+- **SQL-Injection-Versuch:** nicht erneut getestet (bereits in PROJ-1 QA verifiziert, gleiche RLS-/PostgREST-Schicht, kein neuer Angriffsvektor durch dieses Feature)
+
+### Test-Infrastruktur-Hinweise (nicht produktrelevant)
+- Mehrere E2E-Flakes während QA beobachtet, alle auf Testskript-Probleme zurückgeführt, nicht auf Produktbugs:
+  - Next.js Dev-Mode kompiliert Routen on-demand — allererste Interaktion nach Server-(re)start kann Klicks verschlucken bevor Hydration fertig ist (Production-Build betroffen nicht, da vorab kompiliert)
+  - Mehrfache parallele Logins desselben echten Accounts invalidieren sich gegenseitig (Supabase Refresh-Token-Rotation) — E2E-Suite muss mit `--workers=1` (seriell) laufen, wenn echte Accounts statt Mocks verwendet werden
+  - Einzelne Cleanup-Schritte in Tests, die nicht auf die Delete-Response warten, können vor Abschluss des Requests beendet werden — Test-Hygiene-Punkt, kein Produktbug (Produkt-Delete mehrfach isoliert mit Netzwerk-Logging verifiziert: 204, Zeile korrekt entfernt)
+
+### Production-Ready: **YES**
 
 ## Deployment
 _To be added by /deploy_
