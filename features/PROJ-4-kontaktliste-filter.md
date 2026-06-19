@@ -1,6 +1,6 @@
 # PROJ-4: Kontaktliste & Filter
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-06-19
 **Last Updated:** 2026-06-19 (Frontend implementiert)
 
@@ -153,4 +153,8 @@ Keine neuen Packages — `Card`, `Badge`, `Input`, `Select` bereits installiert 
 ### Production-Ready: **YES**
 
 ## Deployment
-_To be added by /deploy_
+- Production URL: https://bambi-w26q.vercel.app
+- Deployed: 2026-06-19
+- Deployment ID: dpl_4HkaZqCBrTpLYwsFcBWh3e7kFqgH
+- Pre-deploy checks: `npm run build` ✓, `npm run lint` ✓
+- Pushed commit `3c7de27` (4 commits) to origin/main, Vercel auto-deployed to production
