@@ -1,8 +1,15 @@
 # PROJ-2: Auth (Login)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-06-19
-**Last Updated:** 2026-06-19
+**Last Updated:** 2026-06-19 (Frontend implementiert)
+
+## Implementation Notes
+- `src/components/login-form.tsx`: Client-Komponente, react-hook-form + Zod-Validierung (Email-Format, Pflichtfelder), ruft `supabase.auth.signInWithPassword` direkt auf, zeigt Fehler via shadcn `Alert`, Loading-State deaktiviert Button während Request
+- `src/app/login/page.tsx`: rendert `LoginForm` in zentrierter `Card`
+- `src/app/page.tsx`: ersetzt Next.js-Default-Startseite — zeigt `Eingeloggt als {email}` (per `supabase.auth.getUser()`) + Logout-Button (`supabase.auth.signOut()`, redirect zu `/login`)
+- Noch nicht gebaut: Middleware für Route-Schutz (Backend-Teil, da serverseitige Logik) — `/` ist aktuell ohne Middleware noch nicht wirklich geschützt, nur UI-seitig vorbereitet
+- Live-Login-Flow noch nicht getestet — Supabase Email-Rate-Limit beim Versuch, Test-Account per Signup-Endpoint anzulegen, getroffen. Build + Lint laufen grün, manuelle Browser-Verifikation steht noch aus
 
 ## Dependencies
 - PROJ-1 (Supabase Infrastructure Setup) — benötigt Supabase-Client + Projekt für `auth.users`
