@@ -1,8 +1,17 @@
 # PROJ-3: Kontakt anlegen & verwalten
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-06-19
-**Last Updated:** 2026-06-19
+**Last Updated:** 2026-06-19 (Frontend implementiert)
+
+## Implementation Notes
+- `src/lib/contacts.ts`: Typen + Label-Mappings für Category/Strength, Follow-up-Default-Tabelle
+- `src/components/contact-form-dialog.tsx`: Ein Dialog-Formular für Create+Edit, react-hook-form+Zod, Follow-up-Intervall "sticky" sobald manuell bearbeitet (via `dirtyFields`)
+- `src/components/contact-list.tsx`: Schlichte Übergangsliste (Name + Bearbeiten/Löschen), Empty-State, AlertDialog für Löschen-Bestätigung
+- `src/app/page.tsx`: `ContactList` eingebunden
+- **Bug gefunden + gefixt während Implementierung:** `followup_interval_days` war in der PROJ-1-Migration `NOT NULL DEFAULT 30` — widersprach AC, dass das Feld ohne gewählte Stärke leer/null bleiben soll. Migration `make_followup_interval_nullable` angewendet (Constraint entfernt)
+- Direkter Supabase-Client-Zugriff vom Frontend, keine neue API-Route (wie geplant)
+- Smoke-getestet (Create/Edit/Delete-Zyklus) gegen echten Account — funktioniert bei serieller Ausführung; parallele Mehrfach-Logins desselben Accounts verursachen Session-Races (bekanntes Testinfra-Artefakt, kein Produktbug, siehe PROJ-2)
 
 ## Dependencies
 - PROJ-1 (Supabase Infrastructure Setup) — `contacts`-Tabelle + RLS existieren bereits
