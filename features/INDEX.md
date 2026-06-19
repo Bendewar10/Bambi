@@ -13,9 +13,16 @@
 
 ## Features
 
-| ID | Feature | Status | Spec | Created |
-|----|---------|--------|------|---------|
+| ID | Feature | Status | Spec | Created | Dependencies |
+|----|---------|--------|------|---------|---------------|
+| PROJ-1 | Supabase Infrastructure Setup | Approved | [Spec](PROJ-1-supabase-infrastructure-setup.md) | 2026-06-19 | None |
+| PROJ-2 | Auth (Login/Signup) | Roadmap | - | 2026-06-19 | PROJ-1 |
+| PROJ-3 | Kontakt anlegen & verwalten | Roadmap | - | 2026-06-19 | PROJ-1, PROJ-2 |
+| PROJ-4 | Kontaktliste & Filter | Roadmap | - | 2026-06-19 | PROJ-3 |
+| PROJ-5 | Interaktions-Log | Roadmap | - | 2026-06-19 | PROJ-3 |
+| PROJ-6 | Follow-up Dashboard & Tagesansicht | Roadmap | - | 2026-06-19 | PROJ-5 |
+| PROJ-7 | Foto-Upload | Roadmap | - | 2026-06-19 | PROJ-3 |
 
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-1
+## Next Available ID: PROJ-8
