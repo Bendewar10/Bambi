@@ -1,6 +1,6 @@
 # PROJ-3: Kontakt anlegen & verwalten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-06-19
 **Last Updated:** 2026-06-19 (Frontend implementiert)
 
@@ -172,4 +172,7 @@ Keine neuen Packages — `react-hook-form`, `zod`, `@hookform/resolvers`, `@supa
 ### Production-Ready: **YES**
 
 ## Deployment
-_To be added by /deploy_
+**Date:** 2026-06-19
+**Production URL:** https://bambi-w26q.vercel.app
+**Vercel Project:** bambi-w26q
+**Verification:** Smoke-Test live (Create+Delete-Zyklus) gegen Production erfolgreich, Middleware-Redirect funktioniert (`/` → 307 zu `/login`). Keine neuen Env-Vars, keine neue Migration (Schema-Fix bereits während QA auf Live-Projekt angewendet). Minor Finding: shadcn-Dialog wirft Accessibility-Warning ("Missing Description") in Browser-Konsole — kosmetisch, kein funktionaler Bug, kann später behoben werden
