@@ -1,6 +1,6 @@
 # PROJ-2: Auth (Login)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-06-19
 **Last Updated:** 2026-06-19 (QA abgeschlossen, alle Kern-ACs live verifiziert)
 
@@ -157,4 +157,8 @@ Account selbst wird einmalig manuell über Supabase Dashboard angelegt (siehe Ou
 ### Production-Ready: **YES**
 
 ## Deployment
-_To be added by /deploy_
+
+**Date:** 2026-06-19
+**Production URL:** https://bambi-w26q.vercel.app
+**Vercel Project:** bambi-w26q
+**Verification:** `/` → 307 zu `/login` (Middleware live + funktioniert), `/login` → 200. Keine neuen Env-Vars nötig (gleicher Supabase-Projekt wie PROJ-1)
