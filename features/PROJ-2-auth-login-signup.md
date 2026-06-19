@@ -61,12 +61,48 @@ _Keine offenen Fragen — siehe Decision Log._
 | Decision | Rationale | Date |
 |----------|-----------|------|
 | Route-Schutz via Next.js Middleware statt Client-seitigem Check pro Seite | Zentrale Durchsetzung, greift auch bei direktem URL-Aufruf, kein Content-Flash vor Redirect, Standard-Pattern für Supabase+Next.js | 2026-06-19 |
+| `@supabase/ssr` zusätzlich zu `@supabase/supabase-js` installieren | Middleware läuft server-seitig und braucht Cookie-basierten Session-Zugriff — der Browser-Client aus PROJ-1 ist dafür ungeeignet; offizielles Supabase-Pattern | 2026-06-19 |
+| Kein NextAuth/eigenes Session-Management | Supabase Auth deckt Login/Session/Refresh vollständig ab, zweites Auth-System wäre redundant und erhöht Angriffsfläche | 2026-06-19 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Component Structure
+
+```
+/login (öffentliche Route)
+└── Login Form
+    ├── Email-Feld
+    ├── Passwort-Feld
+    ├── Login-Button (disabled während Request läuft)
+    └── Fehlermeldung-Bereich (falsche Daten / Netzwerkfehler / Validierung)
+
+/ (geschützte Platzhalter-Startseite)
+├── "Eingeloggt als {email}"
+└── Logout-Button
+
+Middleware (kein UI, läuft vor jedem Request)
+└── Prüft Session → leitet weiter zu /login (falls keine Session auf geschützter Route)
+                   → leitet weiter zu / (falls Session vorhanden auf /login)
+```
+
+### Data Model (plain language)
+
+Keine neue Tabelle nötig. Supabase Auth verwaltet Nutzer-Accounts intern (`auth.users`) — diese Tabelle existiert bereits implizit seit PROJ-1, da `contacts`/`interactions` schon darauf verweisen (`user_id references auth.users(id)`). PROJ-2 erstellt keine neuen Daten, sondern nutzt nur den bestehenden Auth-Mechanismus.
+
+Account selbst wird einmalig manuell über Supabase Dashboard angelegt (siehe Out of Scope) — kein Bestandteil dieses Features.
+
+### Tech Decisions (justified)
+
+- **Supabase Auth (Email/Passwort) statt eigenem Auth-System:** Bereits Teil von `@supabase/supabase-js` (seit PROJ-1 installiert), kein zusätzlicher Service nötig, eingebautes Rate-Limiting gegen Brute-Force.
+- **Next.js Middleware für Route-Schutz:** Einziger Ort, der für *jede* geschützte Seite greift — auch bei direktem URL-Aufruf, kein Risiko dass eine neue Seite den Check vergisst. Lief out-of-the-box mit Server-seitigem Session-Zugriff (kein Client-Flash von geschütztem Inhalt vor Redirect).
+- **Separate Supabase-Client-Helper für Middleware:** Middleware läuft auf dem Server und braucht Zugriff auf Cookies, um die Session zu lesen — der bestehende Browser-Client aus PROJ-1 (`src/lib/supabase.ts`) ist dafür nicht geeignet. Offizielles Supabase-Pattern für Next.js Middleware/SSR-Kontexte.
+- **Kein Server-Auth-State-Management-Tool (z.B. NextAuth):** Supabase Auth deckt Login/Session/Refresh bereits vollständig ab, ein zweites Auth-System wäre redundant.
+
+### Dependencies (Packages)
+- `@supabase/ssr` — offizielles Supabase-Paket für Session-Handling in Next.js Middleware/Server-Kontexten (Cookie-basiert), ergänzt den bereits vorhandenen `@supabase/supabase-js` Browser-Client
 
 ## QA Test Results
 _To be added by /qa_
