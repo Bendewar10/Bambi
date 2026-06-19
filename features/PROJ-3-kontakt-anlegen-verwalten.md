@@ -68,16 +68,51 @@ _Keine offenen Fragen — siehe Decision Log._
 | Kein Undo nach Löschen, nur Bestätigungsdialog | Reicht als Schutz vor Versehen, Soft-Delete/Wiederherstellen kein MVP-Bedarf | 2026-06-19 |
 
 ### Technical Decisions
-<!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _Example: localStorage over Supabase_ | _No user accounts needed; data is device-local_ | YYYY-MM-DD |
+| Direkter Supabase-Client-Zugriff, keine API-Route | RLS aus PROJ-1 erzwingt Ownership bereits serverseitig, zusätzliche API-Schicht wäre redundant | 2026-06-19 |
+| Ein Formular für Create + Edit | Identische Felder/Validierung, kein Duplizieren von Logik | 2026-06-19 |
+| Follow-up-Intervall: Auto-Default bei Stärke-Auswahl, aber "sticky" sobald manuell bearbeitet | Verhindert Verlust eines bewusst gewählten eigenen Werts bei späterer Stärke-Änderung | 2026-06-19 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Component Structure
+
+```
+/ (Platzhalter-Startseite, erweitert um Übergangsliste)
+├── "Kontakt hinzufügen"-Button
+├── Kontakt-Formular (Dialog, dient Create UND Edit)
+│   ├── Name-Feld (Pflicht)
+│   ├── Kategorie-Auswahl (Business/Investor/Community/Freund/Bekannter)
+│   ├── Beziehungsstärke-Auswahl (Kern/Mittel/Locker)
+│   ├── Kontext-Feld
+│   ├── Notizen-Feld (mehrzeilig)
+│   ├── Follow-up-Intervall (Tage) — automatisch befüllt je Stärke, manuell überschreibbar
+│   └── Speichern- / Abbrechen-Button
+├── Übergangsliste (schlicht, ohne Design-Anspruch)
+│   ├── Pro Zeile: Name, "Bearbeiten"-Button, "Löschen"-Button
+│   └── Empty State ("Noch keine Kontakte" + Hinzufügen-Button)
+└── Löschen-Bestätigung (AlertDialog)
+```
+
+### Data Model (plain language)
+
+Keine neue Tabelle, keine Schema-Änderung — `contacts` existiert bereits seit PROJ-1 mit allen benötigten Feldern (Name, Kategorie, Stärke, Kontext, Notizen, Follow-up-Intervall, Zeitstempel). PROJ-3 befüllt diese Tabelle erstmals über echte UI statt nur per Migration.
+
+### Tech Decisions (justified)
+
+- **Direkter Supabase-Client-Zugriff vom Frontend, keine eigene API-Route:** Gleiches Muster wie bei PROJ-2 (Login) — RLS aus PROJ-1 erzwingt bereits, dass jeder Nutzer nur eigene Kontakte sieht/ändert, eine zusätzliche API-Schicht wäre redundant und nur Mehraufwand ohne Sicherheitsgewinn.
+- **Ein Formular für Create UND Edit:** Identische Felder, identische Validierung — getrennte Komponenten würden Logik duplizieren. Formular bekommt optional einen bestehenden Kontakt als Ausgangswerte übergeben.
+- **Follow-up-Intervall als "smart default, aber überschreibbar":** Wird automatisch gesetzt sobald eine Stärke gewählt wird, aber sobald der Nutzer das Intervall-Feld selbst anfasst, wird der automatische Vorschlag nicht mehr überschrieben — verhindert, dass ein bewusst gewählter eigener Wert beim Ändern der Stärke wieder verloren geht.
+- **react-hook-form + Zod:** Bereits Projekt-Konvention (siehe PROJ-2 Login-Formular), gleiche Validierungs-Patterns (Pflichtfeld, Längenbegrenzung) wiederverwendet.
+- **AlertDialog für Löschen-Bestätigung statt normalem Dialog:** Shadcn-Standardkomponente exakt für diesen Zweck (destruktive Aktion bestätigen), kein Custom-Bauteil nötig.
+- **Übergangsliste bewusst ungestylt:** Vermeidet Doppelarbeit — PROJ-4 ersetzt sie ohnehin durch die echte Listen-/Filter-Ansicht mit Design.
+
+### Dependencies (Packages)
+Keine neuen Packages — `react-hook-form`, `zod`, `@hookform/resolvers`, `@supabase/supabase-js` bereits installiert.
 
 ## QA Test Results
 _To be added by /qa_
