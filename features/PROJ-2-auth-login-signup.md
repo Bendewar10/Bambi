@@ -8,8 +8,10 @@
 - `src/components/login-form.tsx`: Client-Komponente, react-hook-form + Zod-Validierung (Email-Format, Pflichtfelder), ruft `supabase.auth.signInWithPassword` direkt auf, zeigt Fehler via shadcn `Alert`, Loading-State deaktiviert Button während Request
 - `src/app/login/page.tsx`: rendert `LoginForm` in zentrierter `Card`
 - `src/app/page.tsx`: ersetzt Next.js-Default-Startseite — zeigt `Eingeloggt als {email}` (per `supabase.auth.getUser()`) + Logout-Button (`supabase.auth.signOut()`, redirect zu `/login`)
-- Noch nicht gebaut: Middleware für Route-Schutz (Backend-Teil, da serverseitige Logik) — `/` ist aktuell ohne Middleware noch nicht wirklich geschützt, nur UI-seitig vorbereitet
-- Live-Login-Flow noch nicht getestet — Supabase Email-Rate-Limit beim Versuch, Test-Account per Signup-Endpoint anzulegen, getroffen. Build + Lint laufen grün, manuelle Browser-Verifikation steht noch aus
+- `middleware.ts`: Session-Check via `@supabase/ssr` (`createServerClient`), redirect zu `/login` wenn keine Session auf geschützter Route, redirect zu `/` wenn Session vorhanden auf `/login`. Matcher schließt `_next/static`, `_next/image`, Bild-Assets aus
+- `src/lib/supabase.ts`: Browser-Client von `createClient` (@supabase/supabase-js) auf `createBrowserClient` (@supabase/ssr) umgestellt — Session landet in Cookies statt localStorage, sonst kann Middleware sie nicht lesen
+- Kein neues DB-Schema/API-Route nötig — Auth läuft komplett über Supabase Auth + Middleware
+- Live-Login-Flow noch nicht getestet — Supabase Email-Rate-Limit beim Versuch, Test-Account per Signup-Endpoint anzulegen, getroffen. Build + Lint + Unit-Tests laufen grün, manuelle Browser-Verifikation steht noch aus
 
 ## Dependencies
 - PROJ-1 (Supabase Infrastructure Setup) — benötigt Supabase-Client + Projekt für `auth.users`
