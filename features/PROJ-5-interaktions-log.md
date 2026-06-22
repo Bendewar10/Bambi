@@ -1,8 +1,18 @@
 # PROJ-5: Interaktions-Log
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-06-22
-**Last Updated:** 2026-06-22 (Tech Design)
+**Last Updated:** 2026-06-22 (Frontend implementiert)
+
+## Implementation Notes
+- `src/lib/interactions.ts`: Channel-Typ + Label-Mapping, `Interaction`-Interface (Spalte heißt `note`, nicht `notes` — laut PROJ-1-Migration)
+- `src/components/interaction-form-dialog.tsx`: Ein Dialog-Formular für Erfassen+Bearbeiten, react-hook-form+Zod, Datum-Validierung "nicht in der Zukunft" via `max` HTML-Attribut + Zod-Refine
+- `src/components/interaction-log-sheet.tsx`: shadcn `Sheet` mit chronologischem Verlauf (neueste oben), Empty-State, Edit/Delete-Icons pro Eintrag, AlertDialog für Löschen-Bestätigung
+- `src/components/contact-card.tsx`: neuer "Verlauf"-Icon-Button (lucide `History`) neben Löschen-Button, öffnet Sheet ohne den bestehenden Karten-Klick (Bearbeiten) auszulösen
+- `src/components/contact-list.tsx`: `historyContact`-State + `InteractionLogSheet` eingebunden
+- Direkter Supabase-Client-Zugriff vom Frontend, keine neue API-Route (wie bei PROJ-3/PROJ-4)
+- **Noch offen für `/backend`:** PROJ-1-Trigger `update_contact_followup` reagiert aktuell nur auf `insert` — muss um `update`/`delete` erweitert werden, damit `last_contacted_at`/`next_followup_at` beim Bearbeiten/Löschen der jüngsten Interaction korrekt neu berechnet werden (siehe Tech Design)
+- `npm run build` + `npm run lint` laufen fehlerfrei durch
 
 ## Dependencies
 - PROJ-1 (Supabase Infrastructure Setup) — `interactions`-Tabelle + RLS + Trigger existieren bereits

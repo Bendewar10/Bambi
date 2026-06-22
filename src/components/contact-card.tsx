@@ -4,12 +4,14 @@ import { Contact, CATEGORY_LABELS, STRENGTH_LABELS } from '@/lib/contacts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { History } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ContactCardProps {
   contact: Contact
   onEdit: () => void
   onDelete: () => void
+  onShowHistory: () => void
 }
 
 function formatDate(value: string | null) {
@@ -17,7 +19,7 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleDateString('de-DE')
 }
 
-export function ContactCard({ contact, onEdit, onDelete }: ContactCardProps) {
+export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: ContactCardProps) {
   const isOverdue = contact.next_followup_at
     ? new Date(contact.next_followup_at) < new Date()
     : false
@@ -32,16 +34,29 @@ export function ContactCard({ contact, onEdit, onDelete }: ContactCardProps) {
     >
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
         <CardTitle className="truncate text-base">{contact.name}</CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-        >
-          Löschen
-        </Button>
+        <div className="flex shrink-0 gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Verlauf"
+            onClick={(e) => {
+              e.stopPropagation()
+              onShowHistory()
+            }}
+          >
+            <History className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+          >
+            Löschen
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
         <div className="flex flex-wrap gap-1">

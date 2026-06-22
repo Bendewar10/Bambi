@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ContactCard } from '@/components/contact-card'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
+import { InteractionLogSheet } from '@/components/interaction-log-sheet'
 import {
   Select,
   SelectContent,
@@ -40,6 +41,7 @@ export function ContactList() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [deletingContact, setDeletingContact] = useState<Contact | null>(null)
+  const [historyContact, setHistoryContact] = useState<Contact | null>(null)
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
@@ -146,6 +148,7 @@ export function ContactList() {
               contact={contact}
               onEdit={() => openEdit(contact)}
               onDelete={() => setDeletingContact(contact)}
+              onShowHistory={() => setHistoryContact(contact)}
             />
           ))}
         </div>
@@ -172,6 +175,11 @@ export function ContactList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <InteractionLogSheet
+        contact={historyContact}
+        onOpenChange={(open) => !open && setHistoryContact(null)}
+      />
     </div>
   )
 }
