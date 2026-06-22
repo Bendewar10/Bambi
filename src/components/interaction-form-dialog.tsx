@@ -156,7 +156,7 @@ export function InteractionFormDialog({
                 <FormItem>
                   <FormLabel>Datum</FormLabel>
                   <FormControl>
-                    <Input type="date" max={today()} {...field} />
+                    <Input type="date" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

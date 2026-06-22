@@ -140,7 +140,7 @@ test.describe.serial('PROJ-5: Interaktions-Log', () => {
     await expect(entries(page)).toHaveCount(0)
   })
 
-  test('AC: future date cannot be submitted (BUG-1: no app-level message, see QA results)', async ({ page }) => {
+  test('AC: future date shows validation error, not saved', async ({ page }) => {
     const name = uniqueName('FutureDate')
     await seedContact(token, userId, name)
     await login(page)
@@ -148,15 +148,12 @@ test.describe.serial('PROJ-5: Interaktions-Log', () => {
 
     await page.getByRole('button', { name: 'Kontaktmoment hinzufügen' }).click()
     const future = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10)
-    const dateInput = page.getByLabel('Datum')
-    await dateInput.fill(future)
+    await page.getByLabel('Datum').fill(future)
     await page.getByLabel('Kanal').click()
     await page.getByRole('option', { name: 'Event' }).click()
     await page.getByRole('button', { name: 'Speichern' }).click()
 
-    // BUG-1: native `max` attribute blocks the form before React/Zod can run,
-    // so the app's own "Datum darf nicht in der Zukunft liegen" message never renders.
-    await expect(dateInput).toHaveJSProperty('validity.valid', false)
+    await expect(page.getByText('Datum darf nicht in der Zukunft liegen')).toBeVisible()
     await expect(entries(page)).toHaveCount(0)
   })
 

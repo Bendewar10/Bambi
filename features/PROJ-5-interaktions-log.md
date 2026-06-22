@@ -1,8 +1,8 @@
 # PROJ-5: Interaktions-Log
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-06-22
-**Last Updated:** 2026-06-22 (Backend implementiert)
+**Last Updated:** 2026-06-22 (QA bestanden, beide Bugs gefixt)
 
 ## Backend Implementation Notes
 - Migration `supabase/migrations/0002_extend_followup_trigger.sql`: Trigger `trg_update_contact_followup` von `after insert` auf `after insert or update or delete` erweitert
@@ -153,7 +153,7 @@ Einzige Erweiterung der bestehenden Automatisierung: die in PROJ-1 angelegte Dat
 - [x] "Kanal ist erforderlich" erscheint, kein Insert
 
 #### AC-3: Datum in der Zukunft → Validierungsfehler, nicht gespeichert
-- [ ] BUG-1: Eintrag wird korrekt nicht gespeichert, aber die App-eigene Fehlermeldung "Datum darf nicht in der Zukunft liegen" erscheint nie (siehe Bugs)
+- [x] BUG-1 gefixt: `max`-Attribut vom Input entfernt, Zod-Refine validiert jetzt durch — "Datum darf nicht in der Zukunft liegen" erscheint korrekt, kein Insert
 
 #### AC-4: last_contacted_at/next_followup_at aktualisieren sich automatisch bei Insert
 - [x] Werte stimmen nach Insert der jüngsten Interaction
@@ -197,7 +197,7 @@ Einzige Erweiterung der bestehenden Automatisierung: die in PROJ-1 angelegte Dat
 - [x] Cascade-Delete aus PROJ-1 greift weiterhin (DB-Constraint unverändert)
 
 #### EC-6: Datum exakt heute
-- [x] Erlaubt, kein Validierungsfehler (`max`-Attribut + Zod-Refine beide inklusive heute)
+- [x] Erlaubt, kein Validierungsfehler (Zod-Refine: `value <= today()`, inklusive heute)
 
 ### Security Audit Results
 - [x] Authentication: Verlauf/Formular nicht ohne Login erreichbar (Auth-Gate aus PROJ-2)
@@ -208,31 +208,33 @@ Einzige Erweiterung der bestehenden Automatisierung: die in PROJ-1 angelegte Dat
 
 ### Bugs Found
 
-#### BUG-1: Zukunfts-Datum zeigt keine App-eigene Fehlermeldung
+#### BUG-1: Zukunfts-Datum zeigte keine App-eigene Fehlermeldung (FIXED)
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. Kontaktmoment-Formular öffnen, Datum in der Zukunft wählen, Kanal wählen, Speichern klicken
   2. Expected: Meldung "Datum darf nicht in der Zukunft liegen" erscheint (Zod-Refine im Code vorhanden)
-  3. Actual: Das `max`-Attribut auf dem `<Input type="date">` lässt den Browser die native HTML5-Constraint-Validation greifen (`validity.rangeOverflow = true`) — das blockiert den Form-Submit, bevor react-hook-form/Zod überhaupt laufen. Datensatz wird korrekt NICHT gespeichert, aber es gibt keine konsistente, App-eigene Fehlermeldung wie bei den anderen Validierungen
-- **Priority:** Fix before deployment (Inkonsistenz zur sonstigen Fehlermeldungs-UX, AC-3 nicht vollständig erfüllt) — Empfehlung: `max`-Attribut vom Input entfernen, Zod-Refine alleine validieren lassen
+  3. Actual (vor Fix): Das `max`-Attribut auf dem `<Input type="date">` lässt den Browser die native HTML5-Constraint-Validation greifen (`validity.rangeOverflow = true`) — das blockiert den Form-Submit, bevor react-hook-form/Zod überhaupt laufen. Datensatz wird korrekt NICHT gespeichert, aber es gab keine konsistente, App-eigene Fehlermeldung wie bei den anderen Validierungen
+- **Fix:** `max`-Attribut vom Input entfernt (`src/components/interaction-form-dialog.tsx`), Zod-Refine validiert jetzt alleine — Meldung erscheint korrekt, E2E-Test AC-3 verifiziert
+- **Priority:** Fixed before deployment
 
-#### BUG-2: Helper-Funktion öffentlich per RPC aufrufbar (bereits gefixt)
+#### BUG-2: Helper-Funktion öffentlich per RPC aufrufbar (FIXED)
 - **Severity:** Critical (während Entwicklung gefunden, vor Abschluss von /backend bereits behoben)
 - **Steps to Reproduce:** siehe Backend Implementation Notes oben
-- **Priority:** Bereits gefixt, hier nur zur Nachverfolgung dokumentiert
+- **Fix:** `revoke execute on function recompute_contact_followup(uuid) from public, anon, authenticated` — verifiziert: direkter RPC-Call liefert `401`
+- **Priority:** Fixed before deployment
 
 ### Regression Testing
 - PROJ-2 (Auth): alle Tests grün (einzeln/sequenziell)
-- PROJ-3 (Kontakt CRUD): alle Tests grün (einzeln/sequenziell) — bei paralleler Ausführung mit 5 Workern ein Timeout durch bekanntes Session-Race bei Mehrfach-Login desselben Test-Accounts (dokumentiertes Testinfra-Artefakt aus PROJ-3, kein PROJ-5-Regression)
+- PROJ-3 (Kontakt CRUD): alle Tests grün (einzeln/sequenziell) — bei paralleler Ausführung gelegentliche Timeouts durch bekanntes Session-Race bei Mehrfach-Login desselben Test-Accounts bzw. Cold-Compile-Flakiness bei vielen gleichzeitigen Routen (dokumentierte Testinfra-Artefakte, kein PROJ-5-Regression, einzeln/sequenziell durchgängig grün)
 - PROJ-4 (Kontaktliste & Filter): alle Tests grün
 - `npm test` (Vitest): 2/2 grün
 
 ### Summary
-- **Acceptance Criteria:** 10/11 vollständig erfüllt (AC-3 teilweise: Validierung funktioniert, App-Meldung fehlt — BUG-1)
-- **Bugs Found:** 2 total (1 Critical — bereits gefixt vor Abschluss, 1 Medium offen)
+- **Acceptance Criteria:** 11/11 vollständig erfüllt
+- **Bugs Found:** 2 total (1 Critical, 1 Medium) — beide gefixt und re-verifiziert
 - **Security:** Pass (RLS aktiv, RPC-Sicherheitslücke gefunden und gefixt, Advisor clean)
-- **Production Ready:** NO (BUG-1 offen, AC-3 nicht vollständig erfüllt)
-- **Recommendation:** BUG-1 fixen (max-Attribut entfernen) und erneut `/qa` für AC-3 verifizieren, danach deploybar
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_
