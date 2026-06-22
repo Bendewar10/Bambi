@@ -2,7 +2,15 @@
 
 ## Status: In Progress
 **Created:** 2026-06-22
-**Last Updated:** 2026-06-22 (Frontend implementiert)
+**Last Updated:** 2026-06-22 (Backend implementiert)
+
+## Backend Implementation Notes
+- Migration `supabase/migrations/0002_extend_followup_trigger.sql`: Trigger `trg_update_contact_followup` von `after insert` auf `after insert or update or delete` erweitert
+- Neue Helper-Funktion `recompute_contact_followup(contact_id)`: berechnet `last_contacted_at`/`next_followup_at` immer aus `MAX(occurred_at)` der tatsächlich verbleibenden Interactions (nicht mehr nur aus dem zuletzt eingefügten Datensatz) — leert beide Felder auf `null`, wenn keine Interaction mehr existiert
+- **Sicherheitslücke gefunden + gefixt:** Helper-Funktion war initial per RPC öffentlich aufrufbar (`SECURITY DEFINER` ohne Execute-Restriktion) — hätte fremde `contacts`-Zeilen über `/rest/v1/rpc/recompute_contact_followup` mit beliebiger `contact_id` manipulieren können, RLS umgangen. Fix: `revoke execute ... from public, anon, authenticated`, Supabase Security Advisor danach clean (außer vorbestehendem, PROJ-5-unabhängigem Leaked-Password-Hinweis)
+- Migration gegen echtes Supabase-Projekt (`srxatexcffjebolqttaq`) via MCP angewendet, mit `do $$ ... assert ... $$`-Block smoke-getestet: Insert, Delete der jüngsten Interaction (Fallback auf ältere), Update des Datums, Delete der letzten verbleibenden (Felder → null) — alle Assertions bestanden
+- Keine neue API-Route — Frontend nutzt weiterhin direkten Supabase-Client-Zugriff (PROJ-3/4-Pattern), RLS erzwingt Ownership bereits serverseitig
+- `npm run build` läuft fehlerfrei durch
 
 ## Implementation Notes
 - `src/lib/interactions.ts`: Channel-Typ + Label-Mapping, `Interaction`-Interface (Spalte heißt `note`, nicht `notes` — laut PROJ-1-Migration)
