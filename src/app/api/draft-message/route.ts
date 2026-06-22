@@ -1,0 +1,70 @@
+import { generateText } from 'ai'
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
+
+const requestSchema = z.object({
+  contactId: z.string().uuid(),
+  occasionType: z.enum(['followup', 'birthday']),
+})
+
+const MAX_DRAFT_LENGTH = 300
+
+export async function POST(request: Request) {
+  const supabase = await createSupabaseServerClient()
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData.user) {
+    return NextResponse.json({ error: 'Nicht eingeloggt.' }, { status: 401 })
+  }
+
+  const parsed = requestSchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Ungültige Anfrage.' }, { status: 400 })
+  }
+  const { contactId, occasionType } = parsed.data
+
+  const { data: contact } = await supabase
+    .from('contacts')
+    .select('name, notes, context')
+    .eq('id', contactId)
+    .single()
+
+  if (!contact) {
+    return NextResponse.json({ error: 'Kontakt nicht gefunden.' }, { status: 404 })
+  }
+
+  const { data: interactions } = await supabase
+    .from('interactions')
+    .select('note, occurred_at')
+    .eq('contact_id', contactId)
+    .order('occurred_at', { ascending: false })
+    .limit(3)
+
+  const recentNotes = (interactions ?? [])
+    .map((i) => i.note)
+    .filter((note): note is string => Boolean(note))
+
+  const prompt =
+    occasionType === 'birthday'
+      ? `Schreib eine sehr kurze, herzliche Geburtstagsnachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.name}. ${
+          contact.context ? `Kontext zur Person: ${contact.context}.` : ''
+        }`
+      : `Schreib eine sehr kurze, lockere Nachricht (1-2 Sätze, auf Deutsch, per Du), um sich bei ${contact.name} zu melden. ${
+          recentNotes.length > 0
+            ? `Letzte Notizen über frühere Kontakte: ${recentNotes.join(' / ')}.`
+            : contact.context
+              ? `Kontext zur Person: ${contact.context}.`
+              : ''
+        } Knüpf wenn möglich an die Notizen an.`
+
+  try {
+    const { text } = await generateText({
+      model: 'anthropic/claude-haiku-4.5',
+      prompt,
+      maxOutputTokens: 120,
+    })
+    return NextResponse.json({ text: text.trim().slice(0, MAX_DRAFT_LENGTH) })
+  } catch {
+    return NextResponse.json({ error: 'Vorschlag konnte nicht generiert werden.' }, { status: 502 })
+  }
+}

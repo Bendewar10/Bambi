@@ -15,7 +15,7 @@ Der Nutzer selbst — Person mit großem, diversem Netzwerk über Business und P
 | P0 (MVP) | Kontakt anlegen & verwalten | Planned (spec done) |
 | P0 (MVP) | Kontaktliste & Filter | Planned (spec done) |
 | P0 (MVP) | Interaktions-Log | Deployed |
-| P0 (MVP) | Follow-up Dashboard & Tagesansicht (inkl. AI-Nachrichtenvorschlag, WhatsApp-Link, Kalender-Link) | Planned |
+| P0 (MVP) | Follow-up Dashboard & Tagesansicht (inkl. Anlässe/Geburtstage, AI-Nachrichtenvorschlag, WhatsApp-Link, Kalender-Link) | Planned (spec done) |
 | P1 | Foto-Upload | Planned |
 | P1 | Netzwerk-Analytics (periodisch) | Roadmap |
 

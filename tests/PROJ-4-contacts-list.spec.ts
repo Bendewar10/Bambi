@@ -56,7 +56,8 @@ async function login(page: Page) {
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Passwort').fill(PASSWORD)
   await page.getByRole('button', { name: 'Login' }).click()
-  await expect(page).toHaveURL('http://localhost:3000/')
+  await expect(page).toHaveURL('http://localhost:3000/dashboard')
+  await page.goto('/contacts')
   await expect(async () => {
     expect(await page.getByText('Lädt...').count()).toBe(0)
   }).toPass({ timeout: 10000 })
