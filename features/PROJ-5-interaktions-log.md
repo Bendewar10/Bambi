@@ -138,7 +138,101 @@ Einzige Erweiterung der bestehenden Automatisierung: die in PROJ-1 angelegte Dat
 - Keine neuen Packages — `Sheet`, `Dialog`, `Form`, `AlertDialog`, `Select`, `Textarea` bereits installiert (shadcn/ui)
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-06-22
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Kontaktmoment erfassen (Datum+Kanal Pflicht, Notiz optional)
+- [x] Speichert mit `user_id = auth.uid()` und Kontakt-ID
+- [x] Notiz wird korrekt mitgespeichert
+
+#### AC-2: Kanal fehlt → Validierungsfehler, nicht gespeichert
+- [x] "Kanal ist erforderlich" erscheint, kein Insert
+
+#### AC-3: Datum in der Zukunft → Validierungsfehler, nicht gespeichert
+- [ ] BUG-1: Eintrag wird korrekt nicht gespeichert, aber die App-eigene Fehlermeldung "Datum darf nicht in der Zukunft liegen" erscheint nie (siehe Bugs)
+
+#### AC-4: last_contacted_at/next_followup_at aktualisieren sich automatisch bei Insert
+- [x] Werte stimmen nach Insert der jüngsten Interaction
+
+#### AC-5: Verlauf chronologisch absteigend, kein Limit
+- [x] Mehrere Einträge korrekt sortiert (neueste oben)
+
+#### AC-6: Empty-State ohne Interactions
+- [x] "Noch keine Kontaktmomente." + Hinzufügen-Button sichtbar
+
+#### AC-7: Bearbeiten vorausgefüllt + persistiert
+- [x] Formular zeigt aktuelle Werte, Speichern aktualisiert Verlauf sofort
+
+#### AC-8: last_contacted_at/next_followup_at bei Bearbeiten der jüngsten Interaction neu berechnet
+- [x] Trigger-Erweiterung greift korrekt (smoke-getestet DB-seitig + E2E)
+
+#### AC-9: Löschen mit Bestätigungsdialog
+- [x] Dialog erscheint vor Entfernen, Eintrag verschwindet nach Bestätigung
+
+#### AC-10: last_contacted_at/next_followup_at bei Löschen der jüngsten Interaction neu aus verbleibendem Eintrag berechnet (oder null wenn keiner mehr existiert)
+- [x] Fallback auf älteren Eintrag korrekt, Felder leeren sich bei letztem Löschen auf `null`
+
+#### AC-11: Netzwerkfehler beim Speichern zeigt Fehler, Eingabe bleibt erhalten
+- [x] Fehlermeldung erscheint, Notiz-Feld bleibt befüllt
+
+### Edge Cases Status
+
+#### EC-1: Letzte verbleibende Interaction gelöscht
+- [x] `last_contacted_at`/`next_followup_at` werden zu `null`, kein Fallback-Wert
+
+#### EC-2: Zwei Interactions mit identischem Datum/Kanal
+- [x] Erlaubt, keine Duplikat-Prüfung (laut Spec gewollt)
+
+#### EC-3: Sehr lange Notiz (>2000 Zeichen)
+- [x] Zod-Validierung (max 2000) greift analog zu Kontakt-Notizen, manuell im Code verifiziert
+
+#### EC-4: Doppelter Klick auf "Speichern"
+- [x] Button disabled während Request läuft (`isSubmitting`-State), kein doppelter Insert
+
+#### EC-5: Kontakt wird gelöscht während Sheet offen
+- [x] Cascade-Delete aus PROJ-1 greift weiterhin (DB-Constraint unverändert)
+
+#### EC-6: Datum exakt heute
+- [x] Erlaubt, kein Validierungsfehler (`max`-Attribut + Zod-Refine beide inklusive heute)
+
+### Security Audit Results
+- [x] Authentication: Verlauf/Formular nicht ohne Login erreichbar (Auth-Gate aus PROJ-2)
+- [x] Authorization: `interactions` via Anon-Key ohne Token liefert `[]` (RLS aktiv), kein Cross-User-Zugriff möglich
+- [x] **BUG-2 gefunden + bereits gefixt (während /backend):** Helper-Funktion `recompute_contact_followup` war initial per `/rest/v1/rpc/...` öffentlich aufrufbar (SECURITY DEFINER ohne Execute-Restriktion) — hätte beliebige `contacts`-Zeilen fremder Nutzer manipulieren können. Fix bereits angewendet (`revoke execute`), hier verifiziert: direkter RPC-Call liefert jetzt `401`
+- [x] Supabase Security Advisor clean (nur vorbestehender, PROJ-5-unabhängiger Leaked-Password-Hinweis)
+- [x] Input validation: Notiz-Feld wird als reiner Text gerendert (kein `dangerouslySetInnerHTML`), kein XSS-Vektor identifiziert
+
+### Bugs Found
+
+#### BUG-1: Zukunfts-Datum zeigt keine App-eigene Fehlermeldung
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Kontaktmoment-Formular öffnen, Datum in der Zukunft wählen, Kanal wählen, Speichern klicken
+  2. Expected: Meldung "Datum darf nicht in der Zukunft liegen" erscheint (Zod-Refine im Code vorhanden)
+  3. Actual: Das `max`-Attribut auf dem `<Input type="date">` lässt den Browser die native HTML5-Constraint-Validation greifen (`validity.rangeOverflow = true`) — das blockiert den Form-Submit, bevor react-hook-form/Zod überhaupt laufen. Datensatz wird korrekt NICHT gespeichert, aber es gibt keine konsistente, App-eigene Fehlermeldung wie bei den anderen Validierungen
+- **Priority:** Fix before deployment (Inkonsistenz zur sonstigen Fehlermeldungs-UX, AC-3 nicht vollständig erfüllt) — Empfehlung: `max`-Attribut vom Input entfernen, Zod-Refine alleine validieren lassen
+
+#### BUG-2: Helper-Funktion öffentlich per RPC aufrufbar (bereits gefixt)
+- **Severity:** Critical (während Entwicklung gefunden, vor Abschluss von /backend bereits behoben)
+- **Steps to Reproduce:** siehe Backend Implementation Notes oben
+- **Priority:** Bereits gefixt, hier nur zur Nachverfolgung dokumentiert
+
+### Regression Testing
+- PROJ-2 (Auth): alle Tests grün (einzeln/sequenziell)
+- PROJ-3 (Kontakt CRUD): alle Tests grün (einzeln/sequenziell) — bei paralleler Ausführung mit 5 Workern ein Timeout durch bekanntes Session-Race bei Mehrfach-Login desselben Test-Accounts (dokumentiertes Testinfra-Artefakt aus PROJ-3, kein PROJ-5-Regression)
+- PROJ-4 (Kontaktliste & Filter): alle Tests grün
+- `npm test` (Vitest): 2/2 grün
+
+### Summary
+- **Acceptance Criteria:** 10/11 vollständig erfüllt (AC-3 teilweise: Validierung funktioniert, App-Meldung fehlt — BUG-1)
+- **Bugs Found:** 2 total (1 Critical — bereits gefixt vor Abschluss, 1 Medium offen)
+- **Security:** Pass (RLS aktiv, RPC-Sicherheitslücke gefunden und gefixt, Advisor clean)
+- **Production Ready:** NO (BUG-1 offen, AC-3 nicht vollständig erfüllt)
+- **Recommendation:** BUG-1 fixen (max-Attribut entfernen) und erneut `/qa` für AC-3 verifizieren, danach deploybar
 
 ## Deployment
 _To be added by /deploy_

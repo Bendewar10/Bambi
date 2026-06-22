@@ -98,7 +98,11 @@ export function InteractionLogSheet({ contact, onOpenChange }: InteractionLogShe
             ) : (
               <div className="space-y-3">
                 {interactions.map((interaction) => (
-                  <div key={interaction.id} className="rounded-md border p-3 text-sm">
+                  <div
+                    key={interaction.id}
+                    data-testid="interaction-entry"
+                    className="rounded-md border p-3 text-sm"
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{formatDate(interaction.occurred_at)}</span>
