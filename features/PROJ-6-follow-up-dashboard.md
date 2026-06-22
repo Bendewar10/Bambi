@@ -1,8 +1,8 @@
 # PROJ-6: Follow-up Dashboard & Tagesansicht
 
-## Status: Approved (QA bestanden, keine Critical/High-Bugs)
+## Status: Deployed
 **Created:** 2026-06-22
-**Last Updated:** 2026-06-22 (QA abgeschlossen)
+**Last Updated:** 2026-06-22 (Deployed)
 
 ## Backend Implementation Notes
 - `src/lib/supabase-server.ts`: neuer Server-seitiger Supabase-Client (liest Session aus Cookies, gleiches Muster wie `src/middleware.ts`) — erste Wiederverwendung dieses Patterns außerhalb der Middleware
@@ -308,4 +308,6 @@ Nachrichtenvorschläge werden nicht gespeichert — sie entstehen bei jedem Klic
 - **Recommendation:** Deploy. BUG-1/2/3 sind optionale Polish-Items, kein Blocker.
 
 ## Deployment
-_To be added by /deploy_
+- **Production URL:** https://bambi-w26q.vercel.app
+- **Deployed:** 2026-06-22
+- **Verified in production:** Login → `/dashboard` redirect works, empty-state renders correctly, auth gate on `/dashboard` and `/api/draft-message` returns 307 → `/login` for unauthenticated requests, no console/page errors.
