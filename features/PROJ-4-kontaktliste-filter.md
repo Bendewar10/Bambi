@@ -1,8 +1,8 @@
 # PROJ-4: Kontaktliste & Filter
 
-## Status: Approved (Stadt-Filter QA-getestet, bereit für Deploy)
+## Status: Deployed
 **Created:** 2026-06-19
-**Last Updated:** 2026-06-22 (QA: Stadt-Filter getestet, Test-Env-Fix)
+**Last Updated:** 2026-06-22 (Deploy: Stadt-Filter live)
 
 ## Implementation Notes
 - **Erweiterung 2026-06-22:** `contact-list.tsx` um `citySearch`-State + Filter ergänzt (gleiches Live-"enthält"-Pattern wie Namenssuche, case-insensitive, UND-verknüpft mit bestehenden Filtern), zusätzliches Input-Feld in der Filter-Leiste.
@@ -179,3 +179,8 @@ Keine neuen Packages — `Card`, `Badge`, `Input`, `Select` bereits installiert 
 - Deployment ID: dpl_4HkaZqCBrTpLYwsFcBWh3e7kFqgH
 - Pre-deploy checks: `npm run build` ✓, `npm run lint` ✓
 - Pushed commit `3c7de27` (4 commits) to origin/main, Vercel auto-deployed to production
+
+### Erweiterung 2026-06-22 (Stadt-Filter)
+- Deployment ID: dpl_9HkgdUd9rjSBsFWnG15LMWxsV9Mf
+- Pushed commit `8934024` zu origin/main, manuelles `vercel --prod` (kein Auto-Deploy via GitHub-Integration aktiv)
+- Verification: `/` → 307 zu `/login`, `/login` → 200, `npm run build` + `npm run lint` lokal grün

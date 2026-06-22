@@ -1,8 +1,8 @@
 # PROJ-3: Kontakt anlegen & verwalten
 
-## Status: Approved (Erweiterung Stadt+Telefon QA-getestet, bereit für Deploy)
+## Status: Deployed
 **Created:** 2026-06-19
-**Last Updated:** 2026-06-22 (QA: Stadt + Telefonnummer getestet, 1 Bug gefixt)
+**Last Updated:** 2026-06-22 (Deploy: Stadt + Telefonnummer live)
 
 ## Implementation Notes
 - **Erweiterung 2026-06-22:** Migration `add_city_and_phone_to_contacts` (Supabase) — 2 neue nullable Spalten `city`, `phone` auf `contacts`. `Contact`-Interface, `contact-form-dialog.tsx` (Schema, defaultValues, reset, payload) und Formular-UI um beide Felder ergänzt. Kein Format-Constraint, freier Text wie spezifiziert.
@@ -202,3 +202,7 @@ Keine neuen Packages — `react-hook-form`, `zod`, `@hookform/resolvers`, `@supa
 **Production URL:** https://bambi-w26q.vercel.app
 **Vercel Project:** bambi-w26q
 **Verification:** Smoke-Test live (Create+Delete-Zyklus) gegen Production erfolgreich, Middleware-Redirect funktioniert (`/` → 307 zu `/login`). Keine neuen Env-Vars, keine neue Migration (Schema-Fix bereits während QA auf Live-Projekt angewendet). Minor Finding: shadcn-Dialog wirft Accessibility-Warning ("Missing Description") in Browser-Konsole — kosmetisch, kein funktionaler Bug, kann später behoben werden
+
+### Erweiterung 2026-06-22 (Stadt + Telefonnummer)
+**Deployment ID:** dpl_9HkgdUd9rjSBsFWnG15LMWxsV9Mf
+**Verification:** Manuelles `vercel --prod` (kein Git-Push-Auto-Deploy konfiguriert), `/` → 307, `/login` → 200. Migration `add_city_and_phone_to_contacts` bereits vorab auf Live-Projekt angewendet. `npm run build` + `npm run lint` lokal grün vor Deploy.
