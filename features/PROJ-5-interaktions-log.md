@@ -1,8 +1,8 @@
 # PROJ-5: Interaktions-Log
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-06-22
-**Last Updated:** 2026-06-22 (QA bestanden, beide Bugs gefixt)
+**Last Updated:** 2026-06-22 (Deployed)
 
 ## Backend Implementation Notes
 - Migration `supabase/migrations/0002_extend_followup_trigger.sql`: Trigger `trg_update_contact_followup` von `after insert` auf `after insert or update or delete` erweitert
@@ -237,4 +237,8 @@ Einzige Erweiterung der bestehenden Automatisierung: die in PROJ-1 angelegte Dat
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+- Production URL: https://bambi-w26q.vercel.app
+- Deployed: 2026-06-22
+- Pre-deploy checks: `npm run build` ✓, `npm run lint` ✓
+- Pushed commit `08dbb06` (6 Commits) zu origin/main, Vercel Auto-Deploy auf Produktion
+- `/login` in Produktion mit 200 verifiziert
