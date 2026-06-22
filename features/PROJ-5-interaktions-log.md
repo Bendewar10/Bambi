@@ -1,8 +1,8 @@
 # PROJ-5: Interaktions-Log
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-06-22
-**Last Updated:** 2026-06-22
+**Last Updated:** 2026-06-22 (Tech Design)
 
 ## Dependencies
 - PROJ-1 (Supabase Infrastructure Setup) — `interactions`-Tabelle + RLS + Trigger existieren bereits
@@ -73,12 +73,51 @@ _Keine offenen Fragen — siehe Decision Log._
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Separater Icon-Button auf Kontakt-Karte statt Tabs im bestehenden ContactFormDialog | Kein Umbau eines produktiven, getesteten Formulars; risikofreier neuer Einstiegspunkt | 2026-06-22 |
+| shadcn `Sheet` statt `Dialog` für Verlauf-Ansicht | Mehr vertikaler Platz für variable Anzahl Einträge, konsistent mit anderen Listen-Patterns | 2026-06-22 |
+| Ein Formular für Erfassen + Bearbeiten einer Interaction | Gleiche Felder/Validierung, keine Logik-Duplikation (analog ContactFormDialog) | 2026-06-22 |
+| Direkter Supabase-Client-Zugriff, keine eigene API-Route | Konsistent mit PROJ-3/PROJ-4, RLS erzwingt Ownership serverseitig | 2026-06-22 |
+| PROJ-1-Trigger erweitert auf Update/Delete (nicht nur Insert) | `last_contacted_at`/`next_followup_at` müssen Datenbank-seitig immer korrekt bleiben, kein Frontend-Berechnungsrisiko | 2026-06-22 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Component Structure
+
+```
+Kontakt-Karte (aus PROJ-4)
+├── Bestehender Klick → Bearbeiten-Dialog (PROJ-3, unverändert)
+└── Neuer "Verlauf"-Icon-Button → öffnet Interaktions-Log-Sheet
+    ├── Header: Kontaktname
+    ├── "Kontaktmoment hinzufügen"-Button → öffnet Interaction-Formular
+    │   ├── Datum-Feld (Default: heute, kein Datum in Zukunft wählbar)
+    │   ├── Kanal-Auswahl (Treffen / Call / Nachricht / Event) — Pflicht
+    │   └── Notiz-Feld (optional)
+    ├── Verlauf-Liste (chronologisch absteigend, kein Limit)
+    │   └── Pro Eintrag: Datum, Kanal-Badge, Notiz, "Bearbeiten"/"Löschen"-Icons
+    ├── Bearbeiten → öffnet dasselbe Formular vorausgefüllt
+    ├── Löschen → Bestätigungsdialog vor Entfernen
+    └── Empty State ("Noch keine Kontaktmomente") wenn Liste leer
+```
+
+### Data Model (plain language)
+
+Keine neue Tabelle — nutzt die bestehende `interactions`-Tabelle aus PROJ-1 unverändert (Datum, Kanal, Notiz, Zugehörigkeit zu Kontakt + Nutzer).
+
+Einzige Erweiterung der bestehenden Automatisierung: die in PROJ-1 angelegte Datenbank-Automatik aktualisiert „letzter Kontakt“/„nächstes Follow-up“ bisher nur beim Neu-Anlegen einer Interaction. Diese Automatik wird erweitert, damit sie auch beim Bearbeiten oder Löschen eines Eintrags greift — so bleiben die Werte am Kontakt immer korrekt, selbst wenn der zuletzt protokollierte Kontaktmoment nachträglich geändert oder entfernt wird.
+
+### Tech Decisions (justified)
+
+- **Separater Icon-Button auf der Kontakt-Karte statt Tabs im Bearbeiten-Dialog:** Bestehender `ContactFormDialog` aus PROJ-3 bleibt unverändert, kein Umbau eines bereits produktiven, getesteten Formulars nötig — neuer Einstiegspunkt fügt sich ohne Risiko für bestehendes Verhalten hinzu.
+- **shadcn `Sheet` statt `Dialog` für den Verlauf:** Verlauf kann mehrere Einträge enthalten und braucht mehr vertikalen Platz als ein zentriertes Dialog-Fenster — ein seitliches Sheet mit Scroll-Bereich passt besser, gleiches Pattern wie andere Listen-Ansichten im Projekt.
+- **Ein Formular für Erfassen UND Bearbeiten einer Interaction:** Gleiche Felder, gleiche Validierung — analog zur bereits etablierten Entscheidung bei `ContactFormDialog` (PROJ-3), keine Logik-Duplikation.
+- **Direkter Supabase-Client-Zugriff, keine eigene API-Route:** Konsistent mit PROJ-3/PROJ-4, RLS erzwingt Ownership bereits serverseitig.
+- **Automatisierung für „letzter Kontakt“/„nächstes Follow-up“ in der Datenbank erweitert (nicht im Frontend berechnet):** Verhindert, dass das Frontend bei jeder Änderung selbst neu berechnen und mit der Datenbank synchron halten muss — gleiche Architektur-Linie wie die bestehende Insert-Automatik aus PROJ-1.
+
+### Dependencies (Packages)
+- Keine neuen Packages — `Sheet`, `Dialog`, `Form`, `AlertDialog`, `Select`, `Textarea` bereits installiert (shadcn/ui)
 
 ## QA Test Results
 _To be added by /qa_
