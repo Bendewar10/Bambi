@@ -47,6 +47,8 @@ const contactSchema = z.object({
   strength: z.enum(['1', '2', '3']).optional(),
   context: z.string().trim().max(500, 'Max. 500 Zeichen').optional(),
   notes: z.string().trim().max(2000, 'Max. 2000 Zeichen').optional(),
+  city: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
+  phone: z.string().trim().max(30, 'Max. 30 Zeichen').optional(),
   followup_interval_days: z.string().optional(),
 })
 
@@ -71,6 +73,8 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
       strength: undefined,
       context: '',
       notes: '',
+      city: '',
+      phone: '',
       followup_interval_days: '',
     },
   })
@@ -84,6 +88,8 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
         strength: contact?.strength ? (String(contact.strength) as '1' | '2' | '3') : undefined,
         context: contact?.context ?? '',
         notes: contact?.notes ?? '',
+        city: contact?.city ?? '',
+        phone: contact?.phone ?? '',
         followup_interval_days: contact?.followup_interval_days
           ? String(contact.followup_interval_days)
           : '',
@@ -111,6 +117,8 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
         strength: values.strength ? Number(values.strength) : null,
         context: values.context || null,
         notes: values.notes || null,
+        city: values.city || null,
+        phone: values.phone || null,
         followup_interval_days: values.followup_interval_days
           ? Number(values.followup_interval_days)
           : null,
@@ -147,7 +155,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{contact ? 'Kontakt bearbeiten' : 'Kontakt hinzufügen'}</DialogTitle>
         </DialogHeader>
@@ -246,6 +254,34 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
                   <FormLabel>Notizen</FormLabel>
                   <FormControl>
                     <Textarea {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="city"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Stadt</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Telefonnummer</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

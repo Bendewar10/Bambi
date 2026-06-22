@@ -15,8 +15,9 @@ Der Nutzer selbst — Person mit großem, diversem Netzwerk über Business und P
 | P0 (MVP) | Kontakt anlegen & verwalten | Planned (spec done) |
 | P0 (MVP) | Kontaktliste & Filter | Planned (spec done) |
 | P0 (MVP) | Interaktions-Log | Deployed |
-| P0 (MVP) | Follow-up Dashboard & Tagesansicht | Planned |
+| P0 (MVP) | Follow-up Dashboard & Tagesansicht (inkl. AI-Nachrichtenvorschlag, WhatsApp-Link, Kalender-Link) | Planned |
 | P1 | Foto-Upload | Planned |
+| P1 | Netzwerk-Analytics (periodisch) | Roadmap |
 
 ## Success Metrics
 - Tägliche Nutzung
@@ -31,11 +32,12 @@ Der Nutzer selbst — Person mit großem, diversem Netzwerk über Business und P
 
 ## Non-Goals
 - Keine LinkedIn/API-Synchronisation
-- Keine KI-Analyse von Kontakten
+- Kein automatisches Scoring/Ranking einzelner Kontakte (Beziehungs-Tier & Wiedervorlage-Intervall werden manuell gesetzt, KI wird nur für Nachrichtenvorschläge und aggregierte Netzwerk-Analytics genutzt)
 - Kein Team-Feature
 - Kein E-Mail-Client
-- Kein Kalender-Sync (erst nach MVP)
+- Kein Kalender-Sync (erst nach MVP) — ausgenommen einseitige Add-to-Calendar-Links (kein OAuth, kein Lesen bestehender Termine)
 - Keine native Mobile App
+- Keine WhatsApp Business API (nur `wa.me`-Deep-Links, kein automatisches Senden ohne Klick)
 
 ---
 

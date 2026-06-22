@@ -17,12 +17,13 @@
 |----|---------|--------|------|---------|---------------|
 | PROJ-1 | Supabase Infrastructure Setup | Deployed | [Spec](PROJ-1-supabase-infrastructure-setup.md) | 2026-06-19 | None |
 | PROJ-2 | Auth (Login) | Deployed | [Spec](PROJ-2-auth-login-signup.md) | 2026-06-19 | PROJ-1 |
-| PROJ-3 | Kontakt anlegen & verwalten | Deployed | [Spec](PROJ-3-kontakt-anlegen-verwalten.md) | 2026-06-19 | PROJ-1, PROJ-2 |
-| PROJ-4 | Kontaktliste & Filter | Deployed | [Spec](PROJ-4-kontaktliste-filter.md) | 2026-06-19 | PROJ-3 |
+| PROJ-3 | Kontakt anlegen & verwalten | Approved (Erweiterung Stadt+Telefon, bereit für Deploy) | [Spec](PROJ-3-kontakt-anlegen-verwalten.md) | 2026-06-19 | PROJ-1, PROJ-2 |
+| PROJ-4 | Kontaktliste & Filter | Approved (Erweiterung Stadt-Filter, bereit für Deploy) | [Spec](PROJ-4-kontaktliste-filter.md) | 2026-06-19 | PROJ-3 |
 | PROJ-5 | Interaktions-Log | Deployed | [Spec](PROJ-5-interaktions-log.md) | 2026-06-19 | PROJ-3 |
-| PROJ-6 | Follow-up Dashboard & Tagesansicht | Roadmap | - | 2026-06-19 | PROJ-5 |
+| PROJ-6 | Follow-up Dashboard & Tagesansicht (inkl. AI-Nachrichtenvorschlag, WhatsApp-Link, Kalender-Link) | Roadmap | - | 2026-06-19 | PROJ-3, PROJ-5 |
 | PROJ-7 | Foto-Upload | Roadmap | - | 2026-06-19 | PROJ-3 |
+| PROJ-8 | Netzwerk-Analytics (periodisch) | Roadmap | - | 2026-06-22 | PROJ-5 |
 
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-8
+## Next Available ID: PROJ-9

@@ -163,6 +163,40 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await expect(page.getByRole('button', { name: 'Kontakt hinzufügen' })).toBeVisible()
   })
 
+  test('AC: city and phone are saved and pre-filled on re-open', async ({ page }) => {
+    await login(page)
+    const name = uniqueName('AC-City')
+    await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
+    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Stadt').fill('Berlin')
+    await page.getByLabel('Telefonnummer').fill('+49 170 1234567')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText(name)).toBeVisible()
+
+    await page.getByText(name, { exact: true }).click()
+    await expect(page.getByLabel('Stadt')).toHaveValue('Berlin')
+    await expect(page.getByLabel('Telefonnummer')).toHaveValue('+49 170 1234567')
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+
+    await deleteContact(page, name)
+  })
+
+  test('AC: city and phone are optional, contact saves without them', async ({ page }) => {
+    await login(page)
+    const name = uniqueName('AC-NoCity')
+    await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
+    await page.getByLabel('Name').fill(name)
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText(name)).toBeVisible()
+
+    await page.getByText(name, { exact: true }).click()
+    await expect(page.getByLabel('Stadt')).toHaveValue('')
+    await expect(page.getByLabel('Telefonnummer')).toHaveValue('')
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+
+    await deleteContact(page, name)
+  })
+
   test('AC11: network failure on save shows error, keeps form values', async ({ page }) => {
     await login(page)
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()

@@ -2,8 +2,9 @@ import { test, expect, type Page } from '@playwright/test'
 
 const EMAIL = process.env.QA_TEST_EMAIL!
 const PASSWORD = process.env.QA_TEST_PASSWORD!
-const SUPABASE_URL = process.env.QA_SUPABASE_URL!
-const SUPABASE_ANON_KEY = process.env.QA_SUPABASE_ANON_KEY!
+const SUPABASE_URL = process.env.QA_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPABASE_ANON_KEY =
+  process.env.QA_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 async function getToken() {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -36,9 +37,9 @@ async function seedContacts(token: string, userId: string) {
       Prefer: 'return=minimal',
     },
     body: JSON.stringify([
-      { user_id: userId, name: 'QA4 Alpha Overdue', category: 'investor', strength: 1, next_followup_at: minus5 },
-      { user_id: userId, name: 'QA4 Future Friend', category: 'friend', strength: 3, next_followup_at: plus10 },
-      { user_id: userId, name: 'QA4 NoFollowup Business', category: 'business', strength: 2, next_followup_at: null },
+      { user_id: userId, name: 'QA4 Alpha Overdue', category: 'investor', strength: 1, next_followup_at: minus5, city: 'Berlin' },
+      { user_id: userId, name: 'QA4 Future Friend', category: 'friend', strength: 3, next_followup_at: plus10, city: 'Hamburg' },
+      { user_id: userId, name: 'QA4 NoFollowup Business', category: 'business', strength: 2, next_followup_at: null, city: null },
     ]),
   })
 }
@@ -136,6 +137,22 @@ test.describe.serial('PROJ-4: Kontaktliste & Filter', () => {
   test('AC8: no-results state shown when filters yield nothing', async ({ page }) => {
     await login(page)
     await page.getByPlaceholder('Name suchen...').fill('zzz-no-such-contact-zzz')
+    await expect(page.getByText('Keine Kontakte zu diesen Filtern.')).toBeVisible()
+  })
+
+  test('AC: city filter shows only contacts in that city, AND-combinable, excludes no-city contacts', async ({ page }) => {
+    await login(page)
+    await page.getByPlaceholder('Stadt suchen...').fill('berlin')
+    await expect(page.getByText('QA4 Alpha Overdue')).toBeVisible()
+    await expect(page.getByText('QA4 Future Friend')).not.toBeVisible()
+    await expect(page.getByText('QA4 NoFollowup Business')).not.toBeVisible()
+  })
+
+  test('AC: city filter + category filter combine with AND', async ({ page }) => {
+    await login(page)
+    await page.getByPlaceholder('Stadt suchen...').fill('hamburg')
+    await page.getByText('Alle Kategorien').click()
+    await page.getByRole('option', { name: 'Investor' }).click()
     await expect(page.getByText('Keine Kontakte zu diesen Filtern.')).toBeVisible()
   })
 

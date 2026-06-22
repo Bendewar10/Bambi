@@ -44,6 +44,7 @@ export function ContactList() {
   const [historyContact, setHistoryContact] = useState<Contact | null>(null)
 
   const [search, setSearch] = useState('')
+  const [citySearch, setCitySearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
   const [strengthFilter, setStrengthFilter] = useState<string>(ALL)
 
@@ -80,15 +81,18 @@ export function ContactList() {
 
   const filteredContacts = useMemo(() => {
     const term = search.trim().toLowerCase()
+    const cityTerm = citySearch.trim().toLowerCase()
     return contacts
       .filter((contact) => !term || contact.name.toLowerCase().includes(term))
+      .filter((contact) => !cityTerm || contact.city?.toLowerCase().includes(cityTerm))
       .filter((contact) => categoryFilter === ALL || contact.category === categoryFilter)
       .filter((contact) => strengthFilter === ALL || String(contact.strength) === strengthFilter)
       .sort(sortByFollowup)
-  }, [contacts, search, categoryFilter, strengthFilter])
+  }, [contacts, search, citySearch, categoryFilter, strengthFilter])
 
   const hasAnyContacts = contacts.length > 0
-  const hasFiltersActive = search.trim() !== '' || categoryFilter !== ALL || strengthFilter !== ALL
+  const hasFiltersActive =
+    search.trim() !== '' || citySearch.trim() !== '' || categoryFilter !== ALL || strengthFilter !== ALL
 
   return (
     <div className="w-full max-w-4xl space-y-4">
@@ -97,6 +101,12 @@ export function ContactList() {
           placeholder="Name suchen..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <Input
+          placeholder="Stadt suchen..."
+          value={citySearch}
+          onChange={(e) => setCitySearch(e.target.value)}
           className="max-w-xs"
         />
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>

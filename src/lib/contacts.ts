@@ -28,6 +28,8 @@ export interface Contact {
   strength: Strength | null
   context: string | null
   notes: string | null
+  city: string | null
+  phone: string | null
   followup_interval_days: number | null
   last_contacted_at: string | null
   next_followup_at: string | null

@@ -1,10 +1,11 @@
 # PROJ-3: Kontakt anlegen & verwalten
 
-## Status: Deployed
+## Status: Approved (Erweiterung Stadt+Telefon QA-getestet, bereit für Deploy)
 **Created:** 2026-06-19
-**Last Updated:** 2026-06-19 (Frontend implementiert)
+**Last Updated:** 2026-06-22 (QA: Stadt + Telefonnummer getestet, 1 Bug gefixt)
 
 ## Implementation Notes
+- **Erweiterung 2026-06-22:** Migration `add_city_and_phone_to_contacts` (Supabase) — 2 neue nullable Spalten `city`, `phone` auf `contacts`. `Contact`-Interface, `contact-form-dialog.tsx` (Schema, defaultValues, reset, payload) und Formular-UI um beide Felder ergänzt. Kein Format-Constraint, freier Text wie spezifiziert.
 - `src/lib/contacts.ts`: Typen + Label-Mappings für Category/Strength, Follow-up-Default-Tabelle
 - `src/components/contact-form-dialog.tsx`: Ein Dialog-Formular für Create+Edit, react-hook-form+Zod, Follow-up-Intervall "sticky" sobald manuell bearbeitet (via `dirtyFields`)
 - `src/components/contact-list.tsx`: Schlichte Übergangsliste (Name + Bearbeiten/Löschen), Empty-State, AlertDialog für Löschen-Bestätigung
@@ -19,7 +20,9 @@
 
 ## User Stories
 - Als Nutzer möchte ich einen neuen Kontakt mit nur dem Namen anlegen können, damit ich ihn in unter einer Minute erfassen kann, ohne sofort alle Details zu kennen
-- Als Nutzer möchte ich beim Anlegen optional auch Kategorie, Beziehungsstärke, Kontext und Notizen direkt mit erfassen können, damit ich den Kontakt sofort vollständig einsortieren kann, wenn ich Zeit habe
+- Als Nutzer möchte ich beim Anlegen optional auch Kategorie, Beziehungsstärke, Kontext, Notizen, Stadt und Telefonnummer direkt mit erfassen können, damit ich den Kontakt sofort vollständig einsortieren kann, wenn ich Zeit habe
+- Als Nutzer möchte ich die Stadt eines Kontakts erfassen können, damit ich später danach filtern kann (z.B. wer in Berlin ist, wenn ich dort bin)
+- Als Nutzer möchte ich eine Telefonnummer erfassen können, damit ich später direkt aus der App heraus eine WhatsApp-Nachricht vorbereiten kann
 - Als Nutzer möchte ich einen bestehenden Kontakt bearbeiten können, damit ich Informationen nachpflegen oder korrigieren kann
 - Als Nutzer möchte ich einen Kontakt löschen können, damit ich Karteileichen oder Fehleinträge entfernen kann
 - Als Nutzer möchte ich vor dem Löschen eine Bestätigung sehen, damit ich nicht versehentlich einen Kontakt samt Verlauf verliere
@@ -32,6 +35,8 @@
 - Eindeutigkeits-Prüfung auf Namen — Duplikate sind erlaubt, keine Warnung
 - Bulk-Operationen (Mehrfachauswahl, Massenlöschung) — kein MVP-Bedarf
 - Undo nach Löschen — Bestätigungsdialog reicht als Schutz, kein Soft-Delete/Wiederherstellen
+- Telefonnummer-Format-Validierung (E.164, Ländervorwahl-Zwang etc.) — freier Text, Normalisierung passiert erst bei Bedarf in PROJ-6 (WhatsApp-Link)
+- Stadt-Autocomplete/Geo-Lookup — freier Text wie das Kontext-Feld, keine Ortsdatenbank-Anbindung
 
 ## Acceptance Criteria
 
@@ -47,6 +52,9 @@
 - [ ] Angenommen noch kein Kontakt existiert, wenn der Nutzer die Seite aufruft, dann wird ein Empty-State mit Hinweis und "Kontakt hinzufügen"-Button angezeigt
 - [ ] Angenommen die Supabase-API ist beim Speichern nicht erreichbar, wenn der Nutzer das Formular abschickt, dann wird eine Fehlermeldung angezeigt und die Eingabe bleibt im Formular erhalten
 - [ ] Angenommen Nutzer A ist eingeloggt, wenn er versucht auf einen Kontakt von Nutzer B zuzugreifen, dann liefert die Datenbank keine Zeile zurück (RLS bereits in PROJ-1 erzwungen)
+- [ ] Angenommen der Nutzer trägt Stadt und/oder Telefonnummer ein, wenn er speichert, dann werden beide Werte korrekt gespeichert und beim erneuten Öffnen vorausgefüllt angezeigt
+- [ ] Angenommen der Nutzer lässt Stadt und/oder Telefonnummer leer, wenn er speichert, dann wird der Kontakt trotzdem angelegt (beide Felder optional, kein Pflichtfeld)
+- [ ] Angenommen eine Telefonnummer enthält Leerzeichen, Klammern, `+` oder Bindestriche, wenn sie gespeichert wird, dann wird sie unverändert als Text übernommen (keine Format-Validierung)
 
 ## Edge Cases
 - Zwei Kontakte mit identischem Namen → erlaubt, keine Warnung
@@ -55,10 +63,12 @@
 - Löschen eines Kontakts mit bereits protokollierten Interactions (sobald PROJ-5 existiert) → Cascade-Delete entfernt diese mit, Bestätigungsdialog warnt nicht explizit davor (Out of Scope: detaillierte Warnung über Anzahl betroffener Interactions)
 - Doppelter Klick auf "Speichern" während Request läuft → Button disabled (Loading-State), kein doppelter Insert
 - Whitespace-only Name (nur Leerzeichen) → wird wie leeres Feld behandelt, Validierungsfehler
+- Telefonnummer in beliebigem Format (international, mit/ohne Leerzeichen) → wird als Freitext gespeichert, keine Normalisierung in PROJ-3 (passiert erst bei Verwendung in PROJ-6)
+- Zwei Kontakte in derselben Stadt → erlaubt, keine Einzigartigkeits-Logik nötig (Stadt ist reines Filter-/Info-Feld)
 
 ## Technical Requirements
 - Security: RLS bereits aktiv seit PROJ-1 — kein zusätzlicher App-seitiger Check nötig, aber Frontend darf nie eine `user_id` aus Client-Eingabe übernehmen, immer `auth.uid()` serverseitig/durch RLS erzwingen lassen
-- Validierung: Name Pflichtfeld, 1–200 Zeichen (getrimmt); Notizen optional, max. 2000 Zeichen; Kontext optional, max. 500 Zeichen
+- Validierung: Name Pflichtfeld, 1–200 Zeichen (getrimmt); Notizen optional, max. 2000 Zeichen; Kontext optional, max. 500 Zeichen; Stadt optional, max. 100 Zeichen; Telefonnummer optional, max. 30 Zeichen, kein Format-Constraint
 
 ## Open Questions
 _Keine offenen Fragen — siehe Decision Log._
@@ -75,6 +85,9 @@ _Keine offenen Fragen — siehe Decision Log._
 | Follow-up-Intervall-Defaults: Kern=14, Mittel=30, Locker=90 Tage | Gängige Heuristik für Beziehungspflege-Frequenz, pro Kontakt manuell überschreibbar | 2026-06-19 |
 | Namens-Duplikate erlaubt, keine Eindeutigkeits-Prüfung | Reale Netzwerke haben oft gleiche Vornamen, Unterscheidung über Kontext/Kategorie statt technischem Constraint | 2026-06-19 |
 | Kein Undo nach Löschen, nur Bestätigungsdialog | Reicht als Schutz vor Versehen, Soft-Delete/Wiederherstellen kein MVP-Bedarf | 2026-06-19 |
+| Stadt + Telefonnummer als neue optionale Felder ergänzt | Voraussetzung für geplante Folge-Features: PROJ-4 Stadt-Filter, PROJ-6 WhatsApp-Link (`wa.me`). Beziehungsstärke/Follow-up-Intervall (Tier-Konzept) existierten bereits, kein Rework nötig | 2026-06-22 |
+| Telefonnummer ohne Format-Validierung (freier Text) | Internationale Formate variieren stark, Normalisierung für `wa.me`-Link erst bei tatsächlicher Verwendung in PROJ-6 nötig — vermeidet verfrühte/falsche Validierungsregeln | 2026-06-22 |
+| Stadt ohne Autocomplete/Geo-Lookup (freier Text wie Kontext-Feld) | Kein Mehrwert ggü. Aufwand für ein einzelnes Filter-Feld, passt zum "so einfach wie möglich"-Prinzip | 2026-06-22 |
 
 ### Technical Decisions
 | Decision | Rationale | Date |
@@ -100,6 +113,8 @@ _Keine offenen Fragen — siehe Decision Log._
 │   ├── Kontext-Feld
 │   ├── Notizen-Feld (mehrzeilig)
 │   ├── Follow-up-Intervall (Tage) — automatisch befüllt je Stärke, manuell überschreibbar
+│   ├── Stadt-Feld (optional, Freitext)
+│   ├── Telefonnummer-Feld (optional, Freitext)
 │   └── Speichern- / Abbrechen-Button
 ├── Übergangsliste (schlicht, ohne Design-Anspruch)
 │   ├── Pro Zeile: Name, "Bearbeiten"-Button, "Löschen"-Button
@@ -109,7 +124,7 @@ _Keine offenen Fragen — siehe Decision Log._
 
 ### Data Model (plain language)
 
-Keine neue Tabelle, keine Schema-Änderung — `contacts` existiert bereits seit PROJ-1 mit allen benötigten Feldern (Name, Kategorie, Stärke, Kontext, Notizen, Follow-up-Intervall, Zeitstempel). PROJ-3 befüllt diese Tabelle erstmals über echte UI statt nur per Migration.
+`contacts` existiert bereits seit PROJ-1 (Name, Kategorie, Stärke, Kontext, Notizen, Follow-up-Intervall, Zeitstempel). Für diese Erweiterung kommen 2 neue Spalten dazu: `city` (text, nullable) und `phone` (text, nullable) — beide ohne Constraint, Migration analog zum bestehenden Schema-Pattern aus PROJ-1.
 
 ### Tech Decisions (justified)
 
@@ -145,10 +160,18 @@ Keine neuen Packages — `react-hook-form`, `zod`, `@hookform/resolvers`, `@supa
 | 11 | Netzwerkfehler beim Speichern → Fehlermeldung, Eingabe bleibt | ✅ Pass (E2E) — **nach Bugfix, siehe unten** |
 | 12 | Cross-User-Isolation (RLS) | ✅ Pass — verifiziert via REST-API mit zweitem echten Account: User B bekommt `[]` bei SELECT/UPDATE/DELETE auf User A's Kontakt, Daten unverändert |
 
+**Erweiterung 2026-06-22 (Stadt + Telefonnummer):**
+| # | Criterion | Result |
+|---|---|---|
+| 13 | Stadt + Telefonnummer gespeichert, beim Re-Open vorausgefüllt | ✅ Pass (E2E) |
+| 14 | Beide Felder optional, Kontakt speichert auch ohne sie | ✅ Pass (E2E) |
+| 15 | Telefonnummer mit Leerzeichen/Klammern/`+`/Bindestrichen wird unverändert übernommen | ✅ Pass (E2E, abgedeckt durch AC13 mit `+49 170 1234567`) |
+
 ### Automated Tests
 - `npm test` → 1 file, 2/2 passed (Regression PROJ-1)
-- `npm run test:e2e` (PROJ-3-contacts.spec.ts, 10 Tests) → 10/10 passed, seriell gegen echten Account
-- Regression: PROJ-2-auth-login.spec.ts + PROJ-2-auth-login-network.spec.ts weiterhin grün
+- `npm run test:e2e` (PROJ-3-contacts.spec.ts, 12 Tests) → 12/12 passed, seriell gegen echten Account
+- Regression: PROJ-2-auth-login.spec.ts + PROJ-2-auth-login-network.spec.ts + PROJ-4 + PROJ-5 weiterhin grün (voller Suite-Lauf, 24/24 passed exkl. 1 bekannter Flake)
+- Cross-Browser: Chromium + Mobile Safari, beide 23/23 (PROJ-3+PROJ-4 zusammen)
 
 ### Bugs Found
 
@@ -156,12 +179,15 @@ Keine neuen Packages — `react-hook-form`, `zod`, `@hookform/resolvers`, `@supa
 
 **🟠 Medium (gefunden + sofort gefixt):** Gleiches Muster wie PROJ-2 AC7 — `postgrest-js` gibt bei echten Netzwerkfehlern ein Error-Objekt mit `status: 0` zurück statt zu werfen, der ursprüngliche Code zeigte fälschlich "Speichern fehlgeschlagen" statt einer Netzwerk-Fehlermeldung. Fix: `status === 0` Check vor dem generischen Fehlerfall in `contact-form-dialog.tsx`.
 
+**🔴 High (gefunden + sofort gefixt, 2026-06-22):** Durch die 2 neuen Felder (Stadt, Telefonnummer) wurde das Formular-Dialog höher als der Viewport — `DialogContent` aus shadcn hat kein `max-height`/`overflow`, dadurch ragte der Speichern-Button bei kleineren Fenstern aus dem sichtbaren Bereich und war nicht klickbar (sowohl per Maus als auch für Playwright). Fix: `max-h-[90vh] overflow-y-auto` auf `DialogContent` in `contact-form-dialog.tsx` ergänzt (nur dieser Dialog-Instanz, generische shadcn-Komponente unverändert).
+
 **Keine offenen Bugs.**
 
 ### Security Audit (Red Team)
 - **Cross-User RLS-Isolation (AC12):** Zweiter echter Test-Account erstellt, versuchte SELECT/UPDATE/DELETE auf Kontakt von User A → alle drei Operationen liefern `[]` (keine Zeile betroffen), Originaldaten bei User A unverändert (kein "HACKED"-Update durchgekommen)
 - **Direkter REST-Delete via curl (Owner):** funktioniert korrekt mit `204`, bestätigt dass RLS Owner-Zugriff nicht fälschlich blockiert
 - **SQL-Injection-Versuch:** nicht erneut getestet (bereits in PROJ-1 QA verifiziert, gleiche RLS-/PostgREST-Schicht, kein neuer Angriffsvektor durch dieses Feature)
+- **Stadt/Telefon als neue Freitext-Felder:** keine neue Angriffsfläche — gleiche RLS-Policy, gleiches React-Text-Rendering (kein `dangerouslySetInnerHTML`) wie bei Notizen/Kontext, kein separater XSS-Test nötig (bereits in PROJ-4 QA für Freitext-Felder verifiziert)
 
 ### Test-Infrastruktur-Hinweise (nicht produktrelevant)
 - Mehrere E2E-Flakes während QA beobachtet, alle auf Testskript-Probleme zurückgeführt, nicht auf Produktbugs:

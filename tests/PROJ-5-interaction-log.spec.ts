@@ -2,8 +2,9 @@ import { test, expect, type Page } from '@playwright/test'
 
 const EMAIL = process.env.QA_TEST_EMAIL!
 const PASSWORD = process.env.QA_TEST_PASSWORD!
-const SUPABASE_URL = process.env.QA_SUPABASE_URL!
-const SUPABASE_ANON_KEY = process.env.QA_SUPABASE_ANON_KEY!
+const SUPABASE_URL = process.env.QA_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPABASE_ANON_KEY =
+  process.env.QA_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 async function getToken() {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {

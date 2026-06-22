@@ -1,10 +1,11 @@
 # PROJ-4: Kontaktliste & Filter
 
-## Status: Deployed
+## Status: Approved (Stadt-Filter QA-getestet, bereit für Deploy)
 **Created:** 2026-06-19
-**Last Updated:** 2026-06-19 (Frontend implementiert)
+**Last Updated:** 2026-06-22 (QA: Stadt-Filter getestet, Test-Env-Fix)
 
 ## Implementation Notes
+- **Erweiterung 2026-06-22:** `contact-list.tsx` um `citySearch`-State + Filter ergänzt (gleiches Live-"enthält"-Pattern wie Namenssuche, case-insensitive, UND-verknüpft mit bestehenden Filtern), zusätzliches Input-Feld in der Filter-Leiste.
 - `src/lib/contacts.ts`: `Contact`-Interface um `last_contacted_at`/`next_followup_at` ergänzt (fehlten bisher, werden für Anzeige/Sortierung benötigt)
 - `src/components/contact-card.tsx`: neue Karten-Komponente — Name, Kategorie-/Stärke-Badges, letzter Kontakt, nächstes Follow-up (rot + "(überfällig)" wenn in der Vergangenheit), Klick öffnet Edit, Löschen-Button mit `stopPropagation`
 - `src/components/contact-list.tsx`: komplett ersetzt — Filter-Leiste (Namenssuche, Kategorie-Select, Stärke-Select, alle UND-verknüpft, client-seitig via `useMemo`), Sortierung nach `next_followup_at` (null ans Ende), Empty-State vs. No-Results-State unterschieden
@@ -13,12 +14,13 @@
 - **Wichtiger Hinweis:** `next_followup_at` wird aktuell von keinem Feature aktiv gesetzt — der DB-Trigger dafür greift erst bei einem Interaction-Insert (PROJ-5, noch nicht gebaut). Bis dahin haben alle über PROJ-3 angelegten Kontakte `next_followup_at = null` und landen alle gleichrangig am Ende der Sortierung — funktional korrekt, aber Overdue-Highlight kommt erst mit PROJ-5 wirklich zum Einsatz
 
 ## Dependencies
-- PROJ-3 (Kontakt anlegen & verwalten) — `contacts`-Tabelle, CRUD-Operationen und Übergangsliste existieren bereits
+- PROJ-3 (Kontakt anlegen & verwalten) — `contacts`-Tabelle, CRUD-Operationen und Übergangsliste existieren bereits, `city`-Feld kommt mit der PROJ-3-Erweiterung dazu (Voraussetzung für diesen Stadt-Filter)
 
 ## User Stories
 - Als Nutzer möchte ich alle meine Kontakte als Karten sehen, damit ich auf einen Blick Name, Kategorie, Beziehungsstärke und Follow-up-Status erkenne
 - Als Nutzer möchte ich Kontakte nach Kategorie und Beziehungsstärke filtern können, damit ich z.B. nur Investoren oder nur Kernkontakte sehe
 - Als Nutzer möchte ich Kontakte nach Namen durchsuchen können, damit ich einen bestimmten Kontakt schnell finde
+- Als Nutzer möchte ich Kontakte nach Stadt filtern können, damit ich z.B. sehe wer in Berlin ist, wenn ich dort bin
 - Als Nutzer möchte ich überfällige Follow-ups visuell hervorgehoben sehen, damit ich direkt erkenne, wer schon lange ansteht
 - Als Nutzer möchte ich die Liste standardmäßig nach Follow-up-Dringlichkeit sortiert sehen, damit die wichtigsten Kontakte oben stehen
 
@@ -39,6 +41,9 @@
 - [ ] Angenommen der Nutzer wählt eine Beziehungsstärke im Filter, wenn der Filter angewendet wird, dann zeigt die Liste nur Kontakte dieser Stärke
 - [ ] Angenommen Kategorie- UND Stärke-Filter sind gleichzeitig aktiv, wenn beide angewendet werden, dann zeigt die Liste nur Kontakte, die beide Kriterien erfüllen (UND-Verknüpfung)
 - [ ] Angenommen der Nutzer tippt einen Suchbegriff ins Namensfeld, wenn die Eingabe erfolgt, dann filtert die Liste live auf Kontakte, deren Name den Suchbegriff enthält (case-insensitive)
+- [ ] Angenommen der Nutzer tippt einen Suchbegriff ins Stadt-Feld, wenn die Eingabe erfolgt, dann filtert die Liste live auf Kontakte, deren Stadt den Suchbegriff enthält (case-insensitive, gleiches Pattern wie Namenssuche)
+- [ ] Angenommen Stadt-Filter ist mit Kategorie/Stärke/Namenssuche kombiniert, wenn mehrere aktiv sind, dann werden alle UND-verknüpft (gleiche Logik wie bestehende Filter)
+- [ ] Angenommen ein Kontakt hat keine Stadt eingetragen, wenn der Stadt-Filter aktiv ist, dann erscheint dieser Kontakt nicht in den Treffern (kein "leer = alles"-Verhalten)
 - [ ] Angenommen Filter sind aktiv und liefern keine Treffer, wenn die Liste das erkennt, dann wird ein Hinweis angezeigt, dass keine Kontakte zu den Filtern passen
 - [ ] Angenommen noch kein Kontakt existiert, wenn der Nutzer die Seite aufruft, dann wird der bestehende Empty-State mit "Kontakt hinzufügen"-Button angezeigt (aus PROJ-3 übernommen)
 - [ ] Angenommen der Nutzer klickt auf eine Kontakt-Karte, wenn die Karte angeklickt wird, dann öffnet sich das Bearbeiten-Formular aus PROJ-3 vorausgefüllt
@@ -49,6 +54,8 @@
 - Filter + Suche gleichzeitig aktiv, dann Kontakt gelöscht (aus PROJ-3) → Liste aktualisiert sich, gefilterte Ansicht bleibt mit den Filtern bestehen
 - Groß-/Kleinschreibung bei Namenssuche → ignoriert (case-insensitive Vergleich)
 - Whitespace-only Suchbegriff → wird wie leere Suche behandelt (kein Filter aktiv)
+- Whitespace-only Stadt-Suchbegriff → wird wie leere Suche behandelt (kein Filter aktiv)
+- Kontakt ohne Stadt + aktiver Stadt-Filter → Kontakt wird ausgeblendet (siehe AC oben)
 
 ## Technical Requirements
 - Security: Liste lädt ausschließlich Kontakte des eingeloggten Nutzers — RLS aus PROJ-1 erzwingt das bereits serverseitig, Frontend-Filter dürfen sich nicht darauf verlassen müssen, aber auch keine fremden Daten anfragen
@@ -64,6 +71,7 @@ _Keine offenen Fragen — siehe Decision Log._
 |----------|-----------|------|
 | Karten-Darstellung statt Tabelle | Mehr visueller Kontext pro Kontakt, passt zum "Beziehungspflege"-Charakter der App | 2026-06-19 |
 | Filter: Kategorie + Stärke + Namenssuche, alle UND-verknüpft | Deckt Hauptanwendungsfälle ab ("alle Investoren", "alle Kernkontakte", "suche Max") ohne UI-Komplexität | 2026-06-19 |
+| Stadt-Filter als Textfeld (Live-"enthält"-Suche), nicht Dropdown | Stadt ist Freitext ohne festes Enum — Dropdown würde Sammeln aller vorkommenden Städte erfordern, unnötiger Aufwand ggü. simplem Textfilter analog zur Namenssuche | 2026-06-22 |
 | Standard-Sortierung: nach `next_followup_at`, kein Sortier-UI | Passt zum Kernzweck der App (wer steht als nächstes an), keine zusätzliche UI-Entscheidung für MVP nötig | 2026-06-19 |
 | Überfällige Follow-ups rot markiert | Macht "fällige Kontakte" auf einen Blick sichtbar, unterstützt PRD-Erfolgsmetrik "fällige Kontakte sinkt auf 0" | 2026-06-19 |
 | Liste ersetzt Startseite (`/`) komplett statt eigener Route | Einzige zentrale Ansicht aktuell, vermeidet unnötigen Klick — spätere Features (PROJ-6) bekommen ggf. eigene Navigation | 2026-06-19 |
@@ -87,6 +95,7 @@ _Keine offenen Fragen — siehe Decision Log._
 / (Startseite, ersetzt die PROJ-3-Übergangsliste vollständig)
 ├── Filter-Leiste
 │   ├── Namenssuche (Textfeld, live)
+│   ├── Stadt-Suche (Textfeld, live, gleiches Pattern wie Namenssuche)
 │   ├── Kategorie-Filter (Auswahl)
 │   └── Beziehungsstärke-Filter (Auswahl)
 ├── "Kontakt hinzufügen"-Button
@@ -100,7 +109,7 @@ _Keine offenen Fragen — siehe Decision Log._
 
 ### Data Model (plain language)
 
-Keine Änderung — nutzt die bestehende `contacts`-Tabelle aus PROJ-1 unverändert. Kein neues Feld, keine neue Tabelle.
+Keine eigene Änderung — nutzt das `city`-Feld, das mit der PROJ-3-Erweiterung an `contacts` dazukommt. Kein neues Feld, keine neue Tabelle aus PROJ-4-Sicht.
 
 ### Tech Decisions (justified)
 
@@ -131,20 +140,32 @@ Keine neuen Packages — `Card`, `Badge`, `Input`, `Select` bereits installiert 
 | 9 | Empty State bei 0 Kontakten überhaupt | ✅ Pass — bereits durch PROJ-3 AC10 abgedeckt (gleiche UI-Logik, kein neuer Test nötig) |
 | 10 | Klick auf Karte öffnet Bearbeiten-Formular vorausgefüllt | ✅ Pass (E2E) |
 
+**Erweiterung 2026-06-22 (Stadt-Filter):**
+| # | Criterion | Result |
+|---|---|---|
+| 11 | Stadt-Filter zeigt nur Kontakte dieser Stadt (live, case-insensitive) | ✅ Pass (E2E) |
+| 12 | Stadt-Filter + Kategorie-Filter kombiniert (UND) | ✅ Pass (E2E) |
+| 13 | Kontakt ohne Stadt wird bei aktivem Stadt-Filter ausgeblendet | ✅ Pass (E2E, mit abgedeckt durch AC11-Seed-Daten) |
+
 ### Automated Tests
 - `npm test` → 1 file, 2/2 passed (Regression PROJ-1)
 - `npm run test:e2e` → **46/46 passed** (PROJ-2, PROJ-3, PROJ-4, alle ACs × Chromium + Mobile Safari)
 - Playwright Browser-Binaries waren bereits installiert
 
+**Erweiterung 2026-06-22:** `npm run test:e2e` (PROJ-3+PROJ-4 zusammen) → 23/23 passed auf Chromium UND Mobile Safari. Voller Regressionslauf (PROJ-2/3/4/5) → 24/24 passed (1 bekannter Cold-Start-Flake bei PROJ-3 AC1, siehe PROJ-3-Spec, kein neuer Bug).
+
 ### Bugs Found
 
 **🔴 High (gefunden + sofort gefixt):** PROJ-3's E2E-Suite (`PROJ-3-contacts.spec.ts`) nutzte `getByRole('listitem')`-Selektoren von der alten `<li>`-basierten Übergangsliste. PROJ-4 ersetzte diese durch `<Card>`-Divs ohne `listitem`-Rolle — die Selektoren fanden dadurch nichts mehr. Da die Tests in `describe.serial` liefen, brach die Suite nach dem ersten Fehlschlag ab und alle nachfolgenden PROJ-3-ACs wurden als "did not run" stillschweigend übersprungen, ohne dass dies in der Konsolen-Zusammenfassung auffiel. Dies ist kein Produktbug, aber ein kritischer Regressionstest-Ausfall: PROJ-3 hätte bei echten Bugs nicht mehr zuverlässig getestet werden können. Fix: alle Selektoren auf die neue Card-Struktur (`.cursor-pointer`-Klasse) umgestellt, alle Delete-Cleanups warten jetzt explizit auf die DELETE-Response.
+
+**🟡 Low (gefunden + sofort gefixt, 2026-06-22):** `PROJ-4-contacts-list.spec.ts` und `PROJ-5-interaction-log.spec.ts` requireten `QA_SUPABASE_URL`/`QA_SUPABASE_ANON_KEY` strikt (`!`-Assertion), ohne dass diese Variablen in `.env.local` existierten — beide Dateien crashten beim Testlauf mit `Invalid URL`, nicht auf einen Produktbug zurückführbar. Fix: Fallback auf bestehende `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (gleiches Supabase-Projekt, keine separate QA-Instanz). Zusätzlich `dotenv` in `playwright.config.ts` ergänzt, damit `.env.local` für den Test-Prozess überhaupt geladen wird (vorher nur im Next.js-Dev-Server verfügbar).
 
 **Keine offenen Produktbugs.**
 
 ### Security Audit (Red Team)
 - **XSS-Versuch:** Kontakt mit Name `<script>alert(1)</script>` angelegt — React rendert als reiner Text (kein `dangerouslySetInnerHTML` verwendet), kein Script-Execute, kein `dialog`-Event ausgelöst
 - **Cross-User-Isolation:** keine neue Prüfung nötig — Liste nutzt dieselbe `.select('*')`-Query + RLS-Policy wie PROJ-3, dort bereits mit echtem zweiten Account verifiziert (siehe PROJ-3 QA)
+- **Stadt-Filter (Erweiterung):** rein client-seitiger Filter auf bereits durch RLS vorgefilterten Daten, kein neuer Server-Request, keine neue Angriffsfläche
 - **Client-seitige Filter:** Filter/Suche laufen rein im Browser auf bereits durch RLS vorgefilterten Daten — kein zusätzlicher Angriffsvektor, da kein neuer Server-Request pro Filteränderung
 
 ### Test-Infrastruktur-Hinweise (nicht produktrelevant)
