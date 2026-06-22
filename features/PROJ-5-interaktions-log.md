@@ -1,0 +1,87 @@
+# PROJ-5: Interaktions-Log
+
+## Status: Planned
+**Created:** 2026-06-22
+**Last Updated:** 2026-06-22
+
+## Dependencies
+- PROJ-1 (Supabase Infrastructure Setup) — `interactions`-Tabelle + RLS + Trigger existieren bereits
+- PROJ-3 (Kontakt anlegen & verwalten) — Interactions gehören zu einem Kontakt
+- PROJ-4 (Kontaktliste & Filter) — Einstiegspunkt für den Dialog ist die Kontaktliste
+
+## User Stories
+- Als Nutzer möchte ich einen Kontaktmoment (Treffen, Call, Nachricht, Event) zu einem Kontakt protokollieren können, damit ich nachvollziehen kann, wann ich zuletzt Kontakt hatte und worüber gesprochen wurde
+- Als Nutzer möchte ich das Erfassen eines Kontaktmoments in unter 30 Sekunden erledigen können, damit ich es nach jedem echten Kontakt sofort nachtrage statt es zu vergessen
+- Als Nutzer möchte ich den vollständigen Interaktionsverlauf eines Kontakts chronologisch sehen, damit ich mich vor dem nächsten Gespräch erinnern kann, was zuletzt besprochen wurde
+- Als Nutzer möchte ich einen fehlerhaft erfassten Kontaktmoment nachträglich korrigieren können, damit Tippfehler oder falsche Kanal-Auswahl nicht dauerhaft falsch stehen bleiben
+- Als Nutzer möchte ich einen versehentlich angelegten Kontaktmoment löschen können, damit mein Verlauf korrekt bleibt
+
+## Out of Scope
+- Eigene Detailseite pro Kontakt — Verlauf + Erfassung laufen über Dialog/Sheet von der Kontaktliste aus (PROJ-4), kein Routing-Aufwand
+- Pagination/"Mehr laden" im Verlauf — alle Einträge werden chronologisch angezeigt, kein Limit (MVP-Netzwerke haben wenige Einträge pro Kontakt)
+- Anhänge/Dateien an einem Kontaktmoment — nicht im Schema, kein MVP-Bedarf
+- Bulk-Erfassung mehrerer Interactions gleichzeitig — kein MVP-Bedarf
+- Erinnerungs-/Dashboard-Logik basierend auf Interactions — eigenes Feature PROJ-6
+- Undo nach Löschen — Bestätigungsdialog reicht als Schutz, kein Soft-Delete
+
+## Acceptance Criteria
+
+- [ ] Angenommen der Nutzer ist eingeloggt und hat einen Kontakt geöffnet, wenn er Datum (Default: heute) und Kanal auswählt und speichert, dann wird die Interaction mit `user_id = auth.uid()` und der Kontakt-ID gespeichert
+- [ ] Angenommen der Nutzer befüllt zusätzlich das optionale Notizfeld, wenn er speichert, dann wird die Notiz mit der Interaction gespeichert
+- [ ] Angenommen der Nutzer lässt das Kanal-Feld leer, wenn er speichern will, dann wird eine Validierungsfehlermeldung angezeigt und die Interaction wird nicht angelegt
+- [ ] Angenommen der Nutzer wählt ein Datum in der Zukunft, wenn er speichern will, dann wird eine Validierungsfehlermeldung angezeigt und die Interaction wird nicht angelegt
+- [ ] Angenommen eine Interaction wird erfolgreich gespeichert, dann werden `last_contacted_at` und `next_followup_at` des zugehörigen Kontakts automatisch aktualisiert, sofern das neue Datum jünger ist als der bisherige letzte Kontakt
+- [ ] Angenommen ein Kontakt hat mehrere protokollierte Interactions, wenn der Nutzer den Kontakt öffnet, dann werden alle Einträge chronologisch absteigend (neueste oben) angezeigt
+- [ ] Angenommen ein Kontakt hat noch keine protokollierten Interactions, wenn der Nutzer ihn öffnet, dann wird ein Empty-State mit Hinweis und "Kontaktmoment hinzufügen"-Button angezeigt
+- [ ] Angenommen eine Interaction existiert, wenn der Nutzer auf "Bearbeiten" klickt, dann öffnet sich das Formular vorausgefüllt mit Datum, Kanal und Notiz
+- [ ] Angenommen eine Interaction wird bearbeitet und gespeichert, dann werden die neuen Werte sofort im Verlauf sichtbar
+- [ ] Angenommen die bearbeitete Interaction war die bisher jüngste des Kontakts, wenn ihr Datum verändert wird, dann werden `last_contacted_at`/`next_followup_at` des Kontakts neu aus dem tatsächlich jüngsten verbleibenden Eintrag berechnet
+- [ ] Angenommen eine Interaction existiert, wenn der Nutzer auf "Löschen" klickt, dann erscheint ein Bestätigungsdialog bevor der Eintrag entfernt wird
+- [ ] Angenommen die gelöschte Interaction war die bisher jüngste des Kontakts, wenn sie entfernt wird, dann werden `last_contacted_at`/`next_followup_at` neu aus dem jeweils nächstjüngeren verbleibenden Eintrag berechnet (oder geleert, falls keine Interaction mehr existiert)
+- [ ] Angenommen die Supabase-API ist beim Speichern nicht erreichbar, wenn der Nutzer das Formular abschickt, dann wird eine Fehlermeldung angezeigt und die Eingabe bleibt im Formular erhalten
+- [ ] Angenommen Nutzer A ist eingeloggt, wenn er versucht auf Interactions von Nutzer B zuzugreifen, dann liefert die Datenbank keine Zeile zurück (RLS bereits in PROJ-1 erzwungen)
+
+## Edge Cases
+- Letzte verbleibende Interaction eines Kontakts wird gelöscht → `last_contacted_at`/`next_followup_at` werden geleert (null), kein Fallback-Wert
+- Zwei Interactions mit identischem Datum/Kanal → erlaubt, keine Duplikat-Prüfung
+- Sehr lange Notiz → analog zu Kontakt-Notizen max. 2000 Zeichen, Validierungsfehler bei Überschreitung
+- Doppelter Klick auf "Speichern" während Request läuft → Button disabled (Loading-State), kein doppelter Insert
+- Kontakt wird gelöscht (PROJ-3) während sein Interaction-Dialog offen ist → Cascade-Delete aus PROJ-1 entfernt zugehörige Interactions automatisch, Dialog zeigt Fehler/schließt sich
+- Datum exakt heute → erlaubt (kein Validierungsfehler), nur Datum > heute wird abgelehnt
+
+## Technical Requirements
+- Security: RLS bereits aktiv seit PROJ-1 — kein zusätzlicher App-seitiger Check nötig, `user_id` nie aus Client-Eingabe übernehmen
+- Validierung: Datum Pflicht (nicht in der Zukunft), Kanal Pflicht (Treffen/Call/Nachricht/Event), Notiz optional max. 2000 Zeichen
+- Trigger-Erweiterung: bisheriger PROJ-1-Trigger reagiert nur auf Insert — muss um Update/Delete erweitert werden, damit `last_contacted_at`/`next_followup_at` immer den tatsächlich jüngsten Interaction-Eintrag widerspiegeln (technische Umsetzung in `/architecture`)
+
+## Open Questions
+_Keine offenen Fragen — siehe Decision Log._
+
+## Decision Log
+
+### Product Decisions
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Dialog/Sheet von Kontaktliste aus statt eigene Detailseite | Kein Seitenwechsel nötig, passt zu bisherigem Pattern (Dialog statt eigene Seite wie PROJ-3) | 2026-06-22 |
+| Formularfelder: Datum + Kanal Pflicht, Notiz optional | Schnelle Erfassung deckt PRD-Ziel "<30 Sekunden", Datum erlaubt auch Nacherfassen vergangener Kontakte | 2026-06-22 |
+| Edit + Delete für bestehende Interactions erlaubt | Tippfehler/falscher Kanal sonst nicht korrigierbar, Löschen mit Bestätigungsdialog wie bei Kontakten | 2026-06-22 |
+| Verlauf zeigt alle Einträge chronologisch absteigend, kein Limit/Pagination | MVP-Netzwerke haben wenige Einträge pro Kontakt, Pagination unnötiger Aufwand | 2026-06-22 |
+| `last_contacted_at`/`next_followup_at` werden bei jeder Änderung (Insert/Update/Delete) neu berechnet | Follow-up-Dashboard (PROJ-6) braucht korrekte Werte, sonst veralten sie bei nachträglicher Korrektur/Löschung der jüngsten Interaction | 2026-06-22 |
+| Datum darf nicht in der Zukunft liegen | Interaktions-Log protokolliert stattgefundene Kontakte, kein Termin-/Kalender-Feature (Non-Goal laut PRD) | 2026-06-22 |
+
+### Technical Decisions
+<!-- Added by /architecture -->
+| Decision | Rationale | Date |
+|----------|-----------|------|
+
+---
+<!-- Sections below are added by subsequent skills -->
+
+## Tech Design (Solution Architect)
+_To be added by /architecture_
+
+## QA Test Results
+_To be added by /qa_
+
+## Deployment
+_To be added by /deploy_
