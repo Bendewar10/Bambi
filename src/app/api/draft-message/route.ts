@@ -1,3 +1,4 @@
+import { anthropic } from '@ai-sdk/anthropic'
 import { generateText } from 'ai'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
 
   try {
     const { text } = await generateText({
-      model: 'anthropic/claude-haiku-4.5',
+      model: anthropic('claude-haiku-4-5-20251001'),
       prompt,
       maxOutputTokens: 120,
     })

@@ -2,15 +2,16 @@
 
 ## Status: Deployed
 **Created:** 2026-06-22
-**Last Updated:** 2026-06-22 (Deployed)
+**Last Updated:** 2026-06-23 (AI-Anbindung von Vercel AI Gateway auf direkten Anthropic-Key umgestellt, siehe unten)
 
 ## Backend Implementation Notes
+- **Update 2026-06-23 (im Rahmen von PROJ-8):** Vercel-AI-Gateway-Account hatte keine Kreditkarte hinterlegt (`customer_verification_required`, 502 bei echtem Call) — auf Nutzerwunsch von Gateway-String-Modell auf direkten Anthropic-Provider umgestellt: `@ai-sdk/anthropic` installiert, `model: 'anthropic/claude-haiku-4.5'` → `model: anthropic('claude-haiku-4-5-20251001')`. Neue Env-Var `ANTHROPIC_API_KEY` ersetzt `AI_GATEWAY_API_KEY` (Nutzer trägt selbst ein). Tests weiterhin grün (mocken `generateText` komplett, Provider-Wechsel unabhängig davon)
 - `src/lib/supabase-server.ts`: neuer Server-seitiger Supabase-Client (liest Session aus Cookies, gleiches Muster wie `src/middleware.ts`) — erste Wiederverwendung dieses Patterns außerhalb der Middleware
 - `src/app/api/draft-message/route.ts`: neue POST-Route, erstes API-Endpoint im Projekt
   - Zod-Validierung von `contactId` (UUID) + `occasionType` (`followup`/`birthday`)
   - Session-Check via `auth.getUser()` → 401 ohne Login
   - Kontakt + letzte 3 Interaktions-Notizen werden über den Server-Client geladen — RLS aus PROJ-1 sorgt dafür, dass ein Kontakt einer fremden `user_id` als "nicht gefunden" (404) zurückkommt, kein expliziter Extra-Check nötig
-  - AI-Anbindung: `generateText` aus dem `ai`-Package, Modell `anthropic/claude-haiku-4.5` über Vercel AI Gateway (aktuelle Modell-Liste vorab via Gateway-API geprüft, kein veraltetes Modell aus dem Training verwendet)
+  - AI-Anbindung: `generateText` aus dem `ai`-Package, Modell `claude-haiku-4-5-20251001` direkt über `@ai-sdk/anthropic` (bis 2026-06-23: `anthropic/claude-haiku-4.5` über Vercel AI Gateway, siehe Update oben)
   - Prompt unterscheidet sich nach `occasionType` (Geburtstagsgruß vs. Anknüpfung an letzte Notizen), Antwort serverseitig auf 300 Zeichen begrenzt
   - AI-Fehler → 502 mit Fehlermeldung, kein Crash
   - Benötigt `AI_GATEWAY_API_KEY` in `.env.local` (lokal) bzw. Vercel Env Vars (Produktion) — **Nutzer muss diesen Key selbst eintragen**, da `.env.local`/`.env.local.example` für KI-Tooling per Permission-Regel gesperrt sind

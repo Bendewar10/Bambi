@@ -1,0 +1,108 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { Contact } from '@/lib/contacts'
+import { Interaction } from '@/lib/interactions'
+import {
+  ANALYTICS_PERIODS,
+  AnalyticsPeriod,
+  computeCategoryDistribution,
+  computeChannelDistribution,
+  computeInteractionsTrend,
+  computeOverdueCount,
+  computeStrengthDistribution,
+  NetworkInsightsPayload,
+  periodStartDate,
+} from '@/lib/analytics'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { DistributionChartCard } from '@/components/distribution-chart-card'
+import { OverdueCounterCard } from '@/components/overdue-counter-card'
+import { InteractionsTrendChart } from '@/components/interactions-trend-chart'
+import { ChannelDistributionChart } from '@/components/channel-distribution-chart'
+import { NetworkInsightsCard } from '@/components/network-insights-card'
+
+export default function AnalyticsPage() {
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [interactions, setInteractions] = useState<Interaction[]>([])
+  const [period, setPeriod] = useState<AnalyticsPeriod>(90)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    supabase
+      .from('contacts')
+      .select('*')
+      .then(({ data }) => {
+        setContacts(data ?? [])
+        setIsLoading(false)
+      })
+  }, [])
+
+  useEffect(() => {
+    supabase
+      .from('interactions')
+      .select('*')
+      .gte('occurred_at', periodStartDate(period).toISOString().slice(0, 10))
+      .then(({ data }) => setInteractions(data ?? []))
+  }, [period])
+
+  const categoryDistribution = useMemo(() => computeCategoryDistribution(contacts), [contacts])
+  const strengthDistribution = useMemo(() => computeStrengthDistribution(contacts), [contacts])
+  const overdueCount = useMemo(() => computeOverdueCount(contacts), [contacts])
+  const channelDistribution = useMemo(() => computeChannelDistribution(interactions), [interactions])
+  const interactionsTrend = useMemo(
+    () => computeInteractionsTrend(interactions, period),
+    [interactions, period]
+  )
+
+  const insightsPayload: NetworkInsightsPayload = {
+    period,
+    totalContacts: contacts.length,
+    totalInteractions: interactions.length,
+    overdueCount,
+    categoryDistribution,
+    strengthDistribution,
+    channelDistribution,
+  }
+
+  if (contacts.length === 0 && !isLoading) {
+    return (
+      <div className="w-full max-w-4xl">
+        <p className="text-sm text-muted-foreground">
+          Noch keine Kontakte vorhanden — sobald du Kontakte und Kontaktmomente erfasst hast, siehst du hier
+          Auswertungen zu deinem Netzwerk.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full max-w-4xl space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-lg font-semibold">Netzwerk-Analytics</h1>
+        <Tabs value={String(period)} onValueChange={(value) => setPeriod(Number(value) as AnalyticsPeriod)}>
+          <TabsList>
+            {ANALYTICS_PERIODS.map((option) => (
+              <TabsTrigger key={option.value} value={String(option.value)}>
+                {option.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <DistributionChartCard title="Kategorien" data={categoryDistribution} />
+        <DistributionChartCard title="Beziehungsstärke" data={strengthDistribution} />
+        <OverdueCounterCard count={overdueCount} />
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <InteractionsTrendChart data={interactionsTrend} />
+        <ChannelDistributionChart data={channelDistribution} />
+      </section>
+
+      <NetworkInsightsCard key={period} payload={insightsPayload} />
+    </div>
+  )
+}

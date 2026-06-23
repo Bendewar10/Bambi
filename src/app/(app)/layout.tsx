@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/contacts', label: 'Kontakte' },
+  { href: '/analytics', label: 'Analytics' },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
