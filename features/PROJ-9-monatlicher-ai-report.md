@@ -1,6 +1,6 @@
 # PROJ-9: Monatlicher AI-Report per Mail
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-06-23
 **Last Updated:** 2026-06-23 (Backend implementiert)
 
@@ -214,4 +214,8 @@ Keine gefunden (Critical/High/Medium/Low: 0)
 ### Production-Ready: **YES**
 
 ## Deployment
-_To be added by /deploy_
+- Production URL: https://bambi-w26q.vercel.app
+- Deployed: 2026-06-23 (`git push origin main` → Vercel Auto-Deploy, Commit `713c125`)
+- Pre-deploy checks: `npm run build` ✓, `npm run lint` ✓, `npm test` (34/34) ✓
+- Post-deploy Smoke-Test: `/login` 200, `/dashboard` ohne Session 307, `/api/cron/monthly-report` ohne/falsches Secret 401 — alles wie lokal
+- Echter Mailversand bereits vor Deploy lokal gegen Produktions-Supabase-Daten verifiziert (siehe QA Test Results)
