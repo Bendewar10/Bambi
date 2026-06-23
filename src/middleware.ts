@@ -2,6 +2,12 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  // Cron-/Job-Routen authentifizieren sich selbst per CRON_SECRET (kein Session-Cookie
+  // vorhanden) und dürfen daher nicht auf /login umgeleitet werden.
+  if (request.nextUrl.pathname.startsWith('/api/cron')) {
+    return NextResponse.next()
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(

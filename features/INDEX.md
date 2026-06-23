@@ -23,7 +23,8 @@
 | PROJ-6 | Follow-up Dashboard & Tagesansicht (inkl. Anlässe/Geburtstage, AI-Nachrichtenvorschlag, WhatsApp-Link, Kalender-Link) | Deployed | [Spec](PROJ-6-follow-up-dashboard.md) | 2026-06-19 | PROJ-3, PROJ-5 |
 | PROJ-7 | Foto-Upload | Roadmap | - | 2026-06-19 | PROJ-3 |
 | PROJ-8 | Netzwerk-Analytics (periodisch) | Deployed | [Spec](PROJ-8-netzwerk-analytics.md) | 2026-06-22 | PROJ-3, PROJ-5 |
+| PROJ-9 | Monatlicher AI-Report per Mail | In Progress | [Spec](PROJ-9-monatlicher-ai-report.md) | 2026-06-23 | PROJ-1, PROJ-5, PROJ-8 |
 
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-9
+## Next Available ID: PROJ-10
