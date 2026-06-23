@@ -1,6 +1,6 @@
 # PROJ-9: Monatlicher AI-Report per Mail
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-06-23
 **Last Updated:** 2026-06-23 (Backend implementiert)
 
@@ -177,7 +177,41 @@ Alles wird zur Laufzeit aggregiert und nach Versand verworfen. Kein Report/PDF w
 - (`.env.local` ist für KI-Tooling per Policy gesperrt → Nutzer trägt selbst ein, wie bei `ANTHROPIC_API_KEY`)
 
 ## QA Test Results
-_To be added by /qa_
+
+**Datum:** 2026-06-23 | **Tester:** QA Engineer (Claude)
+
+### Automatisierte Tests
+- `npm test`: 34/34 grün (8 `report-data`-Unit-Tests, 5 `monthly-report`-Integrationstests, plus bestehende Suiten)
+- `npm run lint`: keine Fehler
+- `npm run build`: erfolgreich, Route `/api/cron/monthly-report` korrekt als dynamisch (ƒ) erkannt
+
+### Funktionaler Test (lokal, gegen echte Supabase-Daten)
+- Cron-Route ohne `Authorization`-Header → **401** ✅
+- Cron-Route mit falschem Secret → **401** ✅
+- Cron-Route mit korrektem Secret, kein `force`, kein letzter Sonntag → `{"skipped":"not last sunday of month"}`, **200**, kein Versand ✅
+- Cron-Route mit korrektem Secret + `?force=1` → **200**, `{"ran":true,"results":[...]}`; pro Nutzer eigener Status:
+  - `bennewroly@gmail.com` (echte Kontakte vorhanden) → `"sent"`, Mail real zugestellt
+  - `bennewroly+qa-proj5@gmail.com`, `bennewroly+rlstest@gmail.com` (0 Kontakte) → `"skipped-no-contacts"`, kein Fehlversuch
+- Mail manuell vom Nutzer geprüft: Exec Summary im Body, PDF-Anhang mit allen 4 Abschnitten, Zahlen korrekt — **vom Nutzer bestätigt**
+
+### Security-Audit (Red-Team)
+- Auth-Bypass-Versuche (kein Header, falsches Secret) beide abgewiesen, kein Datenzugriff, keine Fehlerdetails geleakt
+- Service-Role-Key nur serverseitig im Job verwendet, nicht in `NEXT_PUBLIC_*`, nicht in Response exponiert
+- Pro-Nutzer try/catch verifiziert: ein Fehler/0-Kontakte-Skip bei einem Account blockiert nicht den Versand für andere
+
+### Regression
+- `/dashboard` ohne Session → **307** (Redirect zu Login), unverändert
+- `/login` → **200**, unverändert
+- Middleware-Ausnahme für `/api/cron/*` betrifft ausschließlich diesen Pfad, keine anderen Routen offen
+
+### Nicht getestet (kein UI-Feature)
+- Kein Playwright-E2E nötig — Feature ist ein Hintergrund-Job ohne UI-Oberfläche; Acceptance Criteria sind vollständig über Integrationstests + manuellen Cron-Trigger abgedeckt
+- "Letzter Sonntag im Monat"-Branch (echter Versand-Pfad ohne `force`) nicht live getestet, aber durch `report-data.test.ts` (`isLastSundayOfMonth`) unit-abgedeckt
+
+### Bugs
+Keine gefunden (Critical/High/Medium/Low: 0)
+
+### Production-Ready: **YES**
 
 ## Deployment
 _To be added by /deploy_
