@@ -22,7 +22,7 @@
 | PROJ-5 | Interaktions-Log | Deployed | [Spec](PROJ-5-interaktions-log.md) | 2026-06-19 | PROJ-3 |
 | PROJ-6 | Follow-up Dashboard & Tagesansicht (inkl. Anlässe/Geburtstage, AI-Nachrichtenvorschlag, WhatsApp-Link, Kalender-Link) | Deployed | [Spec](PROJ-6-follow-up-dashboard.md) | 2026-06-19 | PROJ-3, PROJ-5 |
 | PROJ-7 | Foto-Upload | Roadmap | - | 2026-06-19 | PROJ-3 |
-| PROJ-8 | Netzwerk-Analytics (periodisch) | Approved | [Spec](PROJ-8-netzwerk-analytics.md) | 2026-06-22 | PROJ-3, PROJ-5 |
+| PROJ-8 | Netzwerk-Analytics (periodisch) | Deployed | [Spec](PROJ-8-netzwerk-analytics.md) | 2026-06-22 | PROJ-3, PROJ-5 |
 
 <!-- Add features above this line -->
 

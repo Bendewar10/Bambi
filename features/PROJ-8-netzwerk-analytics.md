@@ -1,8 +1,8 @@
 # PROJ-8: Netzwerk-Analytics (periodisch)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-06-23
-**Last Updated:** 2026-06-23 (QA abgeschlossen, production-ready)
+**Last Updated:** 2026-06-23 (Deployed)
 
 ## Backend Implementation Notes
 - `src/app/api/network-insights/route.ts`: neue POST-Route, analog `/api/draft-message`
@@ -248,4 +248,8 @@ Keine neue Tabelle. Alle Werte werden live berechnet:
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+- Production URL: https://bambi-w26q.vercel.app
+- Deployed: 2026-06-23 (`vercel --prod`, Commit `e08f54f`)
+- Pre-deploy checks: `npm run build` ✓, `npm run lint` ✓, `npm test` (21/21) ✓, `npm run test:e2e` (69/69) ✓
+- Neue Env Var `ANTHROPIC_API_KEY` in Vercel Production hinzugefügt (Nutzer); `AI_GATEWAY_API_KEY` nicht mehr benötigt (betraf auch PROJ-6)
+- Smoke-Test live: `/` → 307, `/login` → 200, `/analytics` ohne Auth → 307; mit echtem QA-Account eingeloggt → Analytics-Seite lädt fehlerfrei (Empty-State korrekt, da QA-Account durch E2E-Cleanup aktuell 0 Kontakte hat), kein Konsolen-Fehler
