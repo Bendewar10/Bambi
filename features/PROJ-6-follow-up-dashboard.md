@@ -1,6 +1,6 @@
 # PROJ-6: Follow-up Dashboard & Tagesansicht
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-06-22
 **Last Updated:** 2026-06-24 (Refine: WhatsApp-Button durch Copy-Button ersetzt, Schreibstil-Lernen für AI-Vorschlag ergänzt — Re-Implementierung über `/frontend`+`/backend` nötig, bisherige Deployment-Historie unten bleibt als Kontext erhalten)
 
@@ -376,3 +376,8 @@ Keine neuen Bugs gefunden.
 - **Production URL:** https://bambi-w26q.vercel.app
 - **Deployed:** 2026-06-22
 - **Verified in production:** Login → `/dashboard` redirect works, empty-state renders correctly, auth gate on `/dashboard` and `/api/draft-message` returns 307 → `/login` for unauthenticated requests, no console/page errors.
+
+### Update 2026-06-24 (Refine: Copy-Button + Schreibstil-Lernen)
+- Commit `5e94cf5` gepusht zu `origin/main`, Tag `v1.7.0-PROJ-6`
+- Vercel-Build erfolgreich (43s), Deployment `Ready`, Production
+- `https://bambi-w26q.vercel.app/login` mit 200 verifiziert
