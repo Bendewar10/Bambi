@@ -1,6 +1,6 @@
 # PROJ-3: Kontakt anlegen & verwalten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-06-19
 **Last Updated:** 2026-06-24 (Refine: `name` → `first_name`+`last_name` aufgesplittet, Arbeitgeber/Jobtitel/E-Mail ergänzt — Re-Implementierung nötig)
 
@@ -297,6 +297,12 @@ Alle Stellen, die vorher `contact.name` lasen, wurden auf `getFullName(contact)`
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Deploy
+
+### Update 2026-06-24 (Refine: Vorname/Nachname + Arbeitgeber/Jobtitel/E-Mail)
+- Commit `c7d8cdb` gepusht zu `origin/main`, Tag `v1.8.0-PROJ-3`
+- Migration bereits vorab auf Live-Projekt angewendet (siehe Implementation Notes)
+- Vercel-Build erfolgreich (45s), Deployment `Ready`, Production
+- `https://bambi-w26q.vercel.app/login` mit 200 verifiziert
 
 ## Deployment
 **Date:** 2026-06-19
