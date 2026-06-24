@@ -1,14 +1,3 @@
-export function normalizePhoneForWhatsApp(phone: string) {
-  const hasLeadingPlus = phone.trim().startsWith('+')
-  const digits = phone.replace(/[^\d]/g, '')
-  return hasLeadingPlus ? `+${digits}` : digits
-}
-
-export function buildWhatsAppLink(phone: string, text: string) {
-  const digits = normalizePhoneForWhatsApp(phone)
-  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
-}
-
 function toCalendarDate(isoDate: string) {
   return isoDate.replace(/-/g, '')
 }

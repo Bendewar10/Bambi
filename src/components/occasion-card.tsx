@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ContactOccasion } from '@/lib/occasions'
-import { buildCalendarLink, buildWhatsAppLink } from '@/lib/external-links'
+import { buildCalendarLink } from '@/lib/external-links'
 
 const BADGE_LABELS = {
   followup: 'Follow-up',
@@ -22,8 +22,22 @@ export function OccasionCard({ occasion, onLogInteraction }: OccasionCardProps) 
   const [draftText, setDraftText] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
+  const [copyError, setCopyError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const primaryType = badges[0]
+
+  async function handleCopyDraft() {
+    if (!draftText) return
+    setCopyError(null)
+    try {
+      await navigator.clipboard.writeText(draftText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopyError('Kopieren nicht möglich. Bitte Text manuell markieren.')
+    }
+  }
 
   async function handleGenerateDraft() {
     setIsGenerating(true)
@@ -93,24 +107,13 @@ export function OccasionCard({ occasion, onLogInteraction }: OccasionCardProps) 
 
         {draftError && <p className="text-destructive">{draftError}</p>}
 
-        {!contact.phone && (
-          <p className="text-xs text-muted-foreground">Keine Telefonnummer hinterlegt</p>
-        )}
-
         {draftText && (
           <div className="space-y-2 rounded-md border p-2">
             <p className="text-muted-foreground">{draftText}</p>
-            {contact.phone && (
-              <Button size="sm" asChild>
-                <a
-                  href={buildWhatsAppLink(contact.phone, draftText)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Per WhatsApp senden
-                </a>
-              </Button>
-            )}
+            <Button size="sm" onClick={handleCopyDraft}>
+              {copied ? 'Kopiert!' : 'Kopieren'}
+            </Button>
+            {copyError && <p className="text-destructive">{copyError}</p>}
           </div>
         )}
       </CardContent>

@@ -275,9 +275,13 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await expect(card.getByText('Erster Text')).toHaveCount(0)
   })
 
-  test('AC: WhatsApp link includes phone + draft text once a draft exists', async ({ page }) => {
-    const name = uniqueName('WhatsAppOk')
-    await seedContact(token, userId, name, { next_followup_at: isoOffset(0), phone: '+49 151 234 567' })
+  test('AC: copy button copies draft text to clipboard once a draft exists', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const name = uniqueName('CopyOk')
+    await seedContact(token, userId, name, { next_followup_at: isoOffset(0) })
     await login(page)
 
     await page.route('**/api/draft-message', (route) =>
@@ -285,34 +289,22 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     )
 
     const card = cardFor(page, name)
-    await expect(card.getByText('Keine Telefonnummer hinterlegt')).toHaveCount(0)
-    await expect(card.getByRole('link', { name: 'Per WhatsApp senden' })).toHaveCount(0)
+    await expect(card.getByRole('button', { name: 'Kopieren' })).toHaveCount(0)
     await card.getByRole('button', { name: 'Vorschlag' }).click()
     await expect(card.getByText('Kurzer Gruß')).toBeVisible()
-    const link = card.getByRole('link', { name: 'Per WhatsApp senden' })
-    await expect(link).toBeVisible()
-    const href = await link.getAttribute('href')
-    expect(href).toContain('wa.me/+49151234567')
-    expect(href).toContain(encodeURIComponent('Kurzer Gruß'))
+    await card.getByRole('button', { name: 'Kopieren' }).click()
+    await expect(card.getByRole('button', { name: 'Kopiert!' })).toBeVisible()
+    const clipboardText = await page.evaluate(() => navigator.clipboard.readText())
+    expect(clipboardText).toBe('Kurzer Gruß')
   })
 
-  test('AC: missing phone shows hint instead of WhatsApp link', async ({ page }) => {
-    const name = uniqueName('WhatsAppNoPhone')
+  test('AC: no copy button before a draft is generated, regardless of phone', async ({ page }) => {
+    const name = uniqueName('CopyNoDraft')
     await seedContact(token, userId, name, { next_followup_at: isoOffset(0) })
     await login(page)
 
     const card = cardFor(page, name)
-    // hint shows immediately on render, before any draft is generated
-    await expect(card.getByText('Keine Telefonnummer hinterlegt')).toBeVisible()
-
-    await page.route('**/api/draft-message', (route) =>
-      route.fulfill({ status: 200, json: { text: 'Kurzer Gruß' } })
-    )
-
-    await card.getByRole('button', { name: 'Vorschlag' }).click()
-    await expect(card.getByText('Kurzer Gruß')).toBeVisible()
-    await expect(card.getByRole('link', { name: 'Per WhatsApp senden' })).toHaveCount(0)
-    await expect(card.getByText('Keine Telefonnummer hinterlegt')).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Kopieren' })).toHaveCount(0)
   })
 
   test('AC: calendar link for follow-up occasion has correct title and date', async ({ page }) => {

@@ -45,18 +45,36 @@ export async function POST(request: Request) {
     .map((i) => i.note)
     .filter((note): note is string => Boolean(note))
 
+  const MIN_STYLE_NOTE_LENGTH = 20
+  const { data: styleRows } = await supabase
+    .from('interactions')
+    .select('note')
+    .not('note', 'is', null)
+    .order('occurred_at', { ascending: false })
+    .limit(20)
+
+  const styleExamples = (styleRows ?? [])
+    .map((row) => row.note)
+    .filter((note): note is string => Boolean(note) && note.trim().length > MIN_STYLE_NOTE_LENGTH)
+    .slice(0, 5)
+
+  const styleInstruction =
+    styleExamples.length > 0
+      ? ` Schreib im selben Schreibstil wie diese eigenen früheren Notizen: ${styleExamples.join(' / ')}.`
+      : ''
+
   const prompt =
     occasionType === 'birthday'
       ? `Schreib eine sehr kurze, herzliche Geburtstagsnachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.name}. ${
           contact.context ? `Kontext zur Person: ${contact.context}.` : ''
-        }`
+        }${styleInstruction}`
       : `Schreib eine sehr kurze, lockere Nachricht (1-2 Sätze, auf Deutsch, per Du), um sich bei ${contact.name} zu melden. ${
           recentNotes.length > 0
             ? `Letzte Notizen über frühere Kontakte: ${recentNotes.join(' / ')}.`
             : contact.context
               ? `Kontext zur Person: ${contact.context}.`
               : ''
-        } Knüpf wenn möglich an die Notizen an.`
+        } Knüpf wenn möglich an die Notizen an.${styleInstruction}`
 
   try {
     const { text } = await generateText({

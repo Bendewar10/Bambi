@@ -1,8 +1,8 @@
 # PROJ-6: Follow-up Dashboard & Tagesansicht
 
-## Status: Deployed
+## Status: Approved
 **Created:** 2026-06-22
-**Last Updated:** 2026-06-23 (AI-Anbindung von Vercel AI Gateway auf direkten Anthropic-Key umgestellt, siehe unten)
+**Last Updated:** 2026-06-24 (Refine: WhatsApp-Button durch Copy-Button ersetzt, Schreibstil-Lernen für AI-Vorschlag ergänzt — Re-Implementierung über `/frontend`+`/backend` nötig, bisherige Deployment-Historie unten bleibt als Kontext erhalten)
 
 ## Backend Implementation Notes
 - **Update 2026-06-23 (im Rahmen von PROJ-8):** Vercel-AI-Gateway-Account hatte keine Kreditkarte hinterlegt (`customer_verification_required`, 502 bei echtem Call) — auf Nutzerwunsch von Gateway-String-Modell auf direkten Anthropic-Provider umgestellt: `@ai-sdk/anthropic` installiert, `model: 'anthropic/claude-haiku-4.5'` → `model: anthropic('claude-haiku-4-5-20251001')`. Neue Env-Var `ANTHROPIC_API_KEY` ersetzt `AI_GATEWAY_API_KEY` (Nutzer trägt selbst ein). Tests weiterhin grün (mocken `generateText` komplett, Provider-Wechsel unabhängig davon)
@@ -16,6 +16,7 @@
   - AI-Fehler → 502 mit Fehlermeldung, kein Crash
   - Benötigt `AI_GATEWAY_API_KEY` in `.env.local` (lokal) bzw. Vercel Env Vars (Produktion) — **Nutzer muss diesen Key selbst eintragen**, da `.env.local`/`.env.local.example` für KI-Tooling per Permission-Regel gesperrt sind
 - `src/app/api/draft-message/draft-message.test.ts`: 5 Vitest-Integrationstests (401/400/404/200/502), `ai` und `@/lib/supabase-server` gemockt, kein echter API-Call in Tests
+- **Update 2026-06-24 (Refine, Stil-Lernen):** `route.ts` lädt zusätzlich bis zu 20 jüngste Notizen über ALLE Kontakte des Nutzers (`interactions`-Query ohne `contactId`-Filter, RLS grenzt automatisch auf `auth.uid()` ein), filtert auf Notizen >20 Zeichen, nimmt die ersten 5 als Few-Shot-Stilbeispiele und hängt sie als zusätzliche Prompt-Instruktion an (für beide `occasionType`-Varianten). Kein Fehler/Blocker, wenn keine Notiz die Mindestlänge erfüllt — Prompt läuft dann wie bisher ohne Stilbeispiele. 2 neue Tests (`includes style examples...`, `generates without style examples...`) decken Filter-Logik + Few-Shot-Injection ab
 - Routing-Änderung aus `/frontend` brach bestehende E2E-Login-Helper in `PROJ-3-contacts.spec.ts`/`PROJ-4-contacts-list.spec.ts`/`PROJ-5-interaction-log.spec.ts` (erwarteten Redirect auf `/`, jetzt `/dashboard`) — alle drei auf `/dashboard` + anschließendes `goto('/contacts')` angepasst, volle Regression (36/36) wieder grün
 - `npm test` (7/7) + `npm run build` + `npm run lint` laufen fehlerfrei durch
 
@@ -26,6 +27,7 @@
 - `src/lib/occasions.ts`: reine Funktionen `computeOccasionSections`/`nextBirthdayOccurrence` — berechnen pro Kontakt, ob er in "Heute & überfällig" und/oder "Diese Woche" auftaucht, inkl. Mehrfach-Badges falls beide Anlässe im selben Zeitfenster liegen
 - `src/lib/external-links.ts`: `buildWhatsAppLink` (Telefonnummer-Normalisierung auf Ziffern) und `buildCalendarLink` (Google-Calendar-Add-Event-URL, Ganztags-Event)
 - `src/components/occasion-card.tsx`: neue Karten-Komponente — Badges, "Kontaktiert"-Button (öffnet bestehendes `InteractionFormDialog` aus PROJ-5), "Vorschlag"-Button (ruft `/api/draft-message` auf — **Route existiert noch nicht, folgt in `/backend`**, Fehlerfall bereits abgefangen), WhatsApp-Button (deaktiviert/Hinweis ohne Telefonnummer), Kalender-Link(s) pro aktivem Badge-Typ
+- **Update 2026-06-24 (Refine):** WhatsApp-Button entfernt, ersetzt durch kanalunabhängigen Copy-Button (`navigator.clipboard.writeText`, lokaler `copied`-State zeigt "Kopiert!" für 2s, `copyError`-State bei Clipboard-Fehler). `buildWhatsAppLink`/`normalizePhoneForWhatsApp` aus `src/lib/external-links.ts` entfernt (keine Nutzung mehr). Telefonnummer-Hinweis ("Keine Telefonnummer hinterlegt") entfernt, da für Copy-Button irrelevant. Tests in `tests/PROJ-6-follow-up-dashboard.spec.ts` ersetzt (Clipboard-Permission via `context.grantPermissions`). Stil-Lernen (Backend-Teil) noch offen für `/backend`
 - Neue Route-Gruppe `src/app/(app)/` mit gemeinsamem Layout (Header + Nav Dashboard/Kontakte), `src/app/(app)/dashboard/page.tsx` (neu) und `src/app/(app)/contacts/page.tsx` (bisheriger Inhalt von `/`, unverändert übernommen)
 - `src/app/page.tsx` entfernt, `src/middleware.ts` erweitert: `/` und `/login` (wenn eingeloggt) leiten jetzt auf `/dashboard` um
 - `npm run build` + `npm run lint` laufen fehlerfrei durch
@@ -40,12 +42,15 @@
 - Als Nutzer möchte ich auch sehen, wer diese Woche fällig wird oder Geburtstag hat, damit ich vorausplanen kann statt nur reaktiv zu sein
 - Als Nutzer möchte ich direkt aus dem Dashboard einen Kontaktmoment loggen können, damit der Kontakt nach erfolgtem Kontakt aus der Liste verschwindet
 - Als Nutzer möchte ich mir einen Nachrichtenvorschlag generieren lassen, damit ich nicht selbst überlegen muss, was ich schreibe
-- Als Nutzer möchte ich den Vorschlag direkt per WhatsApp losschicken können, damit ich die App nicht verlassen und den Text nicht selbst kopieren/einfügen muss
+- Als Nutzer möchte ich den Vorschlag in meinen Schreibstil generiert bekommen, damit er nicht roboterhaft/generisch klingt und ich ihn ohne viel Nachbearbeiten verwenden kann
+- Als Nutzer möchte ich den Vorschlag mit einem Klick kopieren können, damit ich ihn selbst in WhatsApp, SMS oder eine andere App einfügen kann, egal ob eine Telefonnummer hinterlegt ist
 - Als Nutzer möchte ich einen Anlass mit einem Klick in meinen Kalender eintragen können, damit ich ihn nicht vergesse, falls ich jetzt nicht reagiere
 
 ## Out of Scope
 - Geburtstags-Import aus externem Kalender (Google Calendar OAuth) — bewusst nicht, nur manuelles `birthday`-Feld am Kontakt (Entscheidung im Interview, Konsistenz mit PRD-Non-Goal "Kalender-Sync erst nach MVP")
-- Automatisches Senden der WhatsApp-Nachricht ohne Klick (WhatsApp Business API) — nur `wa.me`-Deep-Link, Nutzer drückt selbst Senden
+- WhatsApp-Button/`wa.me`-Deep-Link — **entfernt im Refine vom 2026-06-24**, ersetzt durch kanalunabhängigen Copy-Button (siehe Decision Log)
+- Auto-Log beim Senden (egal über welchen Kanal) — bewusst nicht, Nutzer loggt weiterhin manuell über bestehenden "Kontaktiert"-Button, kein Erkennungsmechanismus für "wurde tatsächlich gesendet" (Entscheidung im Refine vom 2026-06-24)
+- Eigenes Feld für den exakten gesendeten Nachrichtentext — Stil-Lernen nutzt das bestehende Notizfeld aus PROJ-5, kein Zusatzfeld, um Quick-Add-Ziel aus PRD nicht zu gefährden
 - Echte Calendar-Sync (Lesen bestehender Termine, Abgleich mit Kontakten) — nur einseitiger Add-Event-Link, kein OAuth
 - Scoring/Ranking von Kontakten durch KI ("wer ist am wichtigsten") — KI wird nur für Nachrichten-Drafting genutzt, Reihenfolge/Sektionen sind reine Datums-Logik
 - Caching/Speichern generierter Nachrichtenvorschläge — wird bei jedem Klick neu generiert, kein Verlauf
@@ -74,13 +79,17 @@
 ### AI-Nachrichtenvorschlag
 - [ ] Angenommen eine Dashboard-Karte wird angezeigt, wenn der Nutzer auf "Vorschlag" klickt, dann wird ein kurzer Nachrichtentext generiert basierend auf den letzten Interaktions-Notizen (bei Follow-up-Anlass) bzw. dem Anlass "Geburtstag" (bei Geburtstags-Anlass) und im UI angezeigt
 - [ ] Angenommen die Generierung läuft, wenn der Nutzer wartet, dann zeigt der Button einen Loading-State
-- [ ] Angenommen die KI-Anfrage schlägt fehl (Netzwerk/Provider-Fehler), wenn das passiert, dann wird eine Fehlermeldung angezeigt, die Karte bleibt ansonsten funktionsfähig (WhatsApp/Kalender/Kontaktiert weiterhin nutzbar)
+- [ ] Angenommen die KI-Anfrage schlägt fehl (Netzwerk/Provider-Fehler), wenn das passiert, dann wird eine Fehlermeldung angezeigt, die Karte bleibt ansonsten funktionsfähig (Kopieren/Kalender/Kontaktiert weiterhin nutzbar)
 - [ ] Angenommen ein Vorschlag wurde generiert, wenn der Nutzer ihn nicht mag, dann kann er erneut auf "Vorschlag" klicken, um einen neuen zu generieren (keine Historie, alter Text wird ersetzt)
 
-### WhatsApp-Link
-- [ ] Angenommen ein Kontakt hat eine Telefonnummer, wenn ein Vorschlag generiert wurde, dann öffnet ein "Per WhatsApp senden"-Button einen `wa.me`-Link mit der Telefonnummer und dem Vorschlagstext vorausgefüllt
-- [ ] Angenommen ein Kontakt hat keine Telefonnummer, wenn die Karte angezeigt wird, dann ist der WhatsApp-Button deaktiviert mit Hinweis "Keine Telefonnummer hinterlegt"
-- [ ] Angenommen noch kein Vorschlag generiert wurde, wenn der Nutzer die Karte sieht, dann ist der WhatsApp-Button nicht nutzbar (kein Text zum Senden) — Vorschlag muss zuerst generiert werden
+### Schreibstil-Lernen
+- [ ] Angenommen der Nutzer hat über alle Kontakte hinweg mindestens eine Interaktions-Notiz mit mehr als 20 Zeichen, wenn ein Vorschlag generiert wird, dann nutzt der Prompt die bis zu 5 jüngsten dieser Notizen (über alle Kontakte, nicht nur den aktuellen) als Stil-Beispiele
+- [ ] Angenommen der Nutzer hat keine Notiz, die die Mindestlänge erfüllt, wenn ein Vorschlag generiert wird, dann läuft die Generierung wie bisher ohne Stil-Beispiele (kein Fehler, kein Blocker)
+
+### Kopieren-Button
+- [ ] Angenommen ein Vorschlag wurde generiert, wenn der Nutzer auf "Kopieren" klickt, dann wird der Vorschlagstext in die Zwischenablage kopiert und ein kurzes visuelles Feedback angezeigt (z.B. "Kopiert!")
+- [ ] Angenommen noch kein Vorschlag generiert wurde, wenn der Nutzer die Karte sieht, dann ist der Kopieren-Button nicht nutzbar (kein Text zum Kopieren) — Vorschlag muss zuerst generiert werden
+- [ ] Angenommen die Zwischenablage ist im Browser nicht verfügbar/erlaubt, wenn der Nutzer auf "Kopieren" klickt, dann wird eine Fehlermeldung angezeigt, die Karte bleibt ansonsten funktionsfähig
 
 ### Kalender-Link
 - [ ] Angenommen eine Dashboard-Karte mit Follow-up-Anlass wird angezeigt, wenn der Nutzer auf "Zum Kalender hinzufügen" klickt, dann öffnet sich ein Google-Calendar-Add-Event-Link mit Titel "Follow-up: [Name]" und Datum = `next_followup_at`
@@ -94,17 +103,21 @@
 ## Edge Cases
 - Geburtstag jahresübergreifend (z.B. heute 28.12., Geburtstag 02.01.) → zählt als "in den nächsten 7 Tagen", Jahreswechsel wird in der Berechnung berücksichtigt
 - Kontakt mit Follow-up überfällig UND Geburtstag in genau 7 Tagen → erscheint einmal in "Heute & überfällig" (nur Follow-up-Badge) und einmal in "Diese Woche" (nur Geburtstag-Badge), da unterschiedliche Zeitfenster
-- Telefonnummer im Freitext-Format mit Leerzeichen/Klammern (siehe PROJ-3) → wird vor dem `wa.me`-Link auf reine Ziffern (+ führendes `+`) normalisiert, da `wa.me` kein anderes Format akzeptiert
+- ~~Telefonnummer im Freitext-Format mit Leerzeichen/Klammern (siehe PROJ-3) → wird vor dem `wa.me`-Link auf reine Ziffern (+ führendes `+`) normalisiert~~ — hinfällig seit Entfernung des WhatsApp-Buttons (2026-06-24), Copy-Button braucht keine Telefonnummer-Normalisierung
 - Nutzer klickt "Kontaktiert" für einen Geburtstags-Anlass (ohne fälliges Follow-up) → loggt trotzdem eine Interaction, aktualisiert `last_contacted_at`/`next_followup_at` ganz normal, Geburtstags-Karte verschwindet trotzdem erst nächstes Jahr wieder (Geburtstag ist kein "erledigt"-Zustand, sondern wiederkehrend) — Karte bleibt bis das 7-Tage-Fenster verstrichen ist
 - Zwei Kontakte mit identischem Geburtstag → beide erscheinen unabhängig, keine Gruppierung
-- KI generiert sehr langen Text → Anzeige im UI mit Scroll/Begrenzung, `wa.me`-Link kann theoretisch URL-Längenlimits treffen — Vorschlagstext wird serverseitig auf eine vernünftige Maximallänge begrenzt (z.B. 300 Zeichen)
+- KI generiert sehr langen Text → Anzeige im UI mit Scroll/Begrenzung, Vorschlagstext wird serverseitig auf eine vernünftige Maximallänge begrenzt (z.B. 300 Zeichen) — Copy-Button hat kein URL-Längenlimit mehr (kein Link, reiner Zwischenablage-Text)
 - Mehrere Browser-Tabs offen, Kontaktiert in einem Tab → anderer Tab zeigt veraltete Daten bis Reload (kein Realtime-Sync, kein MVP-Bedarf)
+- Clipboard-API nicht verfügbar (alter Browser, kein sicherer Kontext/HTTP statt HTTPS) → Kopieren schlägt fehl, Fehlermeldung statt stillem No-Op
+- Nutzer hat noch nie eine Notiz mit >20 Zeichen erfasst (z.B. ganz neuer Account) → Vorschlag wird trotzdem generiert, nur ohne Stil-Beispiele im Prompt
 
 ## Technical Requirements
 - Security: Der AI-Provider-Key darf niemals client-seitig exponiert werden → benötigt eine serverseitige API-Route (erstes Feature in diesem Projekt, das eine eigene Route statt direktem Supabase-Client-Zugriff braucht). Route muss die Supabase-Session des Nutzers verifizieren, bevor sie Kontakt-/Interaktionsdaten an den AI-Provider sendet (keine fremden Nutzerdaten dürfen in den Prompt gelangen)
 - Security: RLS aus PROJ-1 deckt weiterhin den Datenzugriff ab (Dashboard liest nur eigene Kontakte/Interactions)
 - Performance: Datums-Filterung (Sektionen, 7-Tage-Fenster) läuft client-seitig auf bereits geladenen Kontakten, analog zu PROJ-4 (keine zusätzlichen Server-Roundtrips)
 - Validierung: `birthday` optional, Datum nicht in der Zukunft
+- Stil-Lernen: Query für Few-Shot-Notizen läuft über alle Kontakte des eingeloggten Nutzers (nicht nur den aktuell angefragten Kontakt) — RLS aus PROJ-1 grenzt automatisch auf `auth.uid()` ein, kein zusätzlicher Authorization-Check nötig
+- Clipboard: native Browser-Clipboard-API, kein neues Package
 
 ## Open Questions
 - [ ] Welcher AI-Provider/Modell genau (z.B. über Vercel AI Gateway) — technische Entscheidung, wird in `/architecture` getroffen
@@ -123,6 +136,9 @@
 | AI-Draft + WhatsApp-Link + Kalender-Link gelten für beide Anlass-Typen | Konsistente Karten-UI, kein Sonderfall-UI nur für eine Anlass-Art | 2026-06-22 |
 | Kein Caching von Vorschlägen, jeder Klick generiert neu | Einfachste Variante für MVP, kein Bedarf an Verlauf/Historie von Vorschlägen | 2026-06-22 |
 | WhatsApp-Button deaktiviert ohne Telefonnummer/ohne generierten Vorschlag | Verhindert nutzlose Klicks auf einen Link ohne Inhalt oder Ziel | 2026-06-22 |
+| WhatsApp-Button (`wa.me`-Link) entfernt, ersetzt durch Copy-Button | Nutzerwunsch im Refine — kanalunabhängig (auch ohne Telefonnummer nutzbar, nicht nur WhatsApp), einfacher als Auto-Log-Erkennung beim Senden | 2026-06-24 |
+| Kein Auto-Log beim Senden, Nutzer loggt weiterhin manuell über "Kontaktiert" | Es gibt keinen verlässlichen Signal, dass eine kopierte Nachricht tatsächlich versendet wurde — Komplexität/Fehleranfälligkeit eines Erkennungsmechanismus steht in keinem Verhältnis zum Nutzen | 2026-06-24 |
+| Schreibstil-Lernen nutzt bis zu 5 jüngste Interaktions-Notizen >20 Zeichen über ALLE Kontakte des Nutzers, kein neues Feld für den exakten gesendeten Text | Notizen pro einzelnem Kontakt oft zu wenige für Few-Shot-Beispiele; Mindestlänge filtert reine Stichwort-Notizen ("Kurzer Call") aus, die nicht als Stilbeispiel taugen; kein Zusatzfeld, um Quick-Add-Ziel aus PRD nicht zu gefährden | 2026-06-24 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -307,6 +323,54 @@ Nachrichtenvorschläge werden nicht gespeichert — sie entstehen bei jedem Klic
 - **Security:** Pass (Auth, RLS-Authorization, Secret-Handling, Input-Validation alle bestanden)
 - **Production Ready:** YES
 - **Recommendation:** Deploy. BUG-1/2/3 sind optionale Polish-Items, kein Blocker.
+
+## QA Test Results — Refine 2026-06-24 (Copy-Button + Schreibstil-Lernen)
+
+**Tested:** 2026-06-24
+**App URL:** http://localhost:3000 (Dev), echter Anthropic-Call gegen Produktions-Supabase-Projekt verifiziert
+**Tester:** QA Engineer (AI)
+
+### Scope
+Nur die Delta-Änderungen aus dem Refine: WhatsApp-Button → Copy-Button, Schreibstil-Lernen im AI-Prompt. Restliche Acceptance Criteria bereits oben (2026-06-22) verifiziert und durch Regressionslauf erneut bestätigt.
+
+### Acceptance Criteria Status
+
+#### Kopieren-Button
+- [x] Vorschlag generiert + Klick auf "Kopieren" → Text in Zwischenablage, Button-Label wechselt kurz zu "Kopiert!" (E2E mit `context.grantPermissions(['clipboard-read','clipboard-write'])`, `navigator.clipboard.readText()` verifiziert exakten Inhalt)
+- [x] Kein Vorschlag generiert → Kopieren-Button nicht vorhanden, unabhängig davon ob Telefonnummer hinterlegt ist
+- [ ] Zwischenablage nicht verfügbar/erlaubt → Fehlermeldung (`copyError`-State implementiert, code-reviewed; **nicht automatisiert getestet**, da Playwright-Permission-Denial für Clipboard nicht zuverlässig simulierbar ist — Risiko gering, reiner Fallback-Pfad)
+
+#### Schreibstil-Lernen
+- [x] ≥1 Notiz >20 Zeichen über alle Kontakte → bis zu 5 jüngste als Few-Shot-Beispiele im Prompt (Vitest: `includes style examples (>20 chars, max 5)...`, prüft `generateText`-Aufrufparameter direkt)
+- [x] Keine Notiz erfüllt Mindestlänge → Generierung läuft ohne Stilbeispiele, kein Fehler (Vitest: `generates without style examples...`)
+- [x] **Echter End-to-End-Verifikation:** Testkontakt mit Notiz "Hey du, mega cool dass wir gequatscht haben, lass uns bald wieder telen!" angelegt, echter `/api/draft-message`-Call (kein Mock) → 200, generierter Text übernahm erkennbar Tonalität/Wortwahl der Notiz ("Hey [Name], mega cool dass wir uns austauschen, lass uns bald wieder absprechen!"). Bestätigt: Supabase-Query (`.not('note','is',null)`) und Prompt-Injection funktionieren gegen echte DB/echten Anthropic-Call, kein Crash. Testdaten danach bereinigt.
+
+**5/6 Acceptance Criteria automatisiert verifiziert, 1 manuell/code-reviewed (Clipboard-Fehlerfall).**
+
+### Edge Cases Status
+- [x] Clipboard-API nicht verfügbar → Fehlermeldung statt stillem No-Op (Code-Review: `try/catch` um `navigator.clipboard.writeText`, setzt `copyError`)
+- [x] Kein Account mit Notizen >20 Zeichen → Vorschlag wird trotzdem generiert (siehe AC oben)
+
+### Security Audit Results
+- [x] Schreibstil-Query (`interactions` ohne `contactId`-Filter) bleibt durch bestehende RLS aus PROJ-1 auf `auth.uid()` beschränkt — kein expliziter User-Filter im Code nötig, gleiches Muster wie alle anderen Queries in diesem Projekt. Stichprobe: Query liefert ausschließlich Notizen des eingeloggten Test-Accounts.
+- [x] Kein neues Secret/Package — `navigator.clipboard` ist Browser-API, kein externer Code
+- [x] Keine neue Angriffsfläche durch Entfernen des WhatsApp-Buttons (reine Funktionsreduktion)
+
+### Bugs Found
+Keine neuen Bugs gefunden.
+
+### Regression Testing
+- `npm test`: 36/36 grün (34 bestehend + 2 neue für Stil-Lernen-Prompt-Logik)
+- `npm run lint`, `npm run build`: fehlerfrei
+- E2E `tests/PROJ-6-follow-up-dashboard.spec.ts`: 23/23 grün (`--workers=1`)
+- E2E Regression PROJ-3/4/5 (32 Tests, `--workers=1`): 100% grün, keine Auswirkung durch PROJ-6-Änderungen
+
+### Summary
+- **Acceptance Criteria (Delta):** 5/6 automatisiert + 1 code-reviewed, alle bestanden
+- **Bugs Found:** 0
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 - **Production URL:** https://bambi-w26q.vercel.app
