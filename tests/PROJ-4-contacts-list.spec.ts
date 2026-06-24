@@ -37,15 +37,15 @@ async function seedContacts(token: string, userId: string) {
       Prefer: 'return=minimal',
     },
     body: JSON.stringify([
-      { user_id: userId, name: 'QA4 Alpha Overdue', category: 'investor', strength: 1, next_followup_at: minus5, city: 'Berlin' },
-      { user_id: userId, name: 'QA4 Future Friend', category: 'friend', strength: 3, next_followup_at: plus10, city: 'Hamburg' },
-      { user_id: userId, name: 'QA4 NoFollowup Business', category: 'business', strength: 2, next_followup_at: null, city: null },
+      { user_id: userId, first_name: 'QA4 Alpha Overdue', category: 'investor', strength: 1, next_followup_at: minus5, city: 'Berlin' },
+      { user_id: userId, first_name: 'QA4 Future Friend', category: 'friend', strength: 3, next_followup_at: plus10, city: 'Hamburg' },
+      { user_id: userId, first_name: 'QA4 NoFollowup Business', category: 'business', strength: 2, next_followup_at: null, city: null },
     ]),
   })
 }
 
 async function cleanupContacts(token: string) {
-  await fetch(`${SUPABASE_URL}/rest/v1/contacts?name=like.QA4*`, {
+  await fetch(`${SUPABASE_URL}/rest/v1/contacts?first_name=like.QA4*`, {
     method: 'DELETE',
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
   })
@@ -160,7 +160,7 @@ test.describe.serial('PROJ-4: Kontaktliste & Filter', () => {
   test('AC10: clicking a card opens the edit form pre-filled', async ({ page }) => {
     await login(page)
     await page.getByText('QA4 Alpha Overdue').click()
-    await expect(page.getByLabel('Name')).toHaveValue('QA4 Alpha Overdue')
+    await expect(page.getByLabel('Vorname')).toHaveValue('QA4 Alpha Overdue')
     await page.getByRole('button', { name: 'Abbrechen' }).click()
   })
 })

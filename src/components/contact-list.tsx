@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Contact, CATEGORY_LABELS, STRENGTH_LABELS } from '@/lib/contacts'
+import { Contact, CATEGORY_LABELS, STRENGTH_LABELS, getFullName } from '@/lib/contacts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ContactCard } from '@/components/contact-card'
@@ -83,7 +83,7 @@ export function ContactList() {
     const term = search.trim().toLowerCase()
     const cityTerm = citySearch.trim().toLowerCase()
     return contacts
-      .filter((contact) => !term || contact.name.toLowerCase().includes(term))
+      .filter((contact) => !term || getFullName(contact).toLowerCase().includes(term))
       .filter((contact) => !cityTerm || contact.city?.toLowerCase().includes(cityTerm))
       .filter((contact) => categoryFilter === ALL || contact.category === categoryFilter)
       .filter((contact) => strengthFilter === ALL || String(contact.strength) === strengthFilter)
@@ -176,7 +176,7 @@ export function ContactList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Kontakt löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deletingContact?.name} wird unwiderruflich gelöscht.
+              {deletingContact ? getFullName(deletingContact) : ''} wird unwiderruflich gelöscht.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

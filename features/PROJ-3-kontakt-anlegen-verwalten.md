@@ -1,10 +1,13 @@
 # PROJ-3: Kontakt anlegen & verwalten
 
-## Status: Deployed
+## Status: Approved
 **Created:** 2026-06-19
-**Last Updated:** 2026-06-22 (Deploy: Stadt + Telefonnummer live)
+**Last Updated:** 2026-06-24 (Refine: `name` → `first_name`+`last_name` aufgesplittet, Arbeitgeber/Jobtitel/E-Mail ergänzt — Re-Implementierung nötig)
 
 ## Implementation Notes
+- **Update 2026-06-24 (Refine: Namens-Split + Arbeitgeber/Jobtitel/E-Mail):** Migration `split_name_add_employer_jobtitle_email` (live auf Supabase-Projekt angewendet via MCP) — `name` ersetzt durch `first_name`(NOT NULL)+`last_name`(nullable), neue Spalten `employer`/`job_title`/`email`. Backfill der 2 bestehenden Produktionskontakte verifiziert (beide Einwort-Namen, korrekt nach `first_name` übernommen, `last_name` null). `src/lib/contacts.ts`: `Contact`-Interface aktualisiert, neue `getFullName(contact)`-Helper-Funktion. Alle `contact.name`-Konsumenten umgestellt: `contact-card.tsx`, `contact-list.tsx` (Suche + Löschen-Dialog), `interaction-log-sheet.tsx`, `occasion-card.tsx` (Titel + beide Kalender-Link-Titel), `/api/draft-message/route.ts` (nutzt `first_name` direkt für natürliche Anrede "Hey Anna" statt Vollname). `contact-form-dialog.tsx`: Schema/defaultValues/reset/payload + 3 neue Formularfelder (Arbeitgeber, Jobtitel, E-Mail) zwischen Beziehungsstärke und Kontext.
+  - **Bug gefunden + gefixt:** `type="email"` auf dem E-Mail-Input löste native Browser-Constraint-Validation aus, die den Formular-Submit abfing bevor Zod lief (identisches Muster zu PROJ-5 BUG-1 mit `type="date"`/`max`) — Zod-Fehlermeldung "Ungültige E-Mail-Adresse" erschien nie. Fix: `type="text"` statt `type="email"`, Zod `.email()` validiert allein.
+  - E2E-Suite über PROJ-3/4/5/6/8 (69 Tests) komplett auf `first_name` umgestellt (`getByLabel('Name')` → `getByLabel('Vorname')`, `seedContact`-Helper/Cleanup-Queries von `name` auf `first_name`), 4 neue Tests für Nachname-optional/Arbeitgeber+Jobtitel/E-Mail/ungültige E-Mail ergänzt
 - **Erweiterung 2026-06-22:** Migration `add_city_and_phone_to_contacts` (Supabase) — 2 neue nullable Spalten `city`, `phone` auf `contacts`. `Contact`-Interface, `contact-form-dialog.tsx` (Schema, defaultValues, reset, payload) und Formular-UI um beide Felder ergänzt. Kein Format-Constraint, freier Text wie spezifiziert.
 - `src/lib/contacts.ts`: Typen + Label-Mappings für Category/Strength, Follow-up-Default-Tabelle
 - `src/components/contact-form-dialog.tsx`: Ein Dialog-Formular für Create+Edit, react-hook-form+Zod, Follow-up-Intervall "sticky" sobald manuell bearbeitet (via `dirtyFields`)
@@ -19,7 +22,10 @@
 - PROJ-2 (Auth Login) — Nutzer muss eingeloggt sein, `user_id = auth.uid()`
 
 ## User Stories
-- Als Nutzer möchte ich einen neuen Kontakt mit nur dem Namen anlegen können, damit ich ihn in unter einer Minute erfassen kann, ohne sofort alle Details zu kennen
+- Als Nutzer möchte ich einen neuen Kontakt mit nur dem Vornamen anlegen können, damit ich ihn in unter einer Minute erfassen kann, ohne sofort alle Details zu kennen
+- Als Nutzer möchte ich optional einen Nachnamen erfassen können, damit ich Kontakte mit gleichem Vornamen unterscheiden und förmlicher referenzieren kann, wenn ich den Nachnamen kenne
+- Als Nutzer möchte ich Arbeitgeber und Jobtitel erfassen können, damit ich weiß, wo/wie ich jemanden beruflich einordnen und ansprechen kann
+- Als Nutzer möchte ich eine E-Mail-Adresse erfassen können, damit ich einen zweiten Kontaktweg habe, falls keine Telefonnummer vorliegt (z.B. bei Business-Kontakten)
 - Als Nutzer möchte ich beim Anlegen optional auch Kategorie, Beziehungsstärke, Kontext, Notizen, Stadt und Telefonnummer direkt mit erfassen können, damit ich den Kontakt sofort vollständig einsortieren kann, wenn ich Zeit habe
 - Als Nutzer möchte ich die Stadt eines Kontakts erfassen können, damit ich später danach filtern kann (z.B. wer in Berlin ist, wenn ich dort bin)
 - Als Nutzer möchte ich eine Telefonnummer erfassen können, damit ich später direkt aus der App heraus eine WhatsApp-Nachricht vorbereiten kann
@@ -28,7 +34,7 @@
 - Als Nutzer möchte ich vor dem Löschen eine Bestätigung sehen, damit ich nicht versehentlich einen Kontakt samt Verlauf verliere
 
 ## Out of Scope
-- Kein separates Quick-Add-Mini-Formular — es gibt nur EIN Formular (Erstellen + Bearbeiten), alle Felder sichtbar, nur Name Pflicht
+- Kein separates Quick-Add-Mini-Formular — es gibt nur EIN Formular (Erstellen + Bearbeiten), alle Felder sichtbar, nur Vorname Pflicht
 - Kontaktliste mit Filtern, Suche, Sortierung, Kartenansicht — eigenes Feature PROJ-4, hier nur eine schlichte, unstylische Übergangsliste (Name + Bearbeiten/Löschen) als Trägerin für CRUD-Tests
 - Interaktions-Log (Kontaktmomente protokollieren) — eigenes Feature PROJ-5
 - Foto-Upload — eigenes Feature PROJ-7, `photo_url`-Feld existiert im Schema, bleibt hier ungenutzt/leer
@@ -37,12 +43,20 @@
 - Undo nach Löschen — Bestätigungsdialog reicht als Schutz, kein Soft-Delete/Wiederherstellen
 - Telefonnummer-Format-Validierung (E.164, Ländervorwahl-Zwang etc.) — freier Text, Normalisierung passiert erst bei Bedarf in PROJ-6 (WhatsApp-Link)
 - Stadt-Autocomplete/Geo-Lookup — freier Text wie das Kontext-Feld, keine Ortsdatenbank-Anbindung
+- Weitere Profilfelder (LinkedIn-Link, "wie kennengelernt", Geburtsort, Adresse) — bewusst nicht als eigene Felder, das bestehende freie "Kontext"-Feld deckt das ab, sonst bläht sich das Formular auf und verletzt das Quick-Add-Ziel (Refine-Entscheidung 2026-06-24)
+- E-Mail-Format-Validierung über Standard-`Zod .email()` hinaus (z.B. MX-Record-Check, Verifizierungs-Mail) — reine Syntax-Validierung reicht für ein persönliches Adressbuch
 
 ## Acceptance Criteria
 
-- [ ] Angenommen der Nutzer ist eingeloggt, wenn er das Formular nur mit Name ausfüllt und speichert, dann wird der Kontakt mit allen anderen Feldern leer/Default angelegt
-- [ ] Angenommen der Nutzer ist eingeloggt, wenn er das Formular mit Name, Kategorie, Beziehungsstärke, Kontext und Notizen ausfüllt und speichert, dann werden alle Werte korrekt gespeichert
-- [ ] Angenommen der Nutzer lässt das Namensfeld leer, wenn er speichern will, dann wird eine Validierungsfehlermeldung angezeigt und der Kontakt wird nicht angelegt
+- [ ] Angenommen der Nutzer ist eingeloggt, wenn er das Formular nur mit Vorname ausfüllt und speichert, dann wird der Kontakt mit allen anderen Feldern leer/Default angelegt
+- [ ] Angenommen der Nutzer ist eingeloggt, wenn er das Formular mit Vorname, Nachname, Kategorie, Beziehungsstärke, Kontext und Notizen ausfüllt und speichert, dann werden alle Werte korrekt gespeichert
+- [ ] Angenommen der Nutzer lässt das Vorname-Feld leer, wenn er speichern will, dann wird eine Validierungsfehlermeldung angezeigt und der Kontakt wird nicht angelegt
+- [ ] Angenommen der Nutzer lässt das Nachname-Feld leer, wenn er speichert, dann wird der Kontakt trotzdem angelegt (optional, kein Pflichtfeld)
+- [ ] Angenommen der Nutzer trägt Arbeitgeber und/oder Jobtitel ein, wenn er speichert, dann werden beide Werte korrekt gespeichert und beim erneuten Öffnen vorausgefüllt angezeigt
+- [ ] Angenommen der Nutzer lässt Arbeitgeber und/oder Jobtitel leer, wenn er speichert, dann wird der Kontakt trotzdem angelegt (beide Felder optional)
+- [ ] Angenommen der Nutzer trägt eine E-Mail-Adresse ein, wenn er speichert, dann wird sie korrekt gespeichert und beim erneuten Öffnen vorausgefüllt angezeigt
+- [ ] Angenommen der Nutzer trägt eine syntaktisch ungültige E-Mail-Adresse ein (z.B. ohne `@`), wenn er speichern will, dann wird eine Validierungsfehlermeldung angezeigt und der Kontakt wird nicht angelegt
+- [ ] Angenommen der Nutzer lässt das E-Mail-Feld leer, wenn er speichert, dann wird der Kontakt trotzdem angelegt (optional, kein Pflichtfeld)
 - [ ] Angenommen ein Kontakt wird ohne explizite Beziehungsstärke angelegt, wenn er gespeichert wird, dann bleibt das Follow-up-Intervall leer/null (kein automatischer Default ohne gewählte Stärke)
 - [ ] Angenommen eine Beziehungsstärke wird gewählt (Kern/Mittel/Locker), wenn der Kontakt gespeichert wird, dann wird `followup_interval_days` automatisch auf 14/30/90 gesetzt, sofern der Nutzer das Intervall nicht manuell überschrieben hat
 - [ ] Angenommen ein Kontakt existiert, wenn der Nutzer ihn in der Übergangsliste anklickt/auf "Bearbeiten" klickt, dann öffnet sich das Formular vorausgefüllt mit den aktuellen Werten
@@ -57,18 +71,22 @@
 - [ ] Angenommen eine Telefonnummer enthält Leerzeichen, Klammern, `+` oder Bindestriche, wenn sie gespeichert wird, dann wird sie unverändert als Text übernommen (keine Format-Validierung)
 
 ## Edge Cases
-- Zwei Kontakte mit identischem Namen → erlaubt, keine Warnung
+- Zwei Kontakte mit identischem Vorname+Nachname → erlaubt, keine Warnung
 - Nutzer ändert Beziehungsstärke nachträglich → `followup_interval_days` wird nur automatisch neu gesetzt, wenn der Nutzer das Intervall vorher nicht manuell überschrieben hat (sonst bleibt manueller Wert erhalten)
-- Sehr langer Name/Notiz-Text → Name max. 200 Zeichen, Notizen max. 2000 Zeichen, Validierungsfehler bei Überschreitung
+- Sehr langer Vorname/Nachname/Notiz-Text → Vor-/Nachname je max. 100 Zeichen, Notizen max. 2000 Zeichen, Validierungsfehler bei Überschreitung
 - Löschen eines Kontakts mit bereits protokollierten Interactions (sobald PROJ-5 existiert) → Cascade-Delete entfernt diese mit, Bestätigungsdialog warnt nicht explizit davor (Out of Scope: detaillierte Warnung über Anzahl betroffener Interactions)
 - Doppelter Klick auf "Speichern" während Request läuft → Button disabled (Loading-State), kein doppelter Insert
-- Whitespace-only Name (nur Leerzeichen) → wird wie leeres Feld behandelt, Validierungsfehler
+- Whitespace-only Vorname (nur Leerzeichen) → wird wie leeres Feld behandelt, Validierungsfehler
 - Telefonnummer in beliebigem Format (international, mit/ohne Leerzeichen) → wird als Freitext gespeichert, keine Normalisierung in PROJ-3 (passiert erst bei Verwendung in PROJ-6)
 - Zwei Kontakte in derselben Stadt → erlaubt, keine Einzigartigkeits-Logik nötig (Stadt ist reines Filter-/Info-Feld)
+- Nachname mit Mehrfach-Bestandteilen ("von Mustermann", "García López") → wird als Freitext im `last_name`-Feld gespeichert, keine Parsing-Logik (Nutzer trägt selbst ein, was er als Nachname versteht)
+- Bestehender Kontakt (vor Migration) mit mehrteiligem `name` (z.B. "Anna Maria Schmidt") → Migration spaltet am ersten Leerzeichen: `first_name="Anna"`, `last_name="Maria Schmidt"` — kann bei Mehrfach-Vornamen ungenau sein, Nutzer kann nach Migration einmalig manuell korrigieren (keine automatische Erkennung von Vor- vs. Nachnamen)
 
 ## Technical Requirements
 - Security: RLS bereits aktiv seit PROJ-1 — kein zusätzlicher App-seitiger Check nötig, aber Frontend darf nie eine `user_id` aus Client-Eingabe übernehmen, immer `auth.uid()` serverseitig/durch RLS erzwingen lassen
-- Validierung: Name Pflichtfeld, 1–200 Zeichen (getrimmt); Notizen optional, max. 2000 Zeichen; Kontext optional, max. 500 Zeichen; Stadt optional, max. 100 Zeichen; Telefonnummer optional, max. 30 Zeichen, kein Format-Constraint
+- Validierung: Vorname Pflichtfeld, 1–100 Zeichen (getrimmt); Nachname optional, max. 100 Zeichen; Notizen optional, max. 2000 Zeichen; Kontext optional, max. 500 Zeichen; Stadt optional, max. 100 Zeichen; Telefonnummer optional, max. 30 Zeichen, kein Format-Constraint; Arbeitgeber optional, max. 100 Zeichen; Jobtitel optional, max. 100 Zeichen; E-Mail optional, max. 200 Zeichen, Syntax-Validierung via `Zod .email()` wenn ausgefüllt
+- Migration: bestehende `name`-Spalte wird durch `first_name`/`last_name` ersetzt. Einmaliges Daten-Backfill spaltet vorhandene Werte am ersten Leerzeichen (erstes Wort → `first_name`, Rest → `last_name`, falls vorhanden)
+- Cross-Feature-Impact: `name`-Konsumenten müssen auf eine zentrale `getFullName(contact)`-Helper-Funktion (`src/lib/contacts.ts`) umgestellt werden — betrifft mind. `contact-card.tsx`, `contact-list.tsx`, `occasion-card.tsx` (PROJ-6), `/api/draft-message/route.ts` (PROJ-6, AI-Prompt + Kalender-Link-Titel). PROJ-4-Namenssuche muss auf `first_name`+`last_name` (kombiniert) erweitert werden
 
 ## Open Questions
 _Keine offenen Fragen — siehe Decision Log._
@@ -88,6 +106,11 @@ _Keine offenen Fragen — siehe Decision Log._
 | Stadt + Telefonnummer als neue optionale Felder ergänzt | Voraussetzung für geplante Folge-Features: PROJ-4 Stadt-Filter, PROJ-6 WhatsApp-Link (`wa.me`). Beziehungsstärke/Follow-up-Intervall (Tier-Konzept) existierten bereits, kein Rework nötig | 2026-06-22 |
 | Telefonnummer ohne Format-Validierung (freier Text) | Internationale Formate variieren stark, Normalisierung für `wa.me`-Link erst bei tatsächlicher Verwendung in PROJ-6 nötig — vermeidet verfrühte/falsche Validierungsregeln | 2026-06-22 |
 | Stadt ohne Autocomplete/Geo-Lookup (freier Text wie Kontext-Feld) | Kein Mehrwert ggü. Aufwand für ein einzelnes Filter-Feld, passt zum "so einfach wie möglich"-Prinzip | 2026-06-22 |
+| `name` ersetzt durch `first_name` (Pflicht) + `last_name` (optional) | Nutzerwunsch im Refine; bei persönlichem Netzwerk oft nur Vorname bekannt — Nachname-Pflicht würde Quick-Add-Ziel verletzen | 2026-06-24 |
+| Arbeitgeber + Jobtitel als Paar ergänzt (beide optional) | Arbeitgeber allein sagt wenig ohne Rolle — beide zusammen liefern den eigentlichen Mehrwert für Gesprächsvorbereitung/Ansprache | 2026-06-24 |
+| E-Mail-Adresse ergänzt (optional, mit `Zod .email()`-Syntaxvalidierung) | Zweiter Standard-Kontaktweg neben Telefon, oft einziger Kanal bei Business-Kontakten. Im Gegensatz zu Telefon (viele internationale Freitext-Formate) hat E-Mail ein eindeutiges, günstig validierbares Format — Validierung daher hier sinnvoll, anders als bei Telefon/Stadt | 2026-06-24 |
+| Keine weiteren neuen Felder (LinkedIn, "wie kennengelernt", Geburtsort, Adresse) | Bestehendes Kontext-Feld deckt das bereits ab, zusätzliche dedizierte Felder würden das Formular aufblähen ohne klaren Mehrwert ggü. Freitext | 2026-06-24 |
+| Migration bestehender `name`-Werte: Split am ersten Leerzeichen (erstes Wort → `first_name`, Rest → `last_name`) | Pragmatischer Kompromiss für echte Produktionsdaten — nicht 100% korrekt bei Mehrfach-Vornamen, aber besser als alles in `first_name` zu packen (würde Liste komplett auf Vornamen reduzieren); Nutzer kann betroffene Kontakte danach einmalig manuell korrigieren | 2026-06-24 |
 
 ### Technical Decisions
 | Decision | Rationale | Date |
@@ -95,6 +118,8 @@ _Keine offenen Fragen — siehe Decision Log._
 | Direkter Supabase-Client-Zugriff, keine API-Route | RLS aus PROJ-1 erzwingt Ownership bereits serverseitig, zusätzliche API-Schicht wäre redundant | 2026-06-19 |
 | Ein Formular für Create + Edit | Identische Felder/Validierung, kein Duplizieren von Logik | 2026-06-19 |
 | Follow-up-Intervall: Auto-Default bei Stärke-Auswahl, aber "sticky" sobald manuell bearbeitet | Verhindert Verlust eines bewusst gewählten eigenen Werts bei späterer Stärke-Änderung | 2026-06-19 |
+| Eine atomare Migration (Spalten hinzufügen + Backfill + `name` löschen) statt Übergangszustand mit beiden Spalten | Solo-Projekt ohne Zero-Downtime-Anforderung — ein kurzer koordinierter Deploy ist einfacher als doppelte Schreiblogik für eine Übergangsphase zu pflegen, vermeidet Backwards-Compat-Code für eine Spalte, die ohnehin sofort verschwindet | 2026-06-24 |
+| Zentrale `getFullName(contact)`-Helper-Funktion statt Konkatenation an jeder Verwendungsstelle | Single Source of Truth fürs Zusammensetzen des Anzeigenamens (z.B. Leerzeichen-Handling wenn `last_name` leer ist) — verhindert Inkonsistenzen zwischen Kontaktliste, AI-Prompt, Kalender-Link | 2026-06-24 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -107,9 +132,13 @@ _Keine offenen Fragen — siehe Decision Log._
 / (Platzhalter-Startseite, erweitert um Übergangsliste)
 ├── "Kontakt hinzufügen"-Button
 ├── Kontakt-Formular (Dialog, dient Create UND Edit)
-│   ├── Name-Feld (Pflicht)
+│   ├── Vorname-Feld (Pflicht)
+│   ├── Nachname-Feld (optional)
 │   ├── Kategorie-Auswahl (Business/Investor/Community/Freund/Bekannter)
 │   ├── Beziehungsstärke-Auswahl (Kern/Mittel/Locker)
+│   ├── Arbeitgeber-Feld (optional, Freitext)
+│   ├── Jobtitel-Feld (optional, Freitext)
+│   ├── E-Mail-Feld (optional, Format-validiert)
 │   ├── Kontext-Feld
 │   ├── Notizen-Feld (mehrzeilig)
 │   ├── Follow-up-Intervall (Tage) — automatisch befüllt je Stärke, manuell überschreibbar
@@ -117,7 +146,7 @@ _Keine offenen Fragen — siehe Decision Log._
 │   ├── Telefonnummer-Feld (optional, Freitext)
 │   └── Speichern- / Abbrechen-Button
 ├── Übergangsliste (schlicht, ohne Design-Anspruch)
-│   ├── Pro Zeile: Name, "Bearbeiten"-Button, "Löschen"-Button
+│   ├── Pro Zeile: Vollname (Vorname + Nachname), "Bearbeiten"-Button, "Löschen"-Button
 │   └── Empty State ("Noch keine Kontakte" + Hinzufügen-Button)
 └── Löschen-Bestätigung (AlertDialog)
 ```
@@ -125,6 +154,12 @@ _Keine offenen Fragen — siehe Decision Log._
 ### Data Model (plain language)
 
 `contacts` existiert bereits seit PROJ-1 (Name, Kategorie, Stärke, Kontext, Notizen, Follow-up-Intervall, Zeitstempel). Für diese Erweiterung kommen 2 neue Spalten dazu: `city` (text, nullable) und `phone` (text, nullable) — beide ohne Constraint, Migration analog zum bestehenden Schema-Pattern aus PROJ-1.
+
+### Update 2026-06-24 (Refine): Namens-Split + Arbeitgeber/Jobtitel/E-Mail
+
+`name` (text, NOT NULL) wird ersetzt durch `first_name` (text, NOT NULL) + `last_name` (text, nullable). Zusätzlich 3 neue nullable Spalten: `employer`, `job_title`, `email` (alle text, kein Constraint außer App-seitiger E-Mail-Syntaxvalidierung).
+
+Eine Migration, drei Schritte in derselben Transaktion: (1) neue Spalten hinzufügen, (2) Backfill `first_name`/`last_name` aus bestehendem `name` per Split am ersten Leerzeichen für alle bestehenden Zeilen, (3) alte `name`-Spalte löschen. Kein Übergangszustand mit beiden Spalten parallel — Backend-Implementierung stellt im selben Schritt alle Code-Stellen um, die bisher `name` gelesen/geschrieben haben. Eine zentrale `getFullName(contact)`-Helper-Funktion in `src/lib/contacts.ts` ersetzt jede direkte Nutzung von `contact.name` im restlichen Code (PROJ-4 Suche, PROJ-6 AI-Prompt/Kalender-Link, Kontaktliste).
 
 ### Tech Decisions (justified)
 
@@ -196,6 +231,72 @@ Keine neuen Packages — `react-hook-form`, `zod`, `@hookform/resolvers`, `@supa
   - Einzelne Cleanup-Schritte in Tests, die nicht auf die Delete-Response warten, können vor Abschluss des Requests beendet werden — Test-Hygiene-Punkt, kein Produktbug (Produkt-Delete mehrfach isoliert mit Netzwerk-Logging verifiziert: 204, Zeile korrekt entfernt)
 
 ### Production-Ready: **YES**
+
+## QA Test Results — Refine 2026-06-24 (Vorname/Nachname + Arbeitgeber/Jobtitel/E-Mail)
+
+**Tested:** 2026-06-24
+**Tester:** QA Engineer (AI)
+
+### Scope
+Nur die Delta-Änderungen: Namens-Split (`name` → `first_name`+`last_name`), neue Felder Arbeitgeber/Jobtitel/E-Mail, Migration bestehender Produktionsdaten. Restliche Acceptance Criteria bereits oben (2026-06-19/22) verifiziert und durch vollen Regressionslauf erneut bestätigt.
+
+### Acceptance Criteria Status (Delta)
+- [x] Nur Vorname ausgefüllt → Kontakt mit leeren/Default-Restfeldern angelegt
+- [x] Vorname Pflicht — leer lassen → Validierungsfehler "Vorname ist erforderlich", kein Insert
+- [x] Nachname optional — leer lassen → Kontakt speichert trotzdem
+- [x] Arbeitgeber + Jobtitel gespeichert, beim Re-Open vorausgefüllt
+- [x] Arbeitgeber/Jobtitel optional — leer lassen → Kontakt speichert trotzdem
+- [x] E-Mail gespeichert, beim Re-Open vorausgefüllt
+- [x] Ungültige E-Mail → Validierungsfehler "Ungültige E-Mail-Adresse", kein Insert — **BUG-5 gefunden + gefixt, siehe unten**
+- [x] E-Mail optional — leer lassen → Kontakt speichert trotzdem
+
+**8/8 Delta-Acceptance-Criteria passed** (nach Bugfix).
+
+### Migration Verification (Produktionsdaten)
+- Migration `split_name_add_employer_jobtitle_email` direkt auf Live-Projekt (`srxatexcffjebolqttaq`) angewendet (einzige Umgebung, kein separates Staging)
+- Beide bestehenden Produktionskontakte vor/nach Migration verglichen: beide Einwort-Namen ("Shamal", "Yisa") korrekt zu `first_name` übernommen, `last_name` = `null` wie erwartet (kein Leerzeichen im Original-Namen)
+- `employer`/`job_title`/`email` für beide bestehenden Kontakte korrekt `null` (kein Datenverlust, keine falschen Defaults)
+- Supabase Security Advisors nach Migration erneut geprüft: keine neuen Findings, nur vorbestehender, projektunabhängiger Leaked-Password-Hinweis
+
+### Cross-Feature Regression (Namens-Konsumenten)
+Alle Stellen, die vorher `contact.name` lasen, wurden auf `getFullName(contact)` umgestellt und einzeln regressionsgetestet:
+- [x] Kontaktliste: Anzeige + Suche (`getFullName`) — PROJ-4 AC1/AC7
+- [x] Löschen-Bestätigungsdialog zeigt korrekten Namen — PROJ-3
+- [x] Interaktions-Log-Sheet-Titel ("Verlauf: [Name]") — PROJ-5
+- [x] Dashboard-Karten-Titel + beide Kalender-Link-Titel (Follow-up/Geburtstag) — PROJ-6
+- [x] AI-Nachrichtenvorschlag adressiert mit `first_name` (natürlicher als Vollname in einer "Hey Anna"-Nachricht) — PROJ-6
+
+### Security Audit
+- [x] Keine neue Angriffsfläche durch `employer`/`job_title`/`email` — gleiche Tabelle, gleiche RLS-Policy wie bestehende Freitext-Felder (Stadt/Telefon/Notizen), gleiches React-Text-Rendering (kein `dangerouslySetInnerHTML`)
+- [x] RLS-Cross-User-Isolation unverändert wirksam (keine Policy-Änderung durch diese Migration, strukturell verifiziert + Advisors clean)
+- [x] E-Mail-Feld: Eingabe von `<script>`/SQL-Payload als E-Mail wird von `Zod .email()` bereits als ungültig abgelehnt, bevor sie die Datenbank erreicht
+
+### Bugs Found
+
+#### BUG-5: Natives `type="email"` blockiert Zod-Validierung — FIXED
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Kontakt-Formular öffnen, Vorname ausfüllen, bei E-Mail `not-an-email` eintragen, Speichern klicken
+  2. Expected: Zod-Fehlermeldung "Ungültige E-Mail-Adresse" erscheint, kein Insert
+  3. Actual (vor Fix): Browser-native HTML5-Constraint-Validation des `<Input type="email">` fängt den Submit ab, bevor react-hook-form/Zod überhaupt laufen — identisches Muster zu PROJ-5 BUG-1 (`type="date"`+`max`-Attribut)
+- **Fix:** `type="email"` → `type="text"` in `contact-form-dialog.tsx`, Zod `.email()` validiert jetzt alleine. E2E-Test "AC: invalid email shows validation error..." verifiziert.
+- **Priority:** Fixed before deployment
+
+**Keine offenen Bugs.**
+
+### Regression Testing
+- `npm test`: 36/36 grün
+- `npm run lint`, `npm run build`: fehlerfrei
+- E2E PROJ-3 (16 Tests, inkl. 4 neue für Delta): 16/16 grün
+- E2E Regression PROJ-4 (11), PROJ-5 (9), PROJ-6 (23), PROJ-8 (9): 52/52 grün — alle `--workers=1`, alle Namens-Konsumenten betroffen, keine Regression
+- **Gesamt E2E:** 69/69 grün
+
+### Summary
+- **Acceptance Criteria (Delta):** 8/8 passed
+- **Bugs Found:** 1 total (0 critical, 0 high, 1 medium — gefixt)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 **Date:** 2026-06-19

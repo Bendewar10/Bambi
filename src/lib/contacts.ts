@@ -23,9 +23,13 @@ export const STRENGTH_DEFAULT_INTERVAL_DAYS: Record<Strength, number> = {
 
 export interface Contact {
   id: string
-  name: string
+  first_name: string
+  last_name: string | null
   category: Category | null
   strength: Strength | null
+  employer: string | null
+  job_title: string | null
+  email: string | null
   context: string | null
   notes: string | null
   city: string | null
@@ -35,4 +39,8 @@ export interface Contact {
   last_contacted_at: string | null
   next_followup_at: string | null
   created_at: string
+}
+
+export function getFullName(contact: Pick<Contact, 'first_name' | 'last_name'>) {
+  return contact.last_name ? `${contact.first_name} ${contact.last_name}` : contact.first_name
 }

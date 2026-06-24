@@ -46,9 +46,15 @@ function today() {
 }
 
 const contactSchema = z.object({
-  name: z.string().trim().min(1, 'Name ist erforderlich').max(200, 'Max. 200 Zeichen'),
+  first_name: z.string().trim().min(1, 'Vorname ist erforderlich').max(100, 'Max. 100 Zeichen'),
+  last_name: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
   category: z.enum(['business', 'investor', 'community', 'friend', 'acquaintance']).optional(),
   strength: z.enum(['1', '2', '3']).optional(),
+  employer: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
+  job_title: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
+  email: z
+    .union([z.literal(''), z.string().trim().max(200, 'Max. 200 Zeichen').email('Ungültige E-Mail-Adresse')])
+    .optional(),
   context: z.string().trim().max(500, 'Max. 500 Zeichen').optional(),
   notes: z.string().trim().max(2000, 'Max. 2000 Zeichen').optional(),
   city: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
@@ -76,9 +82,13 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
   const form = useForm<ContactFormValues>({
     resolver: zodResolver(contactSchema),
     defaultValues: {
-      name: '',
+      first_name: '',
+      last_name: '',
       category: undefined,
       strength: undefined,
+      employer: '',
+      job_title: '',
+      email: '',
       context: '',
       notes: '',
       city: '',
@@ -92,9 +102,13 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
     if (open) {
       setSubmitError(null)
       form.reset({
-        name: contact?.name ?? '',
+        first_name: contact?.first_name ?? '',
+        last_name: contact?.last_name ?? '',
         category: (contact?.category as Category) ?? undefined,
         strength: contact?.strength ? (String(contact.strength) as '1' | '2' | '3') : undefined,
+        employer: contact?.employer ?? '',
+        job_title: contact?.job_title ?? '',
+        email: contact?.email ?? '',
         context: contact?.context ?? '',
         notes: contact?.notes ?? '',
         city: contact?.city ?? '',
@@ -122,9 +136,13 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
 
     try {
       const payload = {
-        name: values.name,
+        first_name: values.first_name,
+        last_name: values.last_name || null,
         category: values.category ?? null,
         strength: values.strength ? Number(values.strength) : null,
+        employer: values.employer || null,
+        job_title: values.job_title || null,
+        email: values.email || null,
         context: values.context || null,
         notes: values.notes || null,
         city: values.city || null,
@@ -181,10 +199,24 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
 
             <FormField
               control={form.control}
-              name="name"
+              name="first_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Vorname</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="last_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nachname</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -238,6 +270,48 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="employer"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Arbeitgeber</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="job_title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Jobtitel</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>E-Mail</FormLabel>
+                  <FormControl>
+                    <Input type="text" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

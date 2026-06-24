@@ -30,11 +30,11 @@ async function deleteContact(page: Page, name: string) {
 }
 
 test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
-  test('AC1: only Name filled creates contact with other fields empty/default', async ({ page }) => {
+  test('AC1: only Vorname filled creates contact with other fields empty/default', async ({ page }) => {
     await login(page)
     const name = uniqueName('AC1')
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
@@ -45,7 +45,7 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await login(page)
     const name = uniqueName('AC2')
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByLabel('Kategorie').click()
     await page.getByRole('option', { name: 'Freund' }).click()
     await page.getByLabel('Beziehungsstärke').click()
@@ -65,11 +65,11 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await deleteContact(page, name)
   })
 
-  test('AC3: empty Name shows validation error, contact not created', async ({ page }) => {
+  test('AC3: empty Vorname shows validation error, contact not created', async ({ page }) => {
     await login(page)
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
     await page.getByRole('button', { name: 'Speichern' }).click()
-    await expect(page.getByText('Name ist erforderlich')).toBeVisible()
+    await expect(page.getByText('Vorname ist erforderlich')).toBeVisible()
     await page.getByRole('button', { name: 'Abbrechen' }).click()
   })
 
@@ -77,7 +77,7 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await login(page)
     const name = uniqueName('AC4')
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
@@ -92,7 +92,7 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await login(page)
     const name = uniqueName('AC5')
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByLabel('Beziehungsstärke').click()
     await page.getByRole('option', { name: 'Locker' }).click()
     await expect(page.getByLabel('Follow-up-Intervall (Tage)')).toHaveValue('90')
@@ -106,7 +106,7 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await login(page)
     const name = uniqueName('AC5b')
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByLabel('Beziehungsstärke').click()
     await page.getByRole('option', { name: 'Kern' }).click()
     await page.getByLabel('Follow-up-Intervall (Tage)').fill('7')
@@ -121,13 +121,13 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     const name = uniqueName('AC6')
     const renamed = `${name}-renamed`
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
     await page.getByText(name, { exact: true }).click()
-    await expect(page.getByLabel('Name')).toHaveValue(name)
-    await page.getByLabel('Name').fill(renamed)
+    await expect(page.getByLabel('Vorname')).toHaveValue(name)
+    await page.getByLabel('Vorname').fill(renamed)
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(renamed)).toBeVisible()
 
@@ -138,7 +138,7 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await login(page)
     const name = uniqueName('AC8')
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
@@ -168,7 +168,7 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await login(page)
     const name = uniqueName('AC-City')
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByLabel('Stadt').fill('Berlin')
     await page.getByLabel('Telefonnummer').fill('+49 170 1234567')
     await page.getByRole('button', { name: 'Speichern' }).click()
@@ -186,7 +186,7 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await login(page)
     const name = uniqueName('AC-NoCity')
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
@@ -198,15 +198,76 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await deleteContact(page, name)
   })
 
+  test('AC: last name is optional, contact saves without it', async ({ page }) => {
+    await login(page)
+    const name = uniqueName('AC-NoLastName')
+    await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
+    await page.getByLabel('Vorname').fill(name)
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText(name)).toBeVisible()
+
+    await page.getByText(name, { exact: true }).click()
+    await expect(page.getByLabel('Nachname')).toHaveValue('')
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+
+    await deleteContact(page, name)
+  })
+
+  test('AC: employer and job title are saved and pre-filled on re-open', async ({ page }) => {
+    await login(page)
+    const name = uniqueName('AC-Employer')
+    await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
+    await page.getByLabel('Vorname').fill(name)
+    await page.getByLabel('Arbeitgeber').fill('Acme GmbH')
+    await page.getByLabel('Jobtitel').fill('Senior PM')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText(name)).toBeVisible()
+
+    await page.getByText(name, { exact: true }).click()
+    await expect(page.getByLabel('Arbeitgeber')).toHaveValue('Acme GmbH')
+    await expect(page.getByLabel('Jobtitel')).toHaveValue('Senior PM')
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+
+    await deleteContact(page, name)
+  })
+
+  test('AC: email is saved and pre-filled on re-open', async ({ page }) => {
+    await login(page)
+    const name = uniqueName('AC-Email')
+    await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
+    await page.getByLabel('Vorname').fill(name)
+    await page.getByLabel('E-Mail').fill('anna@example.com')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText(name)).toBeVisible()
+
+    await page.getByText(name, { exact: true }).click()
+    await expect(page.getByLabel('E-Mail')).toHaveValue('anna@example.com')
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+
+    await deleteContact(page, name)
+  })
+
+  test('AC: invalid email shows validation error, contact not created', async ({ page }) => {
+    await login(page)
+    const name = uniqueName('AC-BadEmail')
+    await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
+    await page.getByLabel('Vorname').fill(name)
+    await page.getByLabel('E-Mail').fill('not-an-email')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Ungültige E-Mail-Adresse')).toBeVisible()
+    await expect(page.getByText(name)).not.toBeVisible()
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+  })
+
   test('AC11: network failure on save shows error, keeps form values', async ({ page }) => {
     await login(page)
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
     await page.route('**/rest/v1/contacts**', (route) => route.abort('failed'))
-    await page.getByLabel('Name').fill('Network Fail Test')
+    await page.getByLabel('Vorname').fill('Network Fail Test')
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(
       page.getByText('Verbindung zu Supabase fehlgeschlagen. Bitte erneut versuchen.')
     ).toBeVisible()
-    await expect(page.getByLabel('Name')).toHaveValue('Network Fail Test')
+    await expect(page.getByLabel('Vorname')).toHaveValue('Network Fail Test')
   })
 })

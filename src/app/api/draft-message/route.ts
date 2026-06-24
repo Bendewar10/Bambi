@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   const { data: contact } = await supabase
     .from('contacts')
-    .select('name, notes, context')
+    .select('first_name, notes, context')
     .eq('id', contactId)
     .single()
 
@@ -65,10 +65,10 @@ export async function POST(request: Request) {
 
   const prompt =
     occasionType === 'birthday'
-      ? `Schreib eine sehr kurze, herzliche Geburtstagsnachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.name}. ${
+      ? `Schreib eine sehr kurze, herzliche Geburtstagsnachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.first_name}. ${
           contact.context ? `Kontext zur Person: ${contact.context}.` : ''
         }${styleInstruction}`
-      : `Schreib eine sehr kurze, lockere Nachricht (1-2 Sätze, auf Deutsch, per Du), um sich bei ${contact.name} zu melden. ${
+      : `Schreib eine sehr kurze, lockere Nachricht (1-2 Sätze, auf Deutsch, per Du), um sich bei ${contact.first_name} zu melden. ${
           recentNotes.length > 0
             ? `Letzte Notizen über frühere Kontakte: ${recentNotes.join(' / ')}.`
             : contact.context

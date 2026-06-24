@@ -39,7 +39,7 @@ async function seedContact(token: string, userId: string, name: string, fields: 
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
-    body: JSON.stringify({ user_id: userId, name, ...fields }),
+    body: JSON.stringify({ user_id: userId, first_name: name, ...fields }),
   })
   const [contact] = await res.json()
   return contact.id as string

@@ -79,7 +79,7 @@ describe('POST /api/draft-message', () => {
 
   it('returns generated text for a valid follow-up request', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    contactSingleMock.mockResolvedValue({ data: { name: 'Anna', notes: null, context: 'Sport' } })
+    contactSingleMock.mockResolvedValue({ data: { first_name: 'Anna', notes: null, context: 'Sport' } })
     generateTextMock.mockResolvedValue({ text: 'Hey Anna, lange nichts gehört!' })
 
     const res = await POST(makeRequest({ contactId: '550e8400-e29b-41d4-a716-446655440000', occasionType: 'followup' }))
@@ -91,7 +91,7 @@ describe('POST /api/draft-message', () => {
 
   it('returns 502 when the AI provider call fails', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    contactSingleMock.mockResolvedValue({ data: { name: 'Anna', notes: null, context: null } })
+    contactSingleMock.mockResolvedValue({ data: { first_name: 'Anna', notes: null, context: null } })
     generateTextMock.mockRejectedValue(new Error('provider down'))
 
     const res = await POST(makeRequest({ contactId: '550e8400-e29b-41d4-a716-446655440000', occasionType: 'birthday' }))
@@ -100,7 +100,7 @@ describe('POST /api/draft-message', () => {
 
   it('includes style examples (>20 chars, max 5) from notes across all contacts in the prompt', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    contactSingleMock.mockResolvedValue({ data: { name: 'Anna', notes: null, context: null } })
+    contactSingleMock.mockResolvedValue({ data: { first_name: 'Anna', notes: null, context: null } })
     styleNotesBuilderMock.mockResolvedValue({
       data: [
         { note: 'Kurz' },
@@ -120,7 +120,7 @@ describe('POST /api/draft-message', () => {
 
   it('generates without style examples when no note meets the minimum length', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    contactSingleMock.mockResolvedValue({ data: { name: 'Anna', notes: null, context: null } })
+    contactSingleMock.mockResolvedValue({ data: { first_name: 'Anna', notes: null, context: null } })
     styleNotesBuilderMock.mockResolvedValue({ data: [{ note: 'Kurzer Call' }] })
     generateTextMock.mockResolvedValue({ text: 'Hey Anna!' })
 

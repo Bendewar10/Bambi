@@ -1,6 +1,6 @@
 'use client'
 
-import { Contact, CATEGORY_LABELS, STRENGTH_LABELS } from '@/lib/contacts'
+import { Contact, CATEGORY_LABELS, STRENGTH_LABELS, getFullName } from '@/lib/contacts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,7 +33,7 @@ export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: Contac
       )}
     >
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
-        <CardTitle className="truncate text-base">{contact.name}</CardTitle>
+        <CardTitle className="truncate text-base">{getFullName(contact)}</CardTitle>
         <div className="flex shrink-0 gap-1">
           <Button
             variant="ghost"

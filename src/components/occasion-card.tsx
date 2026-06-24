@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ContactOccasion } from '@/lib/occasions'
 import { buildCalendarLink } from '@/lib/external-links'
+import { getFullName } from '@/lib/contacts'
 
 const BADGE_LABELS = {
   followup: 'Follow-up',
@@ -64,7 +65,7 @@ export function OccasionCard({ occasion, onLogInteraction }: OccasionCardProps) 
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
-        <CardTitle className="truncate text-base">{contact.name}</CardTitle>
+        <CardTitle className="truncate text-base">{getFullName(contact)}</CardTitle>
         <div className="flex shrink-0 gap-1">
           {badges.map((badge) => (
             <Badge key={badge} variant="secondary">
@@ -84,7 +85,7 @@ export function OccasionCard({ occasion, onLogInteraction }: OccasionCardProps) 
           {badges.includes('followup') && followupDate && (
             <Button size="sm" variant="ghost" asChild>
               <a
-                href={buildCalendarLink(`Follow-up: ${contact.name}`, followupDate)}
+                href={buildCalendarLink(`Follow-up: ${getFullName(contact)}`, followupDate)}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -95,7 +96,7 @@ export function OccasionCard({ occasion, onLogInteraction }: OccasionCardProps) 
           {badges.includes('birthday') && birthdayDate && (
             <Button size="sm" variant="ghost" asChild>
               <a
-                href={buildCalendarLink(`Geburtstag: ${contact.name}`, birthdayDate)}
+                href={buildCalendarLink(`Geburtstag: ${getFullName(contact)}`, birthdayDate)}
                 target="_blank"
                 rel="noopener noreferrer"
               >

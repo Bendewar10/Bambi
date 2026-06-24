@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { CHANNEL_LABELS, Interaction } from '@/lib/interactions'
-import { Contact } from '@/lib/contacts'
+import { Contact, getFullName } from '@/lib/contacts'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Pencil, Trash2 } from 'lucide-react'
@@ -83,7 +83,7 @@ export function InteractionLogSheet({ contact, onOpenChange }: InteractionLogShe
       <Sheet open={!!contact} onOpenChange={onOpenChange}>
         <SheetContent className="flex flex-col gap-4">
           <SheetHeader>
-            <SheetTitle>Verlauf: {contact?.name}</SheetTitle>
+            <SheetTitle>Verlauf: {contact ? getFullName(contact) : ''}</SheetTitle>
           </SheetHeader>
 
           <Button onClick={openCreate} className="mx-4">

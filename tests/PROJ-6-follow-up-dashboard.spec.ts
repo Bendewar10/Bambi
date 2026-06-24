@@ -39,14 +39,14 @@ async function seedContact(token: string, userId: string, name: string, fields: 
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
-    body: JSON.stringify({ user_id: userId, name, ...fields }),
+    body: JSON.stringify({ user_id: userId, first_name: name, ...fields }),
   })
   const [contact] = await res.json()
   return contact.id as string
 }
 
 async function cleanupContacts(token: string) {
-  await fetch(`${SUPABASE_URL}/rest/v1/contacts?name=like.QA6*`, {
+  await fetch(`${SUPABASE_URL}/rest/v1/contacts?first_name=like.QA6*`, {
     method: 'DELETE',
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
   })
@@ -342,7 +342,7 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     }).toPass({ timeout: 10000 })
 
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByLabel('Geburtstag').fill('1990-05-20')
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
@@ -361,7 +361,7 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     }).toPass({ timeout: 10000 })
 
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
   })
@@ -375,7 +375,7 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     }).toPass({ timeout: 10000 })
 
     await page.getByRole('button', { name: 'Kontakt hinzufügen' }).click()
-    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Vorname').fill(name)
     await page.getByLabel('Geburtstag').fill(isoOffset(5))
     await page.getByRole('button', { name: 'Speichern' }).click()
 

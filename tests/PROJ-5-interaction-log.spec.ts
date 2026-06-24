@@ -33,7 +33,7 @@ async function seedContact(token: string, userId: string, name: string) {
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
-    body: JSON.stringify({ user_id: userId, name, followup_interval_days: 10 }),
+    body: JSON.stringify({ user_id: userId, first_name: name, followup_interval_days: 10 }),
   })
   const [contact] = await res.json()
   return contact.id as string
@@ -66,7 +66,7 @@ async function getContact(token: string, contactId: string) {
 }
 
 async function cleanupContacts(token: string) {
-  await fetch(`${SUPABASE_URL}/rest/v1/contacts?name=like.QA5*`, {
+  await fetch(`${SUPABASE_URL}/rest/v1/contacts?first_name=like.QA5*`, {
     method: 'DELETE',
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
   })
