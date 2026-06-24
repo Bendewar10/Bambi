@@ -30,6 +30,7 @@ export interface Contact {
   employer: string | null
   job_title: string | null
   email: string | null
+  linkedin_url: string | null
   context: string | null
   notes: string | null
   city: string | null

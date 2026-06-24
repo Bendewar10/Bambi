@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { ContactCard } from '@/components/contact-card'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 import { InteractionLogSheet } from '@/components/interaction-log-sheet'
+import { LinkedInImportDialog } from '@/components/linkedin-import-dialog'
 import {
   Select,
   SelectContent,
@@ -42,6 +43,7 @@ export function ContactList() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [deletingContact, setDeletingContact] = useState<Contact | null>(null)
   const [historyContact, setHistoryContact] = useState<Contact | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   const [search, setSearch] = useState('')
   const [citySearch, setCitySearch] = useState('')
@@ -135,7 +137,10 @@ export function ContactList() {
             ))}
           </SelectContent>
         </Select>
-        <Button onClick={openCreate} className="ml-auto">
+        <Button variant="outline" onClick={() => setImportOpen(true)} className="ml-auto">
+          LinkedIn importieren
+        </Button>
+        <Button onClick={openCreate}>
           Kontakt hinzufügen
         </Button>
       </div>
@@ -189,6 +194,13 @@ export function ContactList() {
       <InteractionLogSheet
         contact={historyContact}
         onOpenChange={(open) => !open && setHistoryContact(null)}
+      />
+
+      <LinkedInImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        contacts={contacts}
+        onImported={loadContacts}
       />
     </div>
   )
