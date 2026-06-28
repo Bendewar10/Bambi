@@ -596,3 +596,11 @@ Vollständiges Delta aus Architecture+Frontend+Backend: "Diese Woche" → "Näch
 - Vercel-Build erfolgreich (47s), Deployment `Ready`, Production
 - `https://bambi-w26q.vercel.app/login` mit 200 verifiziert
 - `src/app/api/draft-message/route.ts`-Änderung (Nachname/Arbeitgeber/Jobtitel/Stadt/Kategorie/Stärke als Prompt-Kontext) ging mit diesem Deploy live, war vor Deploy nicht separat QA-getestet (Nutzerentscheidung: "Beides deployen")
+
+### Update 2026-06-28 (Refine: 14-Tage-Vorschau + "Kürzlich erkannt" + BUG-5/BUG-6 Fixes)
+- Commit `6d3c3b2` gepusht zu `origin/main` (enthält Architecture/Frontend/Backend/QA-Commits dieses Refines plus die beiden Bugfixes)
+- Vercel-Build erfolgreich (44s), Deployment `Ready`, Production: `https://bambi-w26q-6fhi097qo-bendewar10s-projects.vercel.app`
+- `https://bambi-w26q.vercel.app/login` → 200, `/dashboard` unauthentifiziert → 307 (Auth-Gate funktioniert)
+- **In Produktion verifiziert (echter Browser-Lauf gegen Live-URL, nicht nur Dev):** kein horizontaler Overflow mehr bei 375px (`scrollWidth` = 375, BUG-6-Fix bestätigt live)
+- `contact_events`-RLS-Fix (BUG-5) wirkt direkt auf Datenbank-Ebene, unabhängig vom Deployment — bereits vor diesem Deploy live und verifiziert
+- Tag `v1.11.0-PROJ-6`

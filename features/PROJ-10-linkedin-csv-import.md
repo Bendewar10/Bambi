@@ -374,3 +374,9 @@ Keine Bugs gefunden.
 - Vercel-Build erfolgreich (47s), Deployment `Ready`, Production
 - **Production URL:** https://bambi-w26q.vercel.app
 - `https://bambi-w26q.vercel.app/login` mit 200 verifiziert
+
+### Persistenz-Deploy (2026-06-28, Nachmittag — gemeinsam mit PROJ-6)
+- Migration `create_contact_events` + `fix_contact_events_insert_ownership` auf Live-Projekt angewendet (siehe PROJ-6-Spec)
+- Commit `6d3c3b2` gepusht zu `origin/main`, Tag `v1.11.0-PROJ-6` (PROJ-10s Import-Insert-Logik ist Teil dieses gemeinsamen Deploys, kein eigener Tag)
+- Vercel-Build erfolgreich, Deployment `Ready`, Production
+- `https://bambi-w26q.vercel.app/login` mit 200 verifiziert
