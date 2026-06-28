@@ -112,6 +112,19 @@ test.describe.serial('PROJ-10: LinkedIn-CSV-Import', () => {
     await expect(page.getByText('QA10CancelNew')).not.toBeVisible()
   })
 
+  test('AC: first-time fill of a previously empty field shows "Neu erfasst" instead of an occasion tag', async ({
+    page,
+  }) => {
+    await login(page)
+    await page.getByRole('button', { name: 'LinkedIn importieren' }).click()
+    const csv = [HEADER, 'QA10ExistingMatch,,,,,QA10NewTitle,01 Jan 2026'].join('\n')
+    await page.getByLabel('LinkedIn-CSV-Datei').setInputFiles(csvFile('new-fill.csv', csv))
+    await expect(page.getByText('Veränderungen (1)')).toBeVisible()
+    await expect(page.getByText('Neu erfasst')).toBeVisible()
+    await expect(page.getByText('Beförderung')).not.toBeVisible()
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+  })
+
   test('AC: unchecking a new-contact row excludes it from saving on confirm', async ({ page }) => {
     await login(page)
     await page.getByRole('button', { name: 'LinkedIn importieren' }).click()

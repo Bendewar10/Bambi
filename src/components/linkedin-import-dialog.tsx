@@ -289,7 +289,13 @@ export function LinkedInImportDialog({
                         {row.diffs.map((diff, diffIndex) => (
                           <div key={diff.field} className="flex items-center gap-2">
                             <span className="w-28 shrink-0 text-muted-foreground">{FIELD_LABELS[diff.field]}</span>
-                            <span className="shrink-0 text-muted-foreground">{diff.oldValue ?? '—'} →</span>
+                            {diff.oldValue ? (
+                              <span className="shrink-0 text-muted-foreground">{diff.oldValue} →</span>
+                            ) : (
+                              <Badge variant="outline" className="shrink-0">
+                                Neu erfasst
+                              </Badge>
+                            )}
                             <Input
                               value={diff.value}
                               onChange={(e) => updateChangeDiffValue(rowIndex, diffIndex, e.target.value)}

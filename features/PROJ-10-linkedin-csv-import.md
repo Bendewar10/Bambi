@@ -189,7 +189,7 @@ Jede Zeile in der Vorschau (neuer Kontakt oder Person mit Veränderungen) bekomm
 - [x] Abweichender `employer` (alt+neu nicht leer) → Tag "Jobwechsel" (E2E + Vitest)
 - [x] Abweichender `job_title` (alt+neu nicht leer) → Tag "Beförderung" (Vitest; UI-Rendering identischer Mechanismus wie Jobwechsel, per Code-Review verifiziert statt separatem E2E)
 - [x] Beide Felder gleichzeitig abweichend → beide Tags zusammen (Vitest: `occasions: ['Jobwechsel', 'Beförderung']`)
-- [ ] **Teilweise erfüllt** — Feld vorher leer, CSV liefert Wert → Diff erscheint korrekt ohne Anlass-Tag (Vitest verifiziert), ABER die Spec verlangt explizit ein "Neu erfasst"-Label dafür; die UI zeigt nur "— →" ohne diesen Text (siehe Bug #1)
+- [x] Feld vorher leer, CSV liefert Wert → Diff erscheint mit "Neu erfasst"-Badge statt Anlass-Tag (Vitest + E2E; Bug #1 gefixt am 2026-06-28)
 - [x] Identisches Feld → kein Diff-Eintrag, Kontakt zählt als unverändert (E2E Re-Upload-Test: "2 unverändert")
 - [x] Wert in Vorschau editieren → bearbeiteter Wert wird gespeichert, nicht CSV-Wert (E2E)
 - [x] Checkbox bei "Neue Kontakte" abwählen → Kontakt wird nicht angelegt (E2E)
@@ -205,7 +205,7 @@ Jede Zeile in der Vorschau (neuer Kontakt oder Person mit Veränderungen) bekomm
 - [x] Supabase nicht erreichbar beim Bestätigen → Fehlermeldung (Code-Review: `try/catch` mit `setSubmitError`, identisch zum bereits geprüften Vorgänger-Pattern, kein dedizierter Netzwerk-Fehler-E2E-Test — wie schon in der ursprünglichen QA-Runde 2026-06-24)
 - [x] RLS: Insert/Update nutzt ausschließlich `auth.uid()`/serverseitige Policy, `contactId` stammt nicht aus Roh-CSV-Eingabe sondern aus bereits RLS-gefiltertem `existingContacts`-Match (Code-Review)
 
-**18/19 vollständig erfüllt, 1 teilweise (siehe Bug #1).**
+**19/19 vollständig erfüllt** (nach Fix von Bug #1, siehe unten).
 
 ### Edge Cases Status
 - [x] Mehrere Namens-Treffer ohne `linkedin_url` → erster Treffer (Vitest)
@@ -228,24 +228,23 @@ Jede Zeile in der Vorschau (neuer Kontakt oder Person mit Veränderungen) bekomm
 ### Regression Testing
 - `npm test`: 50/50 grün (inkl. 14 für `linkedin-import.ts`, 3 davon neu für Anlass-Tagging)
 - `npm run lint`, `npm run build`: fehlerfrei
-- E2E PROJ-10 (7 Tests, 2 neu: Checkbox-Ausschluss bei Veränderungen, Edit-vor-Bestätigen): 7/7 grün auf Chromium UND Mobile Safari (iPhone 13)
+- E2E PROJ-10 (8 Tests, 3 neu: Checkbox-Ausschluss bei Veränderungen, Edit-vor-Bestätigen, "Neu erfasst"-Label): 8/8 grün auf Chromium UND Mobile Safari (iPhone 13)
 - E2E Vollregression (alle anderen Specs: PROJ-2/3/4/5/6/8): 73/73 grün
-- **Gesamt E2E (Chromium):** 80/80 grün
+- **Gesamt E2E (Chromium):** 81/81 grün
 
 ### Bugs Found
 
-**Bug #1 (Medium):** Fehlendes "Neu erfasst"-Label bei Erstbefüllung eines vorher leeren Feldes.
-- **Spec-Erwartung:** Wenn ein Feld eines Bestandskontakts vorher leer war und die CSV jetzt einen Wert liefert, soll dies laut AC "als Feld-Update ohne Anlass-Tag ('Neu erfasst')" erscheinen.
-- **Ist-Zustand:** `src/components/linkedin-import-dialog.tsx` zeigt für diesen Fall nur `— →` als alten Wert, ohne den Text "Neu erfasst" oder ein vergleichbares visuelles Signal. Funktional korrekt (kein Jobwechsel/Beförderung-Tag, Feld ist editierbar/bestätigbar), aber die explizite Unterscheidung "das ist neu, kein echter Wechsel" fehlt für den Nutzer auf den ersten Blick.
-- **Repro:** CSV mit `employer=Acme` für einen Bestandskontakt importieren, dessen `employer` aktuell `null` ist → Veränderungs-Zeile zeigt `Arbeitgeber  — → Acme`, aber keinen "Neu erfasst"-Hinweis.
-- **Impact:** Kein Datenverlust, keine Fehlfunktion — rein eine fehlende UI-Klarstellung, die die Spec explizit verlangt hatte.
+**Bug #1 (Medium) — Gefixt 2026-06-28:** Fehlendes "Neu erfasst"-Label bei Erstbefüllung eines vorher leeren Feldes.
+- **Ursprünglicher Zustand:** `src/components/linkedin-import-dialog.tsx` zeigte für diesen Fall nur `— →` als alten Wert, ohne den Text "Neu erfasst" oder ein vergleichbares visuelles Signal.
+- **Fix:** Diff-Zeile zeigt jetzt ein `Badge variant="outline"` mit Text "Neu erfasst" statt `oldValue →`, wenn `diff.oldValue` leer ist (kein Jobwechsel/Beförderung-Tag in diesem Fall).
+- **Verifiziert:** Neuer E2E-Test `AC: first-time fill of a previously empty field shows "Neu erfasst" instead of an occasion tag`.
 
 ### Summary
-- **Acceptance Criteria:** 18/19 vollständig erfüllt, 1 teilweise (Bug #1)
-- **Bugs Found:** 1 (Medium)
+- **Acceptance Criteria:** 19/19 vollständig erfüllt
+- **Bugs Found:** 1 (Medium) — gefixt
 - **Security:** Pass
-- **Production Ready:** YES — kein Critical/High-Bug, Kernfunktionalität (kein stilles Überschreiben mehr, Review+Checkbox+Edit, Anlass-Tags) vollständig funktional und getestet
-- **Recommendation:** Deploy möglich. Bug #1 (fehlendes "Neu erfasst"-Label) ist rein kosmetisch/Spec-Klarstellung — kann vor oder nach Deploy als kleiner Frontend-Fix nachgezogen werden, nutzerseitig kein Blocker.
+- **Production Ready:** YES
+- **Recommendation:** Deploy.
 
 ---
 
