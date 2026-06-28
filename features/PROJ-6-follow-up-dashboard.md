@@ -545,30 +545,30 @@ Vollständiges Delta aus Architecture+Frontend+Backend: "Diese Woche" → "Näch
 ### Security Audit Results
 - [x] RLS `contact_events` SELECT: Nutzer sieht ausschließlich eigene Zeilen (verifiziert per direktem REST-Query — nur eigene `user_id` in Ergebnis)
 - [x] RLS `contact_events` INSERT mit fremder `user_id` (Versuch, ein Event auf das Dashboard eines ANDEREN Nutzers zu schmuggeln) → korrekt **403 abgelehnt**
-- [ ] **BUG-5 (Low):** RLS `contact_events` INSERT prüft nur `auth.uid() = user_id`, nicht ob `contact_id` dem einloggten Nutzer gehört — ein Insert mit eigener `user_id`, aber fremder (existierender) `contact_id` wird fälschlich akzeptiert (201). Kein Datenleck (Frontend kann den fremden Kontakt mangels eigener RLS-gefilterter `contacts`-Zeile nicht auflösen, Gruppe wird stillschweigend übersprungen, siehe `groupOpenEvents`), aber Verstoß gegen Defense-in-Depth. Verifiziert + Testdaten bereinigt.
+- [x] **BUG-5 (Low) — FIXED:** RLS `contact_events` INSERT prüfte nur `auth.uid() = user_id`, nicht ob `contact_id` dem einloggten Nutzer gehört. Fix verifiziert: fremde `contact_id` jetzt 403, eigene weiterhin 201.
 - [x] `occasionType`-Enum lehnt einen 5. Wert ab (400) — kein impliziter Bypass auf den `followup`-Default-Zweig
 - [x] Kein neues Secret/Package, kein neuer Server-Endpoint über das bestehende `/api/draft-message` hinaus
 - Rate limiting: weiterhin bewusst kein MVP-Bedarf (unverändert)
 
 ### Bugs Found
 
-#### BUG-5: `contact_events`-INSERT-Policy prüft `contact_id`-Ownership nicht
+#### BUG-5: `contact_events`-INSERT-Policy prüfte `contact_id`-Ownership nicht — FIXED
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Als Nutzer A per REST `POST /rest/v1/contact_events` mit `user_id = eigene auth.uid()`, aber `contact_id` eines Kontakts von Nutzer B senden
   2. Expected: 403 (Foreign-Key-Constraint allein reicht nicht als Authorization-Check)
-  3. Actual: 201, Zeile wird angelegt
-- **Impact:** Kein Datenleck (siehe oben), nur eine Integritäts-Lücke in der eigenen Tabelle des Angreifers — im Produkt selbst nirgends sichtbar
-- **Empfehlung:** INSERT-Policy um `EXISTS (SELECT 1 FROM contacts WHERE id = contact_id AND user_id = auth.uid())` ergänzen (analog zum bestehenden Muster, falls es das schon irgendwo im Projekt gibt)
+  3. Actual (vor Fix): 201, Zeile wird angelegt
+- **Impact:** Kein Datenleck (Frontend kann fremden Kontakt mangels eigener RLS-gefilterter `contacts`-Zeile nicht auflösen, Gruppe wird stillschweigend übersprungen, siehe `groupOpenEvents`), nur eine Integritäts-Lücke in der eigenen Tabelle des Angreifers
+- **Fix:** Migration `fix_contact_events_insert_ownership` — `contact_events_insert_own`-Policy um `EXISTS (SELECT 1 FROM contacts WHERE contacts.id = contact_id AND contacts.user_id = auth.uid())` ergänzt. Verifiziert: fremde `contact_id` → 403, eigene → weiterhin 201. Supabase Security Advisors danach erneut geprüft: keine neuen Findings.
 
-#### BUG-6: Horizontaler Overflow im App-Header bei 375px (vorbestehend, nicht durch dieses Refine verursacht)
+#### BUG-6: Horizontaler Overflow im App-Header bei 375px (vorbestehend, nicht durch dieses Refine verursacht) — FIXED
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Bei 375px Viewport einloggen (lange E-Mail-Adresse im Account, z.B. `bennewroly+qa-proj5@gmail.com`)
-  2. `/dashboard` ODER `/contacts` ODER `/analytics` öffnen — Nav-Links + "Eingeloggt als [E-Mail]" + Logout-Button liegen alle in einer Zeile ohne `flex-wrap` (`src/app/(app)/layout.tsx:36-57`)
+  2. `/dashboard` ODER `/contacts` ODER `/analytics` öffnen — Nav-Links + "Eingeloggt als [E-Mail]" + Logout-Button lagen alle in einer Zeile ohne `flex-wrap` (`src/app/(app)/layout.tsx`)
   3. Expected: kein horizontaler Scroll
-  4. Actual: `scrollWidth` 464px bei 375px Viewport — reproduzierbar auch auf einem komplett leeren Dashboard ohne Kontakte/Events, betrifft also den gemeinsamen Header, nicht den neuen "Kürzlich erkannt"/"Nächste 14 Tage"-Code dieses Refines
-- **Empfehlung:** Header-Zeile bei kleinen Viewports umbrechen lassen (`flex-wrap` + ggf. E-Mail-Text kürzen/verstecken) — Aufgabe für `/frontend`, nicht Teil dieses PROJ-6-Refines
+  4. Actual (vor Fix): `scrollWidth` 464px bei 375px Viewport — reproduzierbar auch auf einem komplett leeren Dashboard, betraf also den gemeinsamen Header, nicht den neuen "Kürzlich erkannt"/"Nächste 14 Tage"-Code dieses Refines
+- **Fix:** `src/app/(app)/layout.tsx` — Header-Zeile bekommt `flex-wrap`, Außen-Padding `p-4` statt `p-8` auf Mobile, E-Mail-Text (`Eingeloggt als ...`) ab `sm:` sichtbar (`hidden sm:inline`) statt immer — Logout-Button bleibt auf allen Breiten sichtbar. Verifiziert auf `/dashboard`, `/contacts`, `/analytics`: `scrollWidth` jetzt exakt 375px, kein horizontaler Scroll mehr.
 
 ### Regression Testing
 - Volle E2E-Regression (`--workers=1`, alle Specs PROJ-2/3/4/5/6/8/10, 93 Tests) zweimal gelaufen: jeweils genau 1 Fehlschlag, beide Male an unterschiedlicher, mit diesem Refine nicht zusammenhängender Stelle (`PROJ-3-contacts.spec.ts` zweimal an unterschiedlichen Tests) — isoliert jeweils sofort grün reproduzierbar. Root Cause: Supabase-Auth-Rate-Limiting bei vielen sequenziellen Password-Grant-Logins in einem Lauf, identisches Muster wie bereits in der ursprünglichen PROJ-6-QA vom 2026-06-22 dokumentiert ("vereinzelte Login-Fehlschläge... keine PROJ-6-Regression"). Kein neuer Befund, keine Auswirkung auf dieses Feature
@@ -576,10 +576,10 @@ Vollständiges Delta aus Architecture+Frontend+Backend: "Diese Woche" → "Näch
 
 ### Summary
 - **Acceptance Criteria:** 12/12 (Delta) passed, alle vorherigen ACs weiterhin grün
-- **Bugs Found:** 2 (0 critical, 0 high, 0 medium, 2 low — beide vorbestehend bzw. ohne Datenleck-Risiko)
-- **Security:** Pass (1 Low-Finding dokumentiert, kein Confidentiality-/Authorization-Bypass)
+- **Bugs Found:** 2 (0 critical, 0 high, 0 medium, 2 low) — **beide gefixt**, vollständige Regression nach Fix erneut grün (43/43 PROJ-6+PROJ-10 E2E, 70/70 Vitest)
+- **Security:** Pass (BUG-5 gefixt, kein Confidentiality-/Authorization-Bypass mehr offen)
 - **Production Ready:** YES
-- **Recommendation:** Deploy. BUG-5/BUG-6 sind optionale Polish-Items, kein Blocker — BUG-6 ist zudem nicht Teil dieses Features und sollte separat über `/frontend` am gemeinsamen Layout behoben werden.
+- **Recommendation:** Deploy.
 
 ## Deployment
 - **Production URL:** https://bambi-w26q.vercel.app

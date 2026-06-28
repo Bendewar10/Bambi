@@ -291,7 +291,7 @@ Nur die neue Subsektion "Persistenz für Dashboard" (`contact_events`-Insert bei
 **3/4 automatisiert verifiziert, 1 code-reviewed (Netzwerkfehler-Fall, analog zu früheren Clipboard-Error-Präzedenzfällen in diesem Projekt).**
 
 ### Security Audit Results
-- Siehe PROJ-6-Spec für den vollständigen `contact_events`-RLS-Audit (BUG-5 dort dokumentiert — betrifft die Tabelle, nicht den Import-Schreibpfad selbst: der Import schreibt ausschließlich `contact_id`s, die der Nutzer per RLS-gefilterter `existingContacts`-Liste bereits selbst besitzt, kann also dieses Loch über die UI nicht ausnutzen)
+- Siehe PROJ-6-Spec für den vollständigen `contact_events`-RLS-Audit (BUG-5 dort dokumentiert und gefixt — betraf die Tabelle, nicht den Import-Schreibpfad selbst: der Import schreibt ausschließlich `contact_id`s, die der Nutzer per RLS-gefilterter `existingContacts`-Liste bereits selbst besitzt, konnte also dieses Loch über die UI nie ausnutzen)
 
 ### Regression Testing
 - `tests/PROJ-10-linkedin-csv-import.spec.ts`: 9/9 grün (2 neue Tests für diese ACs)
@@ -299,7 +299,7 @@ Nur die neue Subsektion "Persistenz für Dashboard" (`contact_events`-Insert bei
 
 ### Summary
 - **Acceptance Criteria:** 3/4 automatisiert + 1 code-reviewed, alle bestanden
-- **Bugs Found:** 0 neue (BUG-5 aus PROJ-6-QA betrifft die Tabelle allgemein, nicht den Import-Pfad)
+- **Bugs Found:** 0 neue (BUG-5 aus PROJ-6-QA betrifft die Tabelle allgemein, nicht den Import-Pfad — dort gefixt)
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Deploy zusammen mit PROJ-6.

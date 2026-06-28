@@ -31,9 +31,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center gap-6 p-8">
-      <div className="flex w-full max-w-4xl items-center justify-between">
-        <nav className="flex gap-4">
+    <div className="flex min-h-screen flex-col items-center gap-6 p-4 sm:p-8">
+      <div className="flex w-full max-w-4xl flex-wrap items-center justify-between gap-3">
+        <nav className="flex flex-wrap gap-4">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.href}
@@ -48,7 +48,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
         <div className="flex items-center gap-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="hidden text-sm text-muted-foreground sm:inline">
             {email ? `Eingeloggt als ${email}` : 'Lädt...'}
           </p>
           <Button onClick={handleLogout} disabled={isLoggingOut} variant="outline">
