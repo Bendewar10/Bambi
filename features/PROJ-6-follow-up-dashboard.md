@@ -417,3 +417,9 @@ Keine.
 - Commit `5e94cf5` gepusht zu `origin/main`, Tag `v1.7.0-PROJ-6`
 - Vercel-Build erfolgreich (43s), Deployment `Ready`, Production
 - `https://bambi-w26q.vercel.app/login` mit 200 verifiziert
+
+### Update 2026-06-28 (Refine: "Karte öffnen" + Geburtstagsdatum + reicherer AI-Draft-Kontext)
+- Commit `07ed6a8` gepusht zu `origin/main`
+- Vercel-Build erfolgreich (47s), Deployment `Ready`, Production
+- `https://bambi-w26q.vercel.app/login` mit 200 verifiziert
+- `src/app/api/draft-message/route.ts`-Änderung (Nachname/Arbeitgeber/Jobtitel/Stadt/Kategorie/Stärke als Prompt-Kontext) ging mit diesem Deploy live, war vor Deploy nicht separat QA-getestet (Nutzerentscheidung: "Beides deployen")
