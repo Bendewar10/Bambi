@@ -4,7 +4,9 @@
 **Created:** 2026-06-24
 **Last Updated:** 2026-06-28
 
-> Refinement 2026-06-28: Vorschau wird von reinen Summary-Zahlen auf eine Review-Liste mit Anlass-Erkennung (Jobwechsel/Beförderung) umgebaut, kein automatisches Überschreiben mehr. Frontend für diese Neufassung ist implementiert (siehe "Implementation Notes (Refinement 2026-06-28)" unten); Abschnitte "Implementation Notes", "QA Test Results" und "Deployment" weiter unten beschreiben die ursprünglich deployte Vorgänger-Version.
+> Refinement 2026-06-28 (Nachmittag): Erkannte Jobwechsel/Beförderungen werden jetzt zusätzlich persistiert (neue Tabelle `contact_events`), damit PROJ-6 sie auf dem Dashboard anzeigen kann — reverst die vorherige Entscheidung "kein Change-Log in der DB". Noch nicht implementiert, folgt über `/architecture`+`/backend`. Siehe "Acceptance Criteria" (neue Subsektion "Persistenz für Dashboard") und Decision Log.
+>
+> Refinement 2026-06-28 (Vormittag): Vorschau wird von reinen Summary-Zahlen auf eine Review-Liste mit Anlass-Erkennung (Jobwechsel/Beförderung) umgebaut, kein automatisches Überschreiben mehr. Frontend für diese Neufassung ist implementiert (siehe "Implementation Notes (Refinement 2026-06-28)" unten); Abschnitte "Implementation Notes", "QA Test Results" und "Deployment" weiter unten beschreiben die ursprünglich deployte Vorgänger-Version.
 
 ## Implementation Notes (Refinement 2026-06-28)
 - `src/lib/linkedin-import.ts`: `computeImportPlan` liefert jetzt pro Bestandskontakt eine `ContactChange` (Name, Liste von `FieldDiff` mit `field`/`oldValue`/`newValue`, abgeleitete `occasions`) statt eines fertigen Update-Pakets; `FIELD_LABELS` für die UI-Anzeige ergänzt
@@ -18,6 +20,7 @@
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — Kontakte werden in dieselbe `contacts`-Tabelle angelegt/aktualisiert, nutzt `first_name`/`last_name`/`employer`/`job_title`/`email`
+- **Neu (Refine 2026-06-28):** PROJ-6 (Follow-up Dashboard) — konsumiert die hier neu geschriebene `contact_events`-Tabelle, zeigt offene Events in der Dashboard-Sektion "Kürzlich erkannt" an und markiert sie dort als dismissed
 
 ## Implementation Notes
 - `src/lib/linkedin-import.ts`: reine Funktionen `parseLinkedInCsv` (Header-Suche + `papaparse`) und `computeImportPlan` (Matching/Diff), 11 Vitest-Tests inkl. Header-Präambel, Quoted-Commas ("Lang, LL.M."), Case-insensitive Name-Fallback, Mehrfach-Treffer
@@ -42,6 +45,7 @@
 - Als Nutzer möchte ich, dass Jobwechsel oder Beförderungen explizit als Anlass markiert werden, damit ich erkenne, bei wem es sich gerade lohnt, sich zu melden
 - Als Nutzer möchte ich Werte in der Vorschau direkt bearbeiten können (neue Kontakte und Veränderungen), damit ich CSV-Eigenheiten vor dem Speichern korrigieren kann
 - Als Nutzer möchte ich einzelne Zeilen (einen neuen Kontakt oder die Änderungen einer Person) gezielt von der Übernahme ausschließen können, ohne den ganzen Import abzubrechen
+- **Neu (Refine 2026-06-28):** Als Nutzer möchte ich, dass ein erkannter Jobwechsel/eine Beförderung auch nach Schließen des Import-Dialogs nicht verloren geht, damit ich ihn auf dem Dashboard sehe, selbst wenn ich ihn beim Import selbst übersehen oder den Dialog einfach weggeklickt habe
 
 ## Out of Scope
 - Live-Synchronisation/OAuth mit LinkedIn — bewusst nur manueller, einmaliger CSV-Upload (PRD-Non-Goal "keine LinkedIn-API-Synchronisation" bezieht sich auf automatisches/laufendes Sync, nicht auf bewussten manuellen Upload — Entscheidung im Interview bestätigt)
@@ -51,8 +55,9 @@
 - Automatische Auflösung von Mehrfach-Namens-Treffern ohne `linkedin_url` — bei Ambiguität wird einfach der erste Treffer verwendet (siehe Edge Cases), kein Dialog zur manuellen Auswahl
 - Rollback/Undo nach bestätigtem Import — Import ist idempotent (erneuter Upload gleicher Datei überschreibt nur mit denselben Werten), das reicht als Sicherheitsnetz
 - Anlass-Tags für andere Felder als employer/job_title (z.B. neue Stadt, neue E-Mail) — diese Feldänderungen erscheinen weiterhin in der Veränderungs-Liste, aber ohne "Jobwechsel"/"Beförderung"-Tag
-- Persistente Historie/Protokoll erkannter Veränderungen über den aktuellen Import-Lauf hinaus — Anlass-Erkennung ist reine Diff-Berechnung der aktuellen Vorschau, nichts wird als "Change-Log" in der DB gespeichert
-- Benachrichtigung (E-Mail/Push) bei erkannten Anlässen außerhalb des Import-Dialogs — Anzeige nur innerhalb der Vorschau des aktuellen Imports
+- ~~Persistente Historie/Protokoll erkannter Veränderungen über den aktuellen Import-Lauf hinaus — Anlass-Erkennung ist reine Diff-Berechnung der aktuellen Vorschau, nichts wird als "Change-Log" in der DB gespeichert~~ — **reverst im Refine vom 2026-06-28**, siehe neue AC-Subsektion "Persistenz für Dashboard" und Decision Log; Grund: PROJ-6 braucht persistente Events, um sie auf dem Dashboard zu zeigen
+- Benachrichtigung (E-Mail/Push) bei erkannten Anlässen außerhalb des Import-Dialogs — Anzeige nur innerhalb der Vorschau des aktuellen Imports bzw. (neu) der Dashboard-Sektion "Kürzlich erkannt" aus PROJ-6, kein separater Push/E-Mail-Kanal
+- **Neu (Refine 2026-06-28):** Eigene UI zum Verwalten/Löschen von `contact_events` innerhalb von PROJ-10 — Lesen/Dismiss passiert ausschließlich über das PROJ-6-Dashboard, PROJ-10 schreibt nur beim Import-Bestätigen
 
 ## Acceptance Criteria
 
@@ -76,6 +81,12 @@
 - [ ] Angenommen die Supabase-API ist beim tatsächlichen Speichern (nach "Bestätigen") nicht erreichbar, dann wird eine Fehlermeldung angezeigt; bereits gespeicherte Zeilen bleiben gespeichert (kein Rollback), ein erneuter Upload derselben Datei ist sicher (idempotent)
 - [ ] Angenommen Nutzer A ist eingeloggt, wenn er eine CSV importiert, dann werden alle importierten/aktualisierten Kontakte ausschließlich mit `user_id = auth.uid()` gespeichert (RLS aus PROJ-1 erzwungen, kein Zugriff auf/Vermischen mit Kontakten anderer Nutzer)
 
+### Persistenz für Dashboard (Refine 2026-06-28)
+- [ ] **Neu:** Angenommen der Nutzer klickt "Bestätigen" und eine angehakte Veränderungs-Zeile hat das Anlass-Tag "Jobwechsel" und/oder "Beförderung", dann wird für jedes zutreffende Tag eine Zeile in `contact_events` angelegt (`contact_id`, `user_id = auth.uid()`, `type`, `detected_at = jetzt`, `dismissed_at = null`)
+- [ ] **Neu:** Angenommen eine Veränderungs-Zeile mit Anlass-Tag ist beim Bestätigen NICHT angehakt (vom Nutzer ausgeschlossen), dann wird für diese Person kein `contact_events`-Eintrag angelegt
+- [ ] **Neu:** Angenommen ein Feld war vorher leer und wird durch den Import erstmals befüllt ("Neu erfasst", kein Anlass-Tag), dann wird dafür kein `contact_events`-Eintrag angelegt
+- [ ] **Neu:** Angenommen das Anlegen der `contact_events`-Zeilen schlägt fehl (z.B. Netzwerkfehler), dann wird das wie ein normaler Speicherfehler behandelt (Fehlermeldung), der Kontakt-Import selbst (Felder employer/job_title/etc.) ist davon unabhängig — kein Rollback der bereits gespeicherten Kontaktdaten nur wegen eines fehlgeschlagenen Event-Inserts
+
 ## Edge Cases
 - Zwei oder mehr bestehende Kontakte mit identischem Vorname+Nachname, keiner hat `linkedin_url` gesetzt → der erste gefundene Treffer wird aktualisiert (keine Disambiguierung in MVP, geringe Praxisrelevanz im persönlichen Netzwerk)
 - Komplett leere CSV-Zeile (nur Datum, alle anderen Felder leer) → wird wie "kein Vorname" behandelt, übersprungen
@@ -88,6 +99,8 @@
 - Nutzer hakt eine Veränderungs-Zeile ab, bearbeitet aber trotzdem ein Feld davor → Checkbox-Zustand entscheidet beim Bestätigen, nicht der Bearbeitungs-Zustand; abgehakte Zeilen werden komplett ignoriert, auch wenn Werte bearbeitet wurden
 - Nutzer bearbeitet ein Feld einer Person zurück auf den alten Wert → Feld bleibt trotzdem in der Veränderungs-Liste sichtbar (Diff wird einmalig beim Laden der Vorschau berechnet, nicht live neu bewertet), aber der gespeicherte Wert entspricht dann dem (unveränderten) alten Wert — kein faktisches Update beim Bestätigen
 - Sehr viele gleichzeitige Veränderungen (z.B. 200 Personen mit abweichenden Feldern in einer großen Datei) → Liste muss ohne UI-Blockierung scrollbar/handhabbar bleiben, gleiches Batch-Prinzip wie beim Speichern
+- **Neu (Refine 2026-06-28):** Zwei Imports nacheinander erkennen beim selben Kontakt jeweils einen Jobwechsel, ohne dass das erste Event auf dem Dashboard dismissed wurde → beide `contact_events`-Zeilen bleiben offen bestehen, kein Dedupe/Merge (siehe PROJ-6 Edge Cases)
+- **Neu:** Kontakt wird gelöscht, während er noch offene `contact_events` hat → Events werden per `ON DELETE CASCADE` mitgelöscht (siehe PROJ-6 Technical Requirements)
 
 ## Technical Requirements
 - Security: RLS aus PROJ-1 deckt Zugriff ab — Import darf `user_id` nie aus Client-Eingabe übernehmen, nur `auth.uid()`
@@ -96,9 +109,10 @@
 - Performance: Verarbeitung mehrerer hundert Zeilen muss ohne UI-Blockierung möglich sein (Batch-Verarbeitung)
 - `computeImportPlan` (oder Nachfolger) muss pro Person eine Liste der abweichenden Felder (Feldname, alter Wert, neuer Wert) statt nur eines Update-Flags liefern, plus berechnete Anlass-Tags ("Jobwechsel"/"Beförderung") nach der Regel: Tag nur wenn alter UND neuer Wert nicht leer sind und sich unterscheiden
 - Vorschau-Zustand muss pro Zeile editierbare Werte + Checkbox (default an) halten, unabhängig vom ursprünglichen CSV-Wert — beim Bestätigen werden nur angehakte Zeilen mit ihrem aktuellen (ggf. bearbeiteten) Feldwert geschrieben
+- **Neu (Refine 2026-06-28):** Beim Bestätigen wird für jede angehakte Zeile mit Anlass-Tag(s) zusätzlich ein Insert in `contact_events` ausgeführt (ein Datensatz pro Tag) — gleicher Batch-Mechanismus wie der Kontakt-Insert/Update, kein neuer Server-Endpoint nötig (RLS schützt analog zu `contacts`)
 
 ## Open Questions
-_Keine offenen Fragen — siehe Decision Log._
+- [ ] **Neu (Refine 2026-06-28):** Exaktes `contact_events`-Schema/Migration (Spaltentypen, Indizes, RLS-Policy-Syntax) — wird in `/architecture` (gemeinsam mit PROJ-6) getroffen
 
 ## Decision Log
 
@@ -119,6 +133,8 @@ _Keine offenen Fragen — siehe Decision Log._
 | Anlass-Tag "Jobwechsel" bei abweichendem `employer`, "Beförderung" bei abweichendem `job_title` — jeweils nur wenn alter UND neuer Wert nicht leer sind; beide Tags können gleichzeitig an einer Person hängen | Erstmalige Befüllung (alter Wert leer) ist kein "Wechsel", sondern neue Information; eine Person kann gleichzeitig Arbeitgeber und Position wechseln | 2026-06-28 |
 | Jede Zeile (neuer Kontakt / Person mit Änderungen) hat eine standardmäßig aktive Checkbox zum gezielten Ausschluss vor dem finalen Speichern | Nutzer soll einzelne fragwürdige Treffer/Änderungen ausschließen können, ohne den gesamten Import abzubrechen | 2026-06-28 |
 | Werte in der Vorschau sind direkt editierbar; gespeichert wird der Wert im Feld zum Zeitpunkt des Bestätigens | Nutzer will Tippfehler/CSV-Eigenheiten vor dem Speichern korrigieren, statt erst danach über den separaten Edit-Dialog | 2026-06-28 |
+| **(reverst vorherige Entscheidung "kein Change-Log in der DB")** Erkannte Jobwechsel/Beförderungen werden ab jetzt in neuer Tabelle `contact_events` persistiert, statt nur als flüchtiges Vorschau-Ergebnis zu existieren | PROJ-6-Refine: Nutzer will diese Anlässe auch auf dem Dashboard sehen, nicht nur im Moment des Imports — das setzt Persistenz voraus | 2026-06-28 (Nachmittag) |
+| Kein Dedupe von `contact_events` bei wiederholt erkanntem selben Wechsel über mehrere Imports | Geringe Praxisrelevanz (Nutzer importiert selten mehrfach ohne dazwischen zu reagieren), Dedupe-Logik wäre Mehraufwand ohne klaren Nutzen für MVP | 2026-06-28 (Nachmittag) |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -133,6 +149,8 @@ _Keine offenen Fragen — siehe Decision Log._
 | Anlass-Tags ("Jobwechsel"/"Beförderung") werden bei jeder Vorschau-Berechnung aus den Feld-Unterschieden abgeleitet, nicht am Kontakt gespeichert | Reiner Anzeige-Hinweis für den aktuellen Import-Lauf, keine Schema-Änderung/Pflegeaufwand für einen Status, der sich beim nächsten Import ohnehin neu berechnet | 2026-06-28 |
 | Checkbox- (angehakt/ausgeschlossen) und Bearbeitungs-Zustand jeder Vorschau-Zeile lebt nur im Dialog-Zustand des Browsers, nicht in der Datenbank | Konsistent mit bestehender Entscheidung "Vorschau ist reiner Browser-Zustand"; verworfen bei Abbrechen/Schließen, kein Entwurfs-Datenmodell nötig | 2026-06-28 |
 | Keine neuen Packages — Diff/Tag-Logik bleibt in der bestehenden `linkedin-import.ts`, nur die Rückgabestruktur wird feingranularer | Reine Erweiterung bestehender reiner Funktionen, kein neuer technischer Bedarf | 2026-06-28 |
+| Neue Tabelle `contact_events` statt neue Spalte an `contacts` | Mehrere offene Events pro Kontakt möglich (z.B. zwei Imports ohne Dismiss dazwischen), eine Spalte könnte nur den letzten Stand abbilden — siehe PROJ-6 Technical Requirements für genaues Schema | 2026-06-28 (Nachmittag) |
+| Insert in `contact_events` läuft im selben Batch-Schritt wie der bestehende Kontakt-Insert/Update, kein zusätzlicher Server-Roundtrip pro Event | Konsistent mit bestehendem Bulk-Insert-Pattern (50er-Batches), RLS auf `contact_events` schützt analog zu `contacts` | 2026-06-28 (Nachmittag) |
 
 ---
 <!-- Sections below are added by subsequent skills -->

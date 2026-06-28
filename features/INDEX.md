@@ -20,7 +20,7 @@
 | PROJ-3 | Kontakt anlegen & verwalten | Deployed | [Spec](PROJ-3-kontakt-anlegen-verwalten.md) | 2026-06-19 | PROJ-1, PROJ-2 |
 | PROJ-4 | Kontaktliste & Filter | Deployed | [Spec](PROJ-4-kontaktliste-filter.md) | 2026-06-19 | PROJ-3 |
 | PROJ-5 | Interaktions-Log | Deployed | [Spec](PROJ-5-interaktions-log.md) | 2026-06-19 | PROJ-3 |
-| PROJ-6 | Follow-up Dashboard & Tagesansicht (inkl. Anlässe/Geburtstage, AI-Nachrichtenvorschlag, Copy-Button, Kalender-Link) | Deployed | [Spec](PROJ-6-follow-up-dashboard.md) | 2026-06-19 | PROJ-3, PROJ-5 |
+| PROJ-6 | Follow-up Dashboard & Tagesansicht (inkl. Anlässe/Geburtstage, AI-Nachrichtenvorschlag, Copy-Button, Kalender-Link, 14-Tage-Vorschau, Import-Events) | Deployed (Refine 2026-06-28 pending re-implementation, siehe Spec) | [Spec](PROJ-6-follow-up-dashboard.md) | 2026-06-19 | PROJ-3, PROJ-5, PROJ-10 |
 | PROJ-7 | Foto-Upload | Roadmap | - | 2026-06-19 | PROJ-3 |
 | PROJ-8 | Netzwerk-Analytics (periodisch) | Deployed | [Spec](PROJ-8-netzwerk-analytics.md) | 2026-06-22 | PROJ-3, PROJ-5 |
 | PROJ-9 | Monatlicher AI-Report per Mail | Deployed | [Spec](PROJ-9-monatlicher-ai-report.md) | 2026-06-23 | PROJ-1, PROJ-5, PROJ-8 |

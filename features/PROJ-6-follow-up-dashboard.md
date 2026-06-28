@@ -2,7 +2,9 @@
 
 ## Status: Deployed
 **Created:** 2026-06-22
-**Last Updated:** 2026-06-24 (Refine: WhatsApp-Button durch Copy-Button ersetzt, Schreibstil-Lernen für AI-Vorschlag ergänzt — Re-Implementierung über `/frontend`+`/backend` nötig, bisherige Deployment-Historie unten bleibt als Kontext erhalten)
+**Last Updated:** 2026-06-28
+
+> Refinement 2026-06-28: "Diese Woche" wird zu einer chronologisch sortierten "Nächste 14 Tage"-Sektion erweitert (7→14 Tage). Neue Sektion "Kürzlich erkannt" zeigt von PROJ-10 persistierte Jobwechsel-/Beförderungs-Events. Beides noch nicht implementiert — folgt über `/architecture`+`/frontend`+`/backend`. Vorherige Refine-Notiz bleibt als Kontext erhalten: WhatsApp-Button durch Copy-Button ersetzt, Schreibstil-Lernen für AI-Vorschlag ergänzt (2026-06-24).
 
 ## Backend Implementation Notes
 - **Update 2026-06-23 (im Rahmen von PROJ-8):** Vercel-AI-Gateway-Account hatte keine Kreditkarte hinterlegt (`customer_verification_required`, 502 bei echtem Call) — auf Nutzerwunsch von Gateway-String-Modell auf direkten Anthropic-Provider umgestellt: `@ai-sdk/anthropic` installiert, `model: 'anthropic/claude-haiku-4.5'` → `model: anthropic('claude-haiku-4-5-20251001')`. Neue Env-Var `ANTHROPIC_API_KEY` ersetzt `AI_GATEWAY_API_KEY` (Nutzer trägt selbst ein). Tests weiterhin grün (mocken `generateText` komplett, Provider-Wechsel unabhängig davon)
@@ -36,6 +38,7 @@
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — `contacts`-Tabelle, inkl. `city`/`phone`-Erweiterung; neues Feld `birthday` kommt mit diesem Feature dazu
 - PROJ-5 (Interaktions-Log) — `last_contacted_at`/`next_followup_at` werden hier konsumiert, "Kontaktiert"-Aktion nutzt das bestehende Interaction-Formular wieder
+- **Neu (Refine 2026-06-28):** PROJ-10 (LinkedIn-CSV-Import) — neue Tabelle `contact_events` wird beim Bestätigen eines Imports dort befüllt (Jobwechsel/Beförderung-Erkennung), PROJ-6 liest und zeigt sie nur an, schreibt sie nicht selbst (außer beim Dismiss via "Kontaktiert")
 
 ## User Stories
 - Als Nutzer möchte ich nach dem Login sofort sehen, welche Kontakte heute oder überfällig sind, damit ich nicht erst durch die ganze Liste suchen muss
@@ -45,6 +48,8 @@
 - Als Nutzer möchte ich den Vorschlag in meinen Schreibstil generiert bekommen, damit er nicht roboterhaft/generisch klingt und ich ihn ohne viel Nachbearbeiten verwenden kann
 - Als Nutzer möchte ich den Vorschlag mit einem Klick kopieren können, damit ich ihn selbst in WhatsApp, SMS oder eine andere App einfügen kann, egal ob eine Telefonnummer hinterlegt ist
 - Als Nutzer möchte ich einen Anlass mit einem Klick in meinen Kalender eintragen können, damit ich ihn nicht vergesse, falls ich jetzt nicht reagiere
+- **Neu (Refine 2026-06-28):** Als Nutzer möchte ich eine 14-Tage-Vorschau in chronologischer Reihenfolge sehen, damit ich vorausplanen kann, ohne erst durch "Diese Woche" und die volle Liste zu suchen
+- **Neu (Refine 2026-06-28):** Als Nutzer möchte ich auf dem Dashboard sehen, wenn ein LinkedIn-Import einen Jobwechsel oder eine Beförderung bei einem Kontakt erkannt hat, damit ich diesen Anlass nicht verpasse, nur weil ich ihn beim Import übersehen habe
 
 ## Out of Scope
 - Geburtstags-Import aus externem Kalender (Google Calendar OAuth) — bewusst nicht, nur manuelles `birthday`-Feld am Kontakt (Entscheidung im Interview, Konsistenz mit PRD-Non-Goal "Kalender-Sync erst nach MVP")
@@ -57,6 +62,9 @@
 - Rate-Limiting für KI-Aufrufe — kein MVP-Bedarf bei erwarteter Nutzungsfrequenz eines persönlichen Netzwerks
 - Eigene Sektion für "länger nicht gemeldet" (z.B. Kontakte ohne Follow-up-Intervall) — Dashboard zeigt nur Kontakte mit aktivem `next_followup_at` oder `birthday`, alles andere bleibt in `/contacts`
 - Mobile Push-Benachrichtigungen — kein PWA-Aufwand laut PRD-Constraint
+- **Neu (Refine 2026-06-28):** Erkennung selbst (was zählt als "Jobwechsel"/"Beförderung") bleibt vollständig in PROJ-10 — PROJ-6 liest nur die dort geschriebene `contact_events`-Tabelle und zeigt sie an, keine eigene Erkennungslogik
+- **Neu:** Separater "Ignorieren ohne Interaction"-Button für Import-Events — bewusst nicht, "Kontaktiert" ist der einzige Dismiss-Weg (Konsistenz mit Follow-up/Geburtstag, kein zweiter Aktions-Typ nur für diese Sektion)
+- **Neu:** Benachrichtigung (E-Mail/Push) bei neuem Import-Event außerhalb des Dashboards — Anzeige nur beim nächsten Dashboard-Besuch, kein Push-Mechanismus (PRD-Constraint)
 
 ## Acceptance Criteria
 
@@ -66,11 +74,18 @@
 
 ### Sektionen & Anlass-Erkennung
 - [ ] Angenommen ein Kontakt hat `next_followup_at <= heute`, wenn das Dashboard lädt, dann erscheint er in der Sektion "Heute & überfällig" mit Badge "Follow-up"
-- [ ] Angenommen ein Kontakt hat `next_followup_at` zwischen morgen und in 7 Tagen, wenn das Dashboard lädt, dann erscheint er in der Sektion "Diese Woche" mit Badge "Follow-up"
-- [ ] Angenommen ein Kontakt hat `birthday` (Monat+Tag) innerhalb der nächsten 7 Tage (inkl. heute, jahresübergreifend z.B. 28.12. → 02.01.), wenn das Dashboard lädt, dann erscheint er in der passenden Sektion (heute → "Heute & überfällig", in 1–7 Tagen → "Diese Woche") mit Badge "Geburtstag"
-- [ ] Angenommen ein Kontakt hat sowohl ein fälliges Follow-up als auch einen Geburtstag innerhalb des jeweiligen Zeitfensters, wenn das Dashboard lädt, dann erscheint er mit beiden Badges auf derselben Karte, sofern beide Anlässe ins gleiche Zeitfenster fallen — fallen sie in unterschiedliche Fenster (z.B. Follow-up überfällig, Geburtstag erst in 5 Tagen), erscheint er einmal pro Sektion
+- [ ] **Geändert (Refine 2026-06-28, war 7 Tage):** Angenommen ein Kontakt hat `next_followup_at` zwischen morgen und in 14 Tagen, wenn das Dashboard lädt, dann erscheint er in der Sektion "Nächste 14 Tage" mit Badge "Follow-up"
+- [ ] **Geändert (Refine 2026-06-28, war 7 Tage):** Angenommen ein Kontakt hat `birthday` (Monat+Tag) innerhalb der nächsten 14 Tage (inkl. heute, jahresübergreifend z.B. 28.12. → 10.01.), wenn das Dashboard lädt, dann erscheint er in der passenden Sektion (heute → "Heute & überfällig", in 1–14 Tagen → "Nächste 14 Tage") mit Badge "Geburtstag"
+- [ ] Angenommen ein Kontakt hat sowohl ein fälliges Follow-up als auch einen Geburtstag innerhalb des jeweiligen Zeitfensters, wenn das Dashboard lädt, dann erscheint er mit beiden Badges auf derselben Karte, sofern beide Anlässe ins gleiche Zeitfenster fallen — fallen sie in unterschiedliche Fenster (z.B. Follow-up überfällig, Geburtstag erst in 10 Tagen), erscheint er einmal pro Sektion
+- [ ] **Neu (Refine 2026-06-28):** Angenommen mehrere Kontakte erscheinen in der Sektion "Nächste 14 Tage", wenn das Dashboard lädt, dann sind ihre Karten chronologisch nach Anlassdatum sortiert (frühestes Datum zuerst); hat ein Kontakt zwei Badges mit unterschiedlichen Daten, zählt das jeweils frühere für die Sortierung dieser Karte
 - [ ] Angenommen kein Kontakt hat einen aktiven Anlass, wenn das Dashboard lädt, dann wird ein Empty-State angezeigt ("Alles im Blick — aktuell nichts Fälliges.")
 - [ ] Angenommen ein Kontakt hat weder `next_followup_at` noch `birthday` gesetzt, wenn das Dashboard lädt, dann erscheint er in keiner Sektion
+
+### Kürzlich erkannt (Import-Events)
+- [ ] **Neu (Refine 2026-06-28):** Angenommen ein bestätigter LinkedIn-Import hat bei einem Kontakt einen Jobwechsel oder eine Beförderung erkannt (siehe PROJ-10), wenn das Dashboard lädt, dann erscheint dieser Kontakt in einer eigenen Sektion "Kürzlich erkannt" mit Badge "Jobwechsel" und/oder "Beförderung", unabhängig von Follow-up/Geburtstag-Anlässen
+- [ ] **Neu:** Angenommen eine Karte in "Kürzlich erkannt" wird angezeigt, wenn der Nutzer auf "Kontaktiert" klickt, dann öffnet sich das bestehende Interaction-Formular (PROJ-5); nach erfolgreichem Speichern wird das zugehörige `contact_events`-Event als erledigt markiert (`dismissed_at` gesetzt) und die Karte verschwindet aus "Kürzlich erkannt"
+- [ ] **Neu:** Angenommen kein offenes Import-Event existiert, wenn das Dashboard lädt, dann wird die Sektion "Kürzlich erkannt" nicht angezeigt (kein eigener Empty-State, einfach ausgeblendet)
+- [ ] **Neu:** Angenommen ein Kontakt hat mehrere offene Import-Events (z.B. zwei Imports nacheinander, jeweils neuer Jobwechsel), wenn das Dashboard lädt, dann erscheint er einmal mit allen offenen Badges zusammen, "Kontaktiert" markiert alle offenen Events dieses Kontakts gleichzeitig als erledigt
 
 ### Kontaktiert-Aktion
 - [ ] Angenommen eine Dashboard-Karte wird angezeigt, wenn der Nutzer auf "Kontaktiert" klickt, dann öffnet sich das bestehende Interaction-Formular (PROJ-5) mit Datum vorausgefüllt auf heute
@@ -101,27 +116,34 @@
 - [ ] Angenommen der Nutzer trägt ein Geburtsdatum in der Zukunft ein, wenn er speichern will, dann wird eine Validierungsfehlermeldung angezeigt
 
 ## Edge Cases
-- Geburtstag jahresübergreifend (z.B. heute 28.12., Geburtstag 02.01.) → zählt als "in den nächsten 7 Tagen", Jahreswechsel wird in der Berechnung berücksichtigt
-- Kontakt mit Follow-up überfällig UND Geburtstag in genau 7 Tagen → erscheint einmal in "Heute & überfällig" (nur Follow-up-Badge) und einmal in "Diese Woche" (nur Geburtstag-Badge), da unterschiedliche Zeitfenster
+- **Geändert (Refine 2026-06-28, war 7 Tage):** Geburtstag jahresübergreifend (z.B. heute 28.12., Geburtstag 10.01.) → zählt als "in den nächsten 14 Tagen", Jahreswechsel wird in der Berechnung berücksichtigt
+- **Geändert (war 7 Tage):** Kontakt mit Follow-up überfällig UND Geburtstag in genau 14 Tagen → erscheint einmal in "Heute & überfällig" (nur Follow-up-Badge) und einmal in "Nächste 14 Tage" (nur Geburtstag-Badge), da unterschiedliche Zeitfenster
 - ~~Telefonnummer im Freitext-Format mit Leerzeichen/Klammern (siehe PROJ-3) → wird vor dem `wa.me`-Link auf reine Ziffern (+ führendes `+`) normalisiert~~ — hinfällig seit Entfernung des WhatsApp-Buttons (2026-06-24), Copy-Button braucht keine Telefonnummer-Normalisierung
-- Nutzer klickt "Kontaktiert" für einen Geburtstags-Anlass (ohne fälliges Follow-up) → loggt trotzdem eine Interaction, aktualisiert `last_contacted_at`/`next_followup_at` ganz normal, Geburtstags-Karte verschwindet trotzdem erst nächstes Jahr wieder (Geburtstag ist kein "erledigt"-Zustand, sondern wiederkehrend) — Karte bleibt bis das 7-Tage-Fenster verstrichen ist
+- Nutzer klickt "Kontaktiert" für einen Geburtstags-Anlass (ohne fälliges Follow-up) → loggt trotzdem eine Interaction, aktualisiert `last_contacted_at`/`next_followup_at` ganz normal, Geburtstags-Karte verschwindet trotzdem erst nächstes Jahr wieder (Geburtstag ist kein "erledigt"-Zustand, sondern wiederkehrend) — Karte bleibt bis das 14-Tage-Fenster verstrichen ist
 - Zwei Kontakte mit identischem Geburtstag → beide erscheinen unabhängig, keine Gruppierung
 - KI generiert sehr langen Text → Anzeige im UI mit Scroll/Begrenzung, Vorschlagstext wird serverseitig auf eine vernünftige Maximallänge begrenzt (z.B. 300 Zeichen) — Copy-Button hat kein URL-Längenlimit mehr (kein Link, reiner Zwischenablage-Text)
 - Mehrere Browser-Tabs offen, Kontaktiert in einem Tab → anderer Tab zeigt veraltete Daten bis Reload (kein Realtime-Sync, kein MVP-Bedarf)
 - Clipboard-API nicht verfügbar (alter Browser, kein sicherer Kontext/HTTP statt HTTPS) → Kopieren schlägt fehl, Fehlermeldung statt stillem No-Op
 - Nutzer hat noch nie eine Notiz mit >20 Zeichen erfasst (z.B. ganz neuer Account) → Vorschlag wird trotzdem generiert, nur ohne Stil-Beispiele im Prompt
+- **Neu (Refine 2026-06-28):** Kontakt hat sowohl ein offenes Import-Event als auch einen Follow-up/Geburtstags-Anlass im 14-Tage-Fenster → erscheint zweimal (einmal in "Kürzlich erkannt", einmal in "Heute & überfällig"/"Nächste 14 Tage"), keine Zusammenführung der Sektionen
+- **Neu:** Derselbe Feldwechsel (z.B. employer) wird in zwei aufeinanderfolgenden Imports erkannt, ohne dass das erste Event dismissed wurde → zweites Event wird trotzdem zusätzlich angelegt (kein Dedupe), Kontakt zeigt dann ggf. das Badge "Jobwechsel" zweimal in der Detailansicht des Events — Dedupe ist kein MVP-Bedarf (geringe Praxisrelevanz, Nutzer importiert selten mehrfach ohne dazwischen zu reagieren)
+- **Neu:** Kontakt mit offenem Import-Event wird gelöscht (PROJ-3 Löschen) → zugehörige `contact_events`-Zeilen werden per `ON DELETE CASCADE` mitgelöscht, kein verwaister Eintrag
 
 ## Technical Requirements
 - Security: Der AI-Provider-Key darf niemals client-seitig exponiert werden → benötigt eine serverseitige API-Route (erstes Feature in diesem Projekt, das eine eigene Route statt direktem Supabase-Client-Zugriff braucht). Route muss die Supabase-Session des Nutzers verifizieren, bevor sie Kontakt-/Interaktionsdaten an den AI-Provider sendet (keine fremden Nutzerdaten dürfen in den Prompt gelangen)
 - Security: RLS aus PROJ-1 deckt weiterhin den Datenzugriff ab (Dashboard liest nur eigene Kontakte/Interactions)
-- Performance: Datums-Filterung (Sektionen, 7-Tage-Fenster) läuft client-seitig auf bereits geladenen Kontakten, analog zu PROJ-4 (keine zusätzlichen Server-Roundtrips)
+- **Geändert (Refine 2026-06-28, war 7 Tage):** Performance: Datums-Filterung (Sektionen, 14-Tage-Fenster) läuft client-seitig auf bereits geladenen Kontakten, analog zu PROJ-4 (keine zusätzlichen Server-Roundtrips)
 - Validierung: `birthday` optional, Datum nicht in der Zukunft
 - Stil-Lernen: Query für Few-Shot-Notizen läuft über alle Kontakte des eingeloggten Nutzers (nicht nur den aktuell angefragten Kontakt) — RLS aus PROJ-1 grenzt automatisch auf `auth.uid()` ein, kein zusätzlicher Authorization-Check nötig
 - Clipboard: native Browser-Clipboard-API, kein neues Package
+- **Neu (Refine 2026-06-28):** Neue Tabelle `contact_events` (von PROJ-10 beim Import-Bestätigen befüllt, von PROJ-6 nur gelesen/dismissed): mind. `id`, `contact_id` (FK → `contacts`, `ON DELETE CASCADE`), `user_id` (für RLS, gleiches Muster wie `contacts`), `type` (`Jobwechsel`/`Beförderung`), `detected_at` (timestamp, = Import-Zeitpunkt), `dismissed_at` (nullable timestamp). RLS-Policy analog zu `contacts`/`interactions`: nur eigene Zeilen (`user_id = auth.uid()`)
+- **Neu:** Dashboard-Query für "Kürzlich erkannt" filtert `dismissed_at IS NULL`, gruppiert client-seitig pro `contact_id` (mehrere offene Events eines Kontakts → eine Karte, mehrere Badges)
 
 ## Open Questions
 - [ ] Welcher AI-Provider/Modell genau (z.B. über Vercel AI Gateway) — technische Entscheidung, wird in `/architecture` getroffen
 - [ ] Exakter Prompt-Wortlaut für Follow-up- vs. Geburtstags-Anlass — Feinschliff während `/frontend` oder `/backend`, keine Produktentscheidung
+- [ ] **Neu (Refine 2026-06-28):** Genaues Schema/Migration für `contact_events` (Spaltentypen, Indizes, exakte RLS-Policy-Syntax) — technische Entscheidung, wird in `/architecture` getroffen
+- [ ] **Neu:** Soll "Kürzlich erkannt" auch einen "Vorschlag"-AI-Draft-Button bekommen (wie Follow-up/Geburtstag-Karten)? Im Refine-Interview nicht abgefragt — Empfehlung: aus Konsistenzgründen ja, aber kein Blocker, kann in `/frontend` entschieden werden
 
 ## Decision Log
 
@@ -139,6 +161,11 @@
 | WhatsApp-Button (`wa.me`-Link) entfernt, ersetzt durch Copy-Button | Nutzerwunsch im Refine — kanalunabhängig (auch ohne Telefonnummer nutzbar, nicht nur WhatsApp), einfacher als Auto-Log-Erkennung beim Senden | 2026-06-24 |
 | Kein Auto-Log beim Senden, Nutzer loggt weiterhin manuell über "Kontaktiert" | Es gibt keinen verlässlichen Signal, dass eine kopierte Nachricht tatsächlich versendet wurde — Komplexität/Fehleranfälligkeit eines Erkennungsmechanismus steht in keinem Verhältnis zum Nutzen | 2026-06-24 |
 | Schreibstil-Lernen nutzt bis zu 5 jüngste Interaktions-Notizen >20 Zeichen über ALLE Kontakte des Nutzers, kein neues Feld für den exakten gesendeten Text | Notizen pro einzelnem Kontakt oft zu wenige für Few-Shot-Beispiele; Mindestlänge filtert reine Stichwort-Notizen ("Kurzer Call") aus, die nicht als Stilbeispiel taugen; kein Zusatzfeld, um Quick-Add-Ziel aus PRD nicht zu gefährden | 2026-06-24 |
+| "Diese Woche" (7 Tage) wird zu "Nächste 14 Tage" (7→14 Tage), Karten darin chronologisch nach Anlassdatum sortiert | Nutzerwunsch: Vorschau soll weiter vorausschauen und in Reihenfolge zeigen, wann etwas anfällt, statt nur unsortiert "diese Woche" | 2026-06-28 |
+| Neue eigene Sektion "Kürzlich erkannt" statt Einbau der Import-Events in "Heute & überfällig"/"Nächste 14 Tage" | Import-Events haben kein "Anlassdatum in der Zukunft" wie Follow-up/Geburtstag (sie sind bereits eingetretene, beim Import erkannte Veränderungen) — Mischen mit den datumssortierten Sektionen wäre semantisch falsch | 2026-06-28 |
+| "Kontaktiert" auf einem Import-Event nutzt dieselbe Interaction-Logging-Aktion wie Follow-up/Geburtstag und markiert das Event dabei als dismissed | Konsistenz mit bestehendem Muster, kein zweiter Aktions-Typ nötig; Nutzerentscheidung im Refine-Interview | 2026-06-28 |
+| Import-Events bleiben sichtbar bis manuell über "Kontaktiert" abgehakt, kein automatisches Zeitfenster-Ausblenden | Nutzerentscheidung im Refine-Interview — ein erkannter Jobwechsel soll nicht stillschweigend verschwinden, nur weil ein fixes Zeitfenster abgelaufen ist | 2026-06-28 |
+| (Reverst Entscheidung von PROJ-10, 2026-06-28) Erkannte Jobwechsel/Beförderungen werden jetzt doch persistiert, in neuer Tabelle `contact_events` statt nur als flüchtiges Vorschau-Ergebnis | Nutzerwunsch: Erkenntnis aus einem Import soll auch nach Schließen des Import-Dialogs auf dem Dashboard sichtbar bleiben — das ging mit der ursprünglichen "nicht speichern"-Entscheidung nicht | 2026-06-28 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
