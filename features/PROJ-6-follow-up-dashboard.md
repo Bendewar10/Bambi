@@ -85,6 +85,7 @@
 - [ ] **Neu (Refine 2026-06-28):** Angenommen ein bestätigter LinkedIn-Import hat bei einem Kontakt einen Jobwechsel oder eine Beförderung erkannt (siehe PROJ-10), wenn das Dashboard lädt, dann erscheint dieser Kontakt in einer eigenen Sektion "Kürzlich erkannt" mit Badge "Jobwechsel" und/oder "Beförderung", unabhängig von Follow-up/Geburtstag-Anlässen
 - [ ] **Neu:** Angenommen eine Karte in "Kürzlich erkannt" wird angezeigt, wenn der Nutzer auf "Kontaktiert" klickt, dann öffnet sich das bestehende Interaction-Formular (PROJ-5); nach erfolgreichem Speichern wird das zugehörige `contact_events`-Event als erledigt markiert (`dismissed_at` gesetzt) und die Karte verschwindet aus "Kürzlich erkannt"
 - [ ] **Neu:** Angenommen kein offenes Import-Event existiert, wenn das Dashboard lädt, dann wird die Sektion "Kürzlich erkannt" nicht angezeigt (kein eigener Empty-State, einfach ausgeblendet)
+- [ ] **Neu (Architecture 2026-06-28):** Angenommen eine Karte in "Kürzlich erkannt" wird angezeigt, wenn der Nutzer auf "Vorschlag" klickt, dann generiert dieselbe bestehende `/api/draft-message`-Route einen Nachrichtenvorschlag (Anlass-Typ "Jobwechsel"/"Beförderung"), inkl. Loading-/Fehler-State, identisch zum Follow-up/Geburtstag-Verhalten
 - [ ] **Neu:** Angenommen ein Kontakt hat mehrere offene Import-Events (z.B. zwei Imports nacheinander, jeweils neuer Jobwechsel), wenn das Dashboard lädt, dann erscheint er einmal mit allen offenen Badges zusammen, "Kontaktiert" markiert alle offenen Events dieses Kontakts gleichzeitig als erledigt
 
 ### Kontaktiert-Aktion
@@ -142,8 +143,8 @@
 ## Open Questions
 - [ ] Welcher AI-Provider/Modell genau (z.B. über Vercel AI Gateway) — technische Entscheidung, wird in `/architecture` getroffen
 - [ ] Exakter Prompt-Wortlaut für Follow-up- vs. Geburtstags-Anlass — Feinschliff während `/frontend` oder `/backend`, keine Produktentscheidung
-- [ ] **Neu (Refine 2026-06-28):** Genaues Schema/Migration für `contact_events` (Spaltentypen, Indizes, exakte RLS-Policy-Syntax) — technische Entscheidung, wird in `/architecture` getroffen
-- [ ] **Neu:** Soll "Kürzlich erkannt" auch einen "Vorschlag"-AI-Draft-Button bekommen (wie Follow-up/Geburtstag-Karten)? Im Refine-Interview nicht abgefragt — Empfehlung: aus Konsistenzgründen ja, aber kein Blocker, kann in `/frontend` entschieden werden
+- [x] Genaues Schema/Migration für `contact_events` → Struktur (plain language) in `/architecture` festgelegt, siehe "Tech Design — Refine 2026-06-28"; exakte Spaltentypen/Indizes/RLS-Policy-Syntax folgen als Implementierungsdetail in `/backend` (2026-06-28)
+- [x] Soll "Kürzlich erkannt" auch einen "Vorschlag"-AI-Draft-Button bekommen? → Ja, ruft dieselbe bestehende AI-Route auf (Konsistenz, kein Sonderfall), siehe Tech Decisions (2026-06-28)
 
 ## Decision Log
 
@@ -178,6 +179,9 @@
 | Neue serverseitige API-Route für den Nachrichtenvorschlag (statt direktem Supabase-Client-Zugriff) | Erstmals wird ein AI-Provider-Schlüssel benötigt — der darf nicht im Browser landen, also zwingend eine Route, die die Nutzer-Session serverseitig prüft, bevor sie Kontaktdaten an den AI-Provider schickt | 2026-06-22 |
 | AI-Anbindung über Vercel AI Gateway (generisches Modell-Strings-Format) statt direktem Provider-Paket | Anbieter bleibt austauschbar, ein Schlüssel/eine Abrechnung statt mehrerer Provider-Integrationen | 2026-06-22 |
 | WhatsApp-Link (`wa.me`) und Kalender-Link (Google-Calendar-Add-Event-URL) sind reine clientseitig generierte Links, kein neues Package | Beides sind nur URL-Konstruktionen, keine Bibliothek nötig | 2026-06-22 |
+| Import-Event-Karte als eigene, neue Komponente statt Wiederverwendung der bestehenden Anlass-Karte | Unterschiedliche Aktionen/Badges (kein Kalender-Link, andere Badge-Typen) — eine gemeinsame Komponente für zwei unterschiedliche Karten-Formen hätte mehr Spezialfall-Logik erzeugt als zwei einfache Komponenten | 2026-06-28 |
+| Bestehende `/api/draft-message`-Route bekommt zwei zusätzliche, gültige Anlass-Typ-Werte ("Jobwechsel"/"Beförderung") statt einer zweiten Route | Gleiche Sicherheits-/Session-Prüfung, gleiche Kontakt-Ladelogik wird für alle vier Anlass-Typen wiederverwendet — nur der Prompt-Wortlaut unterscheidet sich (Detail für `/backend`) | 2026-06-28 |
+| "Kürzlich erkannt" wird zwischen "Nächste 14 Tage" und der vollen Kontaktliste-Verlinkung positioniert, eigene Sektion, kein Vermischen mit den Badges der anderen Karten | Import-Events haben kein Datum in der Zukunft, auf das sich eine gemeinsame chronologische Sortierung stützen könnte — eigene Sektion vermeidet eine künstliche Sortierreihenfolge | 2026-06-28 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -224,6 +228,44 @@ Nachrichtenvorschläge werden nicht gespeichert — sie entstehen bei jedem Klic
 ### Dependencies (Packages)
 - `ai` (Vercel AI SDK) — neu, für die serverseitige Generierung des Nachrichtenvorschlags über das AI Gateway
 - Keine weiteren neuen Packages — Routing/Layout nutzt Next.js-Bordmittel, WhatsApp-/Kalender-Links sind reine URL-Strings, restliche UI nutzt bereits installierte shadcn/ui-Komponenten (`Card`, `Badge`, `Button`)
+
+## Tech Design — Refine 2026-06-28 (14-Tage-Vorschau + Kürzlich erkannt)
+
+### Component Structure
+
+```
+/dashboard
+├── Sektion "Heute & überfällig" (unverändert)
+│   └── Anlass-Karte (Follow-up/Geburtstag, unverändert)
+├── Sektion "Nächste 14 Tage" (vorher "Diese Woche")
+│   └── Anlass-Karte (gleiche Komponente wie bisher) — Fenster 7→14 Tage, Karten jetzt chronologisch nach Anlassdatum sortiert
+├── Sektion "Kürzlich erkannt" (NEU — nur sichtbar, wenn mindestens ein offenes Import-Event existiert, sonst komplett ausgeblendet)
+│   └── Import-Event-Karte (neue, eigenständige Komponente)
+│       ├── Name + Badge(s): "Jobwechsel" und/oder "Beförderung" (mehrere offene Events desselben Kontakts werden zu einer Karte zusammengefasst)
+│       ├── "Kontaktiert"-Button → öffnet bestehendes Interaction-Formular (PROJ-5); nach erfolgreichem Speichern werden alle offenen Events dieses Kontakts als erledigt markiert
+│       └── "Vorschlag"-Button → ruft dieselbe bestehende AI-Route auf wie die Anlass-Karten (Route lernt die neuen Anlass-Typ-Werte "Jobwechsel"/"Beförderung")
+└── Empty State (unverändert) — bezieht sich weiterhin nur auf "Heute & überfällig"/"Nächste 14 Tage"; "Kürzlich erkannt" hat keinen eigenen Empty-State, blendet sich bei null offenen Events einfach komplett aus
+```
+
+### Data Model (plain language)
+
+Neue Tabelle `contact_events`: Jede Zeile gehört zu genau einem Kontakt und hält fest, welche Art von Veränderung erkannt wurde (Jobwechsel oder Beförderung), wann sie beim Import entdeckt wurde, und ob der Nutzer sie bereits bearbeitet hat (offen = noch nicht bearbeitet, erledigt = Zeitpunkt gesetzt, sobald "Kontaktiert" geklickt wurde). Ein Kontakt kann mehrere offene Zeilen gleichzeitig haben (z.B. zwei Imports nacheinander ohne Reaktion dazwischen).
+
+Befüllt wird die Tabelle ausschließlich von PROJ-10 (beim Bestätigen eines Imports). PROJ-6 liest nur die offenen Zeilen und markiert sie beim Klick auf "Kontaktiert" als erledigt — schreibt also nie neue Zeilen, nur den Erledigt-Zeitpunkt auf bereits bestehenden.
+
+Jede Zeile ist fest mit einem Kontakt verknüpft — wird der Kontakt gelöscht, verschwinden seine Events automatisch mit (keine verwaisten Datensätze). Der gleiche Schutzmechanismus wie bei `contacts`/`interactions` sorgt dafür, dass ein Nutzer ausschließlich seine eigenen Events sieht.
+
+### Tech Decisions (justified)
+
+- **Neue Tabelle statt neue Spalte am Kontakt:** Ein Kontakt kann mehrere offene Events gleichzeitig haben — eine einzelne Spalte könnte immer nur den letzten Stand abbilden, eine Historie mit mehreren offenen Einträgen bräuchte zwangsläufig eine eigene Tabelle.
+- **Kein neuer API-Endpoint:** Schreiben passiert im selben direkten Datenbank-Zugriff, den PROJ-10 für den restlichen Import bereits nutzt; Lesen und Erledigt-Markieren passiert genauso direkt vom Dashboard aus wie bei Kontakten/Interaktionen. Die bestehende Zugriffsregel (gleiche wie bei allen anderen Tabellen) schützt automatisch mit.
+- **Gruppierung mehrerer offener Events eines Kontakts im Browser:** Gleiches Muster wie die bestehende Kombination von Follow-up- und Geburtstags-Badge auf einer Anlass-Karte — keine neue Server-Logik nötig.
+- **Sortierung der "Nächste 14 Tage"-Sektion im Browser:** Konsistent mit dem bestehenden Prinzip, dass alle Datums-Logik client-seitig auf bereits geladenen Daten läuft (kein neuer Datenbank-Sortier-Mechanismus).
+- **"Kontaktiert" auf einer Import-Event-Karte nutzt dasselbe Interaction-Formular:** Ein Speichern-Klick löst zwei Effekte aus (Kontaktmoment loggen + Events erledigt markieren) statt zwei getrennte Aktionen anzubieten — weniger Bedienaufwand, ein bekanntes Formular.
+- **"Vorschlag" ruft dieselbe bestehende AI-Route auf:** Sicherheits-/Session-Prüfung und Kontakt-Ladelogik bleiben identisch, nur der Prompt-Wortlaut unterscheidet sich je Anlass-Typ (Feinschliff in `/backend`) — vermeidet eine zweite, fast identische Route.
+
+### Dependencies (Packages)
+Keine neuen Packages — neue Tabelle nutzt dasselbe Supabase-Setup wie alle anderen, UI nutzt weiterhin bereits installierte shadcn/ui-Komponenten.
 
 ## QA Test Results
 
