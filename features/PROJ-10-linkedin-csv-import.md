@@ -1,8 +1,10 @@
 # PROJ-10: LinkedIn-CSV-Import
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-06-24
-**Last Updated:** 2026-06-24
+**Last Updated:** 2026-06-28
+
+> Refinement 2026-06-28: Vorschau wird von reinen Summary-Zahlen auf eine Review-Liste mit Anlass-Erkennung (Jobwechsel/Beförderung) umgebaut, kein automatisches Überschreiben mehr. Bestehende Implementation/QA/Deployment-Abschnitte unten beschreiben die ursprünglich deployte Version und werden bei der Neu-Umsetzung aktualisiert.
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — Kontakte werden in dieselbe `contacts`-Tabelle angelegt/aktualisiert, nutzt `first_name`/`last_name`/`employer`/`job_title`/`email`
@@ -25,30 +27,43 @@
 - Als Nutzer möchte ich, dass bereits vorhandene Kontakte beim Re-Upload aktualisiert (z.B. neuer Arbeitgeber) statt dupliziert werden, damit mein Netzwerk konsistent bleibt
 - Als Nutzer möchte ich vor dem eigentlichen Import sehen, wie viele Kontakte neu angelegt bzw. aktualisiert werden, damit ich nicht versehentlich falsche Daten importiere
 - Als Nutzer möchte ich, dass von mir bereits gepflegte Felder (Kategorie, Stärke, Notizen etc.) beim Import unangetastet bleiben, damit meine manuelle Einordnung nicht überschrieben wird
+- Als Nutzer möchte ich, dass importierbare Felder (employer, job_title, last_name, email, linkedin_url) bei Bestandskontakten NIE automatisch überschrieben werden, sondern erst nach meiner Bestätigung, damit eigene Korrekturen/Ergänzungen an diesen Feldern zwischen zwei Importen nicht verloren gehen
+- Als Nutzer möchte ich pro Person sehen, welche Felder sich seit dem letzten Import geändert haben (alt→neu), gruppiert statt einzeln verstreut, damit ich auf einen Blick erfasse, was bei wem passiert ist
+- Als Nutzer möchte ich, dass Jobwechsel oder Beförderungen explizit als Anlass markiert werden, damit ich erkenne, bei wem es sich gerade lohnt, sich zu melden
+- Als Nutzer möchte ich Werte in der Vorschau direkt bearbeiten können (neue Kontakte und Veränderungen), damit ich CSV-Eigenheiten vor dem Speichern korrigieren kann
+- Als Nutzer möchte ich einzelne Zeilen (einen neuen Kontakt oder die Änderungen einer Person) gezielt von der Übernahme ausschließen können, ohne den ganzen Import abzubrechen
 
 ## Out of Scope
 - Live-Synchronisation/OAuth mit LinkedIn — bewusst nur manueller, einmaliger CSV-Upload (PRD-Non-Goal "keine LinkedIn-API-Synchronisation" bezieht sich auf automatisches/laufendes Sync, nicht auf bewussten manuellen Upload — Entscheidung im Interview bestätigt)
 - Export von Kontakten zurück als CSV — nur Import-Richtung
-- Zeilen-für-Zeilen-Diff-Vorschau vor Bestätigung — nur Summary-Zahlen (neu/aktualisiert/unverändert/übersprungen), kein granularer Feld-Vergleich
 - Unterstützung anderer CSV-Formate (Xing, Outlook-Kontakte etc.) — nur das LinkedIn-"Connections.csv"-Format
 - Spalte "Connected On" — wird beim Import ignoriert, kein passendes Datenfeld am Kontakt vorhanden, kein neues Feld dafür eingeführt
 - Automatische Auflösung von Mehrfach-Namens-Treffern ohne `linkedin_url` — bei Ambiguität wird einfach der erste Treffer verwendet (siehe Edge Cases), kein Dialog zur manuellen Auswahl
 - Rollback/Undo nach bestätigtem Import — Import ist idempotent (erneuter Upload gleicher Datei überschreibt nur mit denselben Werten), das reicht als Sicherheitsnetz
+- Anlass-Tags für andere Felder als employer/job_title (z.B. neue Stadt, neue E-Mail) — diese Feldänderungen erscheinen weiterhin in der Veränderungs-Liste, aber ohne "Jobwechsel"/"Beförderung"-Tag
+- Persistente Historie/Protokoll erkannter Veränderungen über den aktuellen Import-Lauf hinaus — Anlass-Erkennung ist reine Diff-Berechnung der aktuellen Vorschau, nichts wird als "Change-Log" in der DB gespeichert
+- Benachrichtigung (E-Mail/Push) bei erkannten Anlässen außerhalb des Import-Dialogs — Anzeige nur innerhalb der Vorschau des aktuellen Imports
 
 ## Acceptance Criteria
 
-- [ ] Angenommen der Nutzer ist eingeloggt, wenn er eine gültige LinkedIn-CSV-Datei hochlädt, dann zeigt eine Vorschau die Anzahl neuer Kontakte, zu aktualisierender Kontakte, unveränderter Kontakte und übersprungener Zeilen, bevor irgendetwas gespeichert wird
-- [ ] Angenommen die Vorschau wird angezeigt, wenn der Nutzer auf "Importieren" klickt, dann werden die Änderungen tatsächlich übernommen und eine Erfolgsmeldung mit den finalen Zahlen angezeigt
+- [ ] Angenommen der Nutzer ist eingeloggt, wenn er eine gültige LinkedIn-CSV-Datei hochlädt, dann zeigt eine Vorschau zwei Listen — "Neue Kontakte" (Name + employer/job_title/city, editierbar, Checkbox default aktiv) und "Veränderungen" gruppiert pro Person (alle abweichenden Felder dieser Person zusammen, alt→neu, editierbar, Checkbox default aktiv) — sowie die einfachen Zähler "unverändert" und "übersprungen", bevor irgendetwas gespeichert wird
+- [ ] Angenommen der employer eines Bestandskontakts unterscheidet sich vom CSV-Wert (alter und neuer Wert beide nicht leer), dann zeigt die Veränderungs-Zeile dieser Person das Anlass-Tag "Jobwechsel"
+- [ ] Angenommen der job_title eines Bestandskontakts unterscheidet sich vom CSV-Wert (alter und neuer Wert beide nicht leer), dann zeigt die Veränderungs-Zeile dieser Person das Anlass-Tag "Beförderung"
+- [ ] Angenommen employer UND job_title einer Person unterscheiden sich gleichzeitig (beide jeweils nicht leer), dann zeigt die Veränderungs-Zeile dieser Person beide Anlass-Tags "Jobwechsel" und "Beförderung" gemeinsam
+- [ ] Angenommen ein Feld (employer, job_title, last_name, email oder linkedin_url) eines Bestandskontakts ist aktuell leer und die CSV liefert dafür einen Wert, dann erscheint dies in der Veränderungs-Liste als Feld-Update ohne Anlass-Tag ("Neu erfasst"), wird aber NICHT automatisch im Hintergrund gespeichert
+- [ ] Angenommen ein Feld eines Bestandskontakts ist bereits gesetzt und der CSV-Wert ist identisch, dann erscheint dieses Feld nicht in der Veränderungs-Liste (Kontakt zählt als "unverändert", falls kein anderes Feld abweicht)
+- [ ] Angenommen der Nutzer bearbeitet einen Wert direkt in der Vorschau (neuer Kontakt oder Veränderung), wenn er danach "Bestätigen" klickt, dann wird der bearbeitete Wert gespeichert, nicht der ursprüngliche CSV-Wert
+- [ ] Angenommen der Nutzer hakt die Checkbox einer Zeile in "Neue Kontakte" ab, dann wird für diesen CSV-Eintrag beim Bestätigen kein Kontakt angelegt
+- [ ] Angenommen der Nutzer hakt die Checkbox einer Person in "Veränderungen" ab, dann wird beim Bestätigen kein Feld dieser Person verändert (auch nicht einzelne der gruppierten Felder)
+- [ ] Angenommen die Vorschau wird angezeigt, wenn der Nutzer auf "Bestätigen" klickt, dann werden ausschließlich die weiterhin angehakten Zeilen mit ihren (ggf. bearbeiteten) Werten gespeichert und eine Erfolgsmeldung mit den finalen Zahlen angezeigt
 - [ ] Angenommen die Vorschau wird angezeigt, wenn der Nutzer auf "Abbrechen" klickt, dann wird kein Kontakt angelegt oder verändert
-- [ ] Angenommen ein CSV-Eintrag hat eine `linkedin_url`, die exakt zu einem bestehenden Kontakt passt, dann wird dieser Kontakt aktualisiert statt ein neuer angelegt
-- [ ] Angenommen ein CSV-Eintrag hat keine zu `linkedin_url` passende Übereinstimmung, aber Vorname+Nachname stimmen case-insensitive mit einem bestehenden Kontakt ohne gesetzte `linkedin_url` überein, dann wird dieser Kontakt aktualisiert und seine `linkedin_url` ergänzt
-- [ ] Angenommen ein CSV-Eintrag hat weder per `linkedin_url` noch per Name eine Übereinstimmung, dann wird ein neuer Kontakt angelegt (Kategorie/Stärke/Kontext/Notizen/Stadt/Telefon/Geburtstag bleiben leer)
-- [ ] Angenommen ein Feld im CSV-Eintrag ist leer (z.B. keine E-Mail-Adresse), wenn ein bestehender Kontakt aktualisiert wird, dann bleibt der bisherige Wert dieses Feldes unverändert (kein Überschreiben mit leer)
-- [ ] Angenommen ein Feld im CSV-Eintrag ist nicht leer und unterscheidet sich vom bestehenden Wert, wenn der Kontakt aktualisiert wird, dann wird der neue Wert übernommen
-- [ ] Angenommen Kategorie, Beziehungsstärke, Kontext, Notizen, Stadt, Telefonnummer oder Geburtstag sind an einem bestehenden Kontakt bereits gesetzt, dann werden sie durch den Import nie verändert (CSV liefert diese Felder nicht)
+- [ ] Angenommen ein CSV-Eintrag hat eine `linkedin_url`, die exakt zu einem bestehenden Kontakt passt, dann wird dieser Kontakt der Veränderungs-Liste zugeordnet statt ein neuer Kontakt angelegt
+- [ ] Angenommen ein CSV-Eintrag hat keine zu `linkedin_url` passende Übereinstimmung, aber Vorname+Nachname stimmen case-insensitive mit einem bestehenden Kontakt ohne gesetzte `linkedin_url` überein, dann wird dieser Kontakt der Veränderungs-Liste zugeordnet (inkl. Ergänzung der `linkedin_url` als Feld-Update)
+- [ ] Angenommen ein CSV-Eintrag hat weder per `linkedin_url` noch per Name eine Übereinstimmung, dann erscheint er in "Neue Kontakte" (Kategorie/Stärke/Kontext/Notizen/Stadt/Telefon/Geburtstag bleiben bei Anlage leer)
+- [ ] Angenommen Kategorie, Beziehungsstärke, Kontext, Notizen, Stadt, Telefonnummer oder Geburtstag sind an einem bestehenden Kontakt bereits gesetzt, dann werden sie durch den Import nie verändert und tauchen nie in der Veränderungs-Liste auf (CSV liefert diese Felder nicht)
 - [ ] Angenommen eine CSV-Zeile hat keinen Vorname-Wert, dann wird diese Zeile übersprungen und im "übersprungen"-Zähler der Vorschau mitgezählt
 - [ ] Angenommen die hochgeladene Datei hat keine Zeile, die mit der Kopfzeile `First Name,Last Name,URL` beginnt, dann wird eine Fehlermeldung "Keine gültige LinkedIn-Export-Datei" angezeigt und kein Import-Versuch unternommen
-- [ ] Angenommen die Supabase-API ist beim tatsächlichen Import nicht erreichbar, dann wird eine Fehlermeldung angezeigt; bereits gespeicherte Zeilen bleiben gespeichert (kein Rollback), ein erneuter Upload derselben Datei ist sicher (idempotent)
+- [ ] Angenommen die Supabase-API ist beim tatsächlichen Speichern (nach "Bestätigen") nicht erreichbar, dann wird eine Fehlermeldung angezeigt; bereits gespeicherte Zeilen bleiben gespeichert (kein Rollback), ein erneuter Upload derselben Datei ist sicher (idempotent)
 - [ ] Angenommen Nutzer A ist eingeloggt, wenn er eine CSV importiert, dann werden alle importierten/aktualisierten Kontakte ausschließlich mit `user_id = auth.uid()` gespeichert (RLS aus PROJ-1 erzwungen, kein Zugriff auf/Vermischen mit Kontakten anderer Nutzer)
 
 ## Edge Cases
@@ -59,12 +74,18 @@
 - Doppelter Klick auf "Importieren" während der Import läuft → Button disabled (Loading-State), kein doppelter Import-Lauf
 - Erneuter Upload derselben Datei → fast alle Einträge landen in "unverändert" (Werte sind identisch), keine Duplikate
 - CSV enthält eine Zeile mit `linkedin_url`, die zu einem Kontakt eines ANDEREN Nutzers gehören würde → kann nicht passieren, Matching läuft ausschließlich gegen die eigenen (RLS-gefilterten) Kontakte des eingeloggten Nutzers
+- Person wechselt gleichzeitig Arbeitgeber und Position → beide Anlass-Tags ("Jobwechsel" + "Beförderung") erscheinen zusammen an einer Veränderungs-Zeile, keine gegenseitige Unterdrückung
+- Nutzer hakt eine Veränderungs-Zeile ab, bearbeitet aber trotzdem ein Feld davor → Checkbox-Zustand entscheidet beim Bestätigen, nicht der Bearbeitungs-Zustand; abgehakte Zeilen werden komplett ignoriert, auch wenn Werte bearbeitet wurden
+- Nutzer bearbeitet ein Feld einer Person zurück auf den alten Wert → Feld bleibt trotzdem in der Veränderungs-Liste sichtbar (Diff wird einmalig beim Laden der Vorschau berechnet, nicht live neu bewertet), aber der gespeicherte Wert entspricht dann dem (unveränderten) alten Wert — kein faktisches Update beim Bestätigen
+- Sehr viele gleichzeitige Veränderungen (z.B. 200 Personen mit abweichenden Feldern in einer großen Datei) → Liste muss ohne UI-Blockierung scrollbar/handhabbar bleiben, gleiches Batch-Prinzip wie beim Speichern
 
 ## Technical Requirements
 - Security: RLS aus PROJ-1 deckt Zugriff ab — Import darf `user_id` nie aus Client-Eingabe übernehmen, nur `auth.uid()`
-- Validierung: Vorname Pflicht pro Zeile (sonst Skip), restliche Felder wie in PROJ-3 (Längen-Constraints gelten auch für importierte Werte)
-- Neues Feld `linkedin_url` am Kontakt (text, nullable, optional, freier Text wie `phone`/`email` — kein Format-Constraint)
+- Validierung: Vorname Pflicht pro Zeile (sonst Skip), restliche Felder wie in PROJ-3 (Längen-Constraints gelten auch für importierte/bearbeitete Werte)
+- Feld `linkedin_url` am Kontakt (text, nullable, optional, freier Text wie `phone`/`email` — kein Format-Constraint) — bereits vorhanden
 - Performance: Verarbeitung mehrerer hundert Zeilen muss ohne UI-Blockierung möglich sein (Batch-Verarbeitung)
+- `computeImportPlan` (oder Nachfolger) muss pro Person eine Liste der abweichenden Felder (Feldname, alter Wert, neuer Wert) statt nur eines Update-Flags liefern, plus berechnete Anlass-Tags ("Jobwechsel"/"Beförderung") nach der Regel: Tag nur wenn alter UND neuer Wert nicht leer sind und sich unterscheiden
+- Vorschau-Zustand muss pro Zeile editierbare Werte + Checkbox (default an) halten, unabhängig vom ursprünglichen CSV-Wert — beim Bestätigen werden nur angehakte Zeilen mit ihrem aktuellen (ggf. bearbeiteten) Feldwert geschrieben
 
 ## Open Questions
 _Keine offenen Fragen — siehe Decision Log._
@@ -83,6 +104,11 @@ _Keine offenen Fragen — siehe Decision Log._
 | Zeilen ohne Vorname werden übersprungen, kein Abbruch des Gesamtimports | Einzelne kaputte Zeilen (leere Zeilen, fehlende Daten) sollen den Rest des Imports nicht blockieren | 2026-06-24 |
 | Parser sucht nach Zeile beginnend mit `First Name,Last Name,URL` als echte Kopfzeile, ignoriert Erklärtext davor | Echte LinkedIn-Exports enthalten eine Notiz-Präambel vor der eigentlichen Kopfzeile | 2026-06-24 |
 | Mehrfache Namens-Treffer ohne `linkedin_url`: erster Treffer wird verwendet, keine Disambiguierungs-UI | Pragmatischer MVP-Kompromiss, geringe Praxisrelevanz bei einem persönlichen statt einem Massen-Netzwerk | 2026-06-24 |
+| **(überschreibt vorherige Entscheidung)** Importierbare Felder (`employer`/`job_title`/`last_name`/`email`/`linkedin_url`) werden bei Bestandskontakten nie mehr automatisch geschrieben — auch nicht bei abweichendem, nicht-leerem CSV-Wert. Erst nach Review in der Vorschau und explizitem "Bestätigen" | Nutzer enricht/korrigiert diese Felder selbst zwischen zwei Imports — automatisches Überschreiben bei Re-Upload hätte das wieder zerstört | 2026-06-28 |
+| **(überschreibt vorherige Entscheidung)** Vorschau bekommt granulare Zeilen-Listen ("Neue Kontakte", "Veränderungen" pro Person) statt nur Summary-Zahlen | Nutzer will aktiv erkennen, bei wem sich beruflich was getan hat, um gezielt nachzufassen — reine Zahlen reichten dafür nicht | 2026-06-28 |
+| Anlass-Tag "Jobwechsel" bei abweichendem `employer`, "Beförderung" bei abweichendem `job_title` — jeweils nur wenn alter UND neuer Wert nicht leer sind; beide Tags können gleichzeitig an einer Person hängen | Erstmalige Befüllung (alter Wert leer) ist kein "Wechsel", sondern neue Information; eine Person kann gleichzeitig Arbeitgeber und Position wechseln | 2026-06-28 |
+| Jede Zeile (neuer Kontakt / Person mit Änderungen) hat eine standardmäßig aktive Checkbox zum gezielten Ausschluss vor dem finalen Speichern | Nutzer soll einzelne fragwürdige Treffer/Änderungen ausschließen können, ohne den gesamten Import abzubrechen | 2026-06-28 |
+| Werte in der Vorschau sind direkt editierbar; gespeichert wird der Wert im Feld zum Zeitpunkt des Bestätigens | Nutzer will Tippfehler/CSV-Eigenheiten vor dem Speichern korrigieren, statt erst danach über den separaten Edit-Dialog | 2026-06-28 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -93,6 +119,10 @@ _Keine offenen Fragen — siehe Decision Log._
 | `papaparse` als CSV-Parser-Package | Vermeidet Bugs durch eingebettete Kommas in Anführungszeichen-Feldern (z.B. Nachnamen mit Titel-Suffix), Standard-Library statt Eigenbau | 2026-06-24 |
 | Vorschau-Berechnung und tatsächlicher Speichervorgang als zwei getrennte Funktionsaufrufe | Erzwingt den im Spec festgelegten Bestätigungs-Schritt technisch, verhindert versehentliches Schreiben beim bloßen Anzeigen der Vorschau | 2026-06-24 |
 | Bulk-Insert/Update in Batches (z.B. 50 Zeilen pro Request) | Vermeidet Request-Größen-/Timeout-Probleme bei großen Exportdateien | 2026-06-24 |
+| Diff-Berechnung liefert pro Bestandskontakt eine Liste von Feld-Unterschieden (Feldname, alt, neu) statt eines fertigen Update-Pakets | UI muss jedes Feld einzeln anzeigen, editieren und mit Anlass-Tags versehen können — ein flaches Update-Objekt könnte das nicht abbilden | 2026-06-28 |
+| Anlass-Tags ("Jobwechsel"/"Beförderung") werden bei jeder Vorschau-Berechnung aus den Feld-Unterschieden abgeleitet, nicht am Kontakt gespeichert | Reiner Anzeige-Hinweis für den aktuellen Import-Lauf, keine Schema-Änderung/Pflegeaufwand für einen Status, der sich beim nächsten Import ohnehin neu berechnet | 2026-06-28 |
+| Checkbox- (angehakt/ausgeschlossen) und Bearbeitungs-Zustand jeder Vorschau-Zeile lebt nur im Dialog-Zustand des Browsers, nicht in der Datenbank | Konsistent mit bestehender Entscheidung "Vorschau ist reiner Browser-Zustand"; verworfen bei Abbrechen/Schließen, kein Entwurfs-Datenmodell nötig | 2026-06-28 |
+| Keine neuen Packages — Diff/Tag-Logik bleibt in der bestehenden `linkedin-import.ts`, nur die Rückgabestruktur wird feingranularer | Reine Erweiterung bestehender reiner Funktionen, kein neuer technischer Bedarf | 2026-06-28 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -108,29 +138,36 @@ _Keine offenen Fragen — siehe Decision Log._
 │   ├── Schritt 1: Datei-Upload
 │   │   ├── Datei-Auswahl (akzeptiert .csv)
 │   │   └── Fehlermeldung "Keine gültige LinkedIn-Export-Datei", falls Kopfzeile nicht gefunden
-│   ├── Schritt 2: Vorschau (read-only, noch nichts gespeichert)
-│   │   ├── Zahlen: "X neu", "Y aktualisiert", "Z unverändert", "W übersprungen (kein Vorname)"
+│   ├── Schritt 2: Vorschau (Review-Listen, noch nichts gespeichert)
+│   │   ├── Liste "Neue Kontakte" — pro Zeile: Checkbox (default an), Name, editierbare employer/job_title/city-Felder
+│   │   ├── Liste "Veränderungen" — pro Person: Checkbox (default an), Name, Liste der abweichenden Felder (alt→neu, editierbar), Anlass-Tags ("Jobwechsel"/"Beförderung") falls zutreffend
+│   │   ├── Zähler "unverändert" und "übersprungen (kein Vorname)"
 │   │   ├── "Abbrechen"-Button → schließt Dialog, keine Änderung
-│   │   └── "Importieren"-Button → löst den eigentlichen Speichervorgang aus
+│   │   └── "Bestätigen"-Button → speichert ausschließlich angehakte Zeilen mit ihrem aktuellen (ggf. bearbeiteten) Wert
 │   └── Schritt 3: Erfolgsmeldung mit finalen Zahlen, Kontaktliste aktualisiert sich
 ```
 
 ### Data Model (plain language)
 
-`contacts` bekommt eine neue Spalte `linkedin_url` (Text, optional) — gleiches Muster wie `phone`/`email` aus PROJ-3, kein Format-Constraint. Dient als primärer Abgleichs-Schlüssel zwischen CSV-Zeile und bestehendem Kontakt.
+`contacts` hat bereits die Spalte `linkedin_url` (Text, optional) — gleiches Muster wie `phone`/`email` aus PROJ-3, kein Format-Constraint. Dient als primärer Abgleichs-Schlüssel zwischen CSV-Zeile und bestehendem Kontakt. Keine Schema-Änderung in dieser Iteration nötig.
 
-Kein neues Datenmodell für den Import-Vorgang selbst — die Vorschau ist reiner Browser-Zustand (Ergebnis eines Vergleichs zwischen CSV-Inhalt und bereits geladenen eigenen Kontakten), nichts davon wird zwischengespeichert, bevor der Nutzer auf "Importieren" klickt.
+Kein neues Datenmodell für den Import-Vorgang selbst — die Vorschau bleibt reiner Browser-Zustand. Was sich ändert: Statt pro Bestandskontakt nur ein fertiges "Update-Paket" zu berechnen, berechnet die Vorschau jetzt pro Bestandskontakt eine **Liste einzelner Feld-Unterschiede** (Feldname, alter Wert, neuer Wert) plus eine Liste erkannter Anlässe ("Jobwechsel", "Beförderung") — beides reine Ergebnisse eines Vergleichs, nichts davon wird in der Datenbank gespeichert.
+
+Jede Zeile in der Vorschau (neuer Kontakt oder Person mit Veränderungen) bekommt zusätzlich zwei browserseitige Eigenschaften, die nur während der offenen Vorschau existieren: ob die Zeile aktuell angehakt ist (wird beim Bestätigen übernommen oder ignoriert) und welcher Wert aktuell in den editierbaren Feldern steht (startet mit dem CSV-Wert, kann vom Nutzer überschrieben werden). Erst der Klick auf "Bestätigen" liest diesen Zustand aus und schreibt ihn in die Datenbank.
 
 ### Tech Decisions (justified)
 
 - **CSV-Parsing läuft komplett im Browser, kein Server-Roundtrip:** Es sind keine Geheimnisse (API-Keys) involviert, der Nutzer lädt die Datei nur für sich selbst hoch — ein Server-Umweg wäre unnötiger Mehraufwand, gleiche Überlegung wie bei den direkten Supabase-Zugriffen in PROJ-3/4/5.
 - **Dedizierter CSV-Parser statt einfachem Komma-Split:** LinkedIn-Exports enthalten Felder mit eingebetteten Kommas in Anführungszeichen (z.B. Nachname "Lang, LL.M." in der Beispieldatei) — ein naiver Split würde Spalten falsch verschieben. Ein robuster, gut getesteter Parser vermeidet diese Fehlerklasse komplett.
-- **Vergleich/Matching (Vorschau) und tatsächlicher Speichervorgang sind zwei getrennte Schritte:** Die Vorschau lädt einmal die eigenen Kontakte, berechnet den Diff rein im Speicher und verändert nichts. Erst der zweite, explizite Klick auf "Importieren" schreibt tatsächlich — verhindert versehentliches Auto-Save bei einer Bulk-Operation, die hunderte Kontakte betreffen kann.
+- **Vergleich/Matching (Vorschau) und tatsächlicher Speichervorgang sind zwei getrennte Schritte:** Die Vorschau lädt einmal die eigenen Kontakte, berechnet den Diff rein im Speicher und verändert nichts. Erst der zweite, explizite Klick auf "Bestätigen" schreibt tatsächlich — verhindert versehentliches Auto-Save bei einer Bulk-Operation, die hunderte Kontakte betreffen kann.
+- **Diff liefert pro Feld einen eigenen Eintrag statt eines fertigen Update-Pakets:** Die Vorschau muss "alt→neu" pro Feld einzeln anzeigen, einzeln editierbar machen und Anlass-Tags daran festmachen können — das geht nur, wenn der Vergleich Feld für Feld auflöst statt direkt ein fertiges Speicherobjekt zu bauen.
+- **Anlass-Tags sind ein reines Anzeige-Ergebnis des Vergleichs, keine eigene Datenstruktur:** "Jobwechsel"/"Beförderung" werden bei jeder Vorschau-Berechnung neu aus den Feld-Unterschieden abgeleitet (Regel: altes UND neues Feld nicht leer, Werte unterscheiden sich) — nichts wird als Tag/Status am Kontakt gespeichert, vermeidet Schema-Änderung und Pflegeaufwand für einen reinen Hinweis.
+- **Checkbox- und Bearbeitungs-Zustand pro Zeile lebt ausschließlich im Dialog-Zustand des Browsers:** Konsistent mit der bestehenden Entscheidung "Vorschau ist reiner Browser-Zustand" — kein Entwurf/Draft wird in der Datenbank zwischengespeichert, einfach verworfen bei "Abbrechen" oder Schließen des Dialogs.
 - **Bulk-Speichern in mehreren kleineren Gruppen statt einem einzigen riesigen Request:** Vermeidet Timeout-/Größenprobleme bei sehr großen Dateien (mehrere hundert Zeilen), ohne dass der Nutzer etwas davon merkt.
 - **Matching-Priorität `linkedin_url` vor Name-Fallback:** `linkedin_url` ist stabil und eindeutig pro Person, Name-Fallback ist nur ein Sicherheitsnetz für Kontakte, die vor dem ersten Import schon manuell angelegt wurden (deckt sich mit Produktentscheidung aus dem Spec-Interview).
 
 ### Dependencies (Packages)
-- `papaparse` — robustes CSV-Parsing (Anführungszeichen, eingebettete Kommas), Standard-Wahl für clientseitiges CSV-Handling, keine Server-Abhängigkeit nötig
+- `papaparse` — robustes CSV-Parsing (Anführungszeichen, eingebettete Kommas), Standard-Wahl für clientseitiges CSV-Handling, keine Server-Abhängigkeit nötig — keine neuen Packages für diese Iteration
 
 ## QA Test Results
 
