@@ -1,9 +1,19 @@
 import Papa from 'papaparse'
-import { Contact } from './contacts'
+import { Contact, getFullName } from './contacts'
 
 const HEADER_PREFIX = 'First Name,Last Name,URL'
 
 const FIELDS = ['first_name', 'last_name', 'linkedin_url', 'email', 'employer', 'job_title'] as const
+type Field = (typeof FIELDS)[number]
+
+export const FIELD_LABELS: Record<Field, string> = {
+  first_name: 'Vorname',
+  last_name: 'Nachname',
+  linkedin_url: 'LinkedIn-URL',
+  email: 'E-Mail',
+  employer: 'Arbeitgeber',
+  job_title: 'Position',
+}
 
 export interface ParsedRow {
   first_name: string
@@ -52,23 +62,33 @@ export function parseLinkedInCsv(text: string): ParseResult | null {
   return { rows, skippedCount }
 }
 
-export interface ContactUpdate {
-  contactId: string
-  changes: Partial<Pick<Contact, (typeof FIELDS)[number]>>
+export type NewContact = ParsedRow
+
+export interface FieldDiff {
+  field: Field
+  oldValue: string | null
+  newValue: string
 }
 
-export type NewContact = ParsedRow
+export type Occasion = 'Jobwechsel' | 'Beförderung'
+
+export interface ContactChange {
+  contactId: string
+  name: string
+  diffs: FieldDiff[]
+  occasions: Occasion[]
+}
 
 export interface ImportPlan {
   newContacts: NewContact[]
-  updates: ContactUpdate[]
+  changes: ContactChange[]
   unchangedCount: number
   skippedCount: number
 }
 
 export function computeImportPlan(parseResult: ParseResult, existingContacts: Contact[]): ImportPlan {
   const newContacts: NewContact[] = []
-  const updates: ContactUpdate[] = []
+  const changes: ContactChange[] = []
   let unchangedCount = 0
   const usedNameFallbackIds = new Set<string>()
 
@@ -96,20 +116,27 @@ export function computeImportPlan(parseResult: ParseResult, existingContacts: Co
       continue
     }
 
-    const changes: ContactUpdate['changes'] = {}
+    const diffs: FieldDiff[] = []
     for (const field of FIELDS) {
       const newValue = row[field]
       if (newValue && newValue !== match[field]) {
-        changes[field] = newValue
+        diffs.push({ field, oldValue: match[field], newValue })
       }
     }
 
-    if (Object.keys(changes).length > 0) {
-      updates.push({ contactId: match.id, changes })
-    } else {
+    if (diffs.length === 0) {
       unchangedCount += 1
+      continue
     }
+
+    const occasions: Occasion[] = []
+    const employerDiff = diffs.find((d) => d.field === 'employer')
+    if (employerDiff?.oldValue) occasions.push('Jobwechsel')
+    const jobTitleDiff = diffs.find((d) => d.field === 'job_title')
+    if (jobTitleDiff?.oldValue) occasions.push('Beförderung')
+
+    changes.push({ contactId: match.id, name: getFullName(match), diffs, occasions })
   }
 
-  return { newContacts, updates, unchangedCount, skippedCount: parseResult.skippedCount }
+  return { newContacts, changes, unchangedCount, skippedCount: parseResult.skippedCount }
 }

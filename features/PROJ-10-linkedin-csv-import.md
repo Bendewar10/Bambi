@@ -1,10 +1,20 @@
 # PROJ-10: LinkedIn-CSV-Import
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-06-24
 **Last Updated:** 2026-06-28
 
-> Refinement 2026-06-28: Vorschau wird von reinen Summary-Zahlen auf eine Review-Liste mit Anlass-Erkennung (Jobwechsel/Beförderung) umgebaut, kein automatisches Überschreiben mehr. Bestehende Implementation/QA/Deployment-Abschnitte unten beschreiben die ursprünglich deployte Version und werden bei der Neu-Umsetzung aktualisiert.
+> Refinement 2026-06-28: Vorschau wird von reinen Summary-Zahlen auf eine Review-Liste mit Anlass-Erkennung (Jobwechsel/Beförderung) umgebaut, kein automatisches Überschreiben mehr. Frontend für diese Neufassung ist implementiert (siehe "Implementation Notes (Refinement 2026-06-28)" unten); Abschnitte "Implementation Notes", "QA Test Results" und "Deployment" weiter unten beschreiben die ursprünglich deployte Vorgänger-Version.
+
+## Implementation Notes (Refinement 2026-06-28)
+- `src/lib/linkedin-import.ts`: `computeImportPlan` liefert jetzt pro Bestandskontakt eine `ContactChange` (Name, Liste von `FieldDiff` mit `field`/`oldValue`/`newValue`, abgeleitete `occasions`) statt eines fertigen Update-Pakets; `FIELD_LABELS` für die UI-Anzeige ergänzt
+- Anlass-Erkennung: `Jobwechsel` wenn `employer`-Diff vorhanden und alter Wert nicht leer; `Beförderung` analog für `job_title`; beide gleichzeitig möglich
+- `src/components/linkedin-import-dialog.tsx`: Vorschau zeigt jetzt "Neue Kontakte" (editierbare employer/job_title/email-Felder) und "Veränderungen" (gruppiert pro Person, alt→neu pro Feld, editierbar, Anlass-Badges) — je mit Checkbox (default an); "Bestätigen" schreibt nur angehakte Zeilen mit ihrem aktuellen (ggf. bearbeiteten) Wert
+- `tests/PROJ-10-linkedin-csv-import.spec.ts`: bestehende E2E-Tests an neue UI-Texte/Struktur angepasst, 2 neue Tests ergänzt (Checkbox-Ausschluss, Wert-Bearbeitung vor Bestätigen)
+- `src/lib/linkedin-import.test.ts`: Tests auf neue `changes`-Struktur umgestellt, 3 neue Tests für Anlass-Tagging (Jobwechsel, Beförderung, beide gleichzeitig, kein Tag bei Erstbefüllung)
+- Keine Schema-Änderung, kein neuer Server-Endpoint (Tech Design bestätigt)
+- `npm run lint` + `npm run build` + `npm test` (50/50) fehlerfrei
+- E2E PROJ-10 (6/6) + volle Regression aller anderen Specs (73/73) — **79/79 grün** (`--workers=1`)
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — Kontakte werden in dieselbe `contacts`-Tabelle angelegt/aktualisiert, nutzt `first_name`/`last_name`/`employer`/`job_title`/`email`
@@ -46,7 +56,7 @@
 
 ## Acceptance Criteria
 
-- [ ] Angenommen der Nutzer ist eingeloggt, wenn er eine gültige LinkedIn-CSV-Datei hochlädt, dann zeigt eine Vorschau zwei Listen — "Neue Kontakte" (Name + employer/job_title/city, editierbar, Checkbox default aktiv) und "Veränderungen" gruppiert pro Person (alle abweichenden Felder dieser Person zusammen, alt→neu, editierbar, Checkbox default aktiv) — sowie die einfachen Zähler "unverändert" und "übersprungen", bevor irgendetwas gespeichert wird
+- [ ] Angenommen der Nutzer ist eingeloggt, wenn er eine gültige LinkedIn-CSV-Datei hochlädt, dann zeigt eine Vorschau zwei Listen — "Neue Kontakte" (Name + employer/job_title/email, editierbar, Checkbox default aktiv) und "Veränderungen" gruppiert pro Person (alle abweichenden Felder dieser Person zusammen, alt→neu, editierbar, Checkbox default aktiv) — sowie die einfachen Zähler "unverändert" und "übersprungen", bevor irgendetwas gespeichert wird
 - [ ] Angenommen der employer eines Bestandskontakts unterscheidet sich vom CSV-Wert (alter und neuer Wert beide nicht leer), dann zeigt die Veränderungs-Zeile dieser Person das Anlass-Tag "Jobwechsel"
 - [ ] Angenommen der job_title eines Bestandskontakts unterscheidet sich vom CSV-Wert (alter und neuer Wert beide nicht leer), dann zeigt die Veränderungs-Zeile dieser Person das Anlass-Tag "Beförderung"
 - [ ] Angenommen employer UND job_title einer Person unterscheiden sich gleichzeitig (beide jeweils nicht leer), dann zeigt die Veränderungs-Zeile dieser Person beide Anlass-Tags "Jobwechsel" und "Beförderung" gemeinsam
@@ -139,7 +149,7 @@ _Keine offenen Fragen — siehe Decision Log._
 │   │   ├── Datei-Auswahl (akzeptiert .csv)
 │   │   └── Fehlermeldung "Keine gültige LinkedIn-Export-Datei", falls Kopfzeile nicht gefunden
 │   ├── Schritt 2: Vorschau (Review-Listen, noch nichts gespeichert)
-│   │   ├── Liste "Neue Kontakte" — pro Zeile: Checkbox (default an), Name, editierbare employer/job_title/city-Felder
+│   │   ├── Liste "Neue Kontakte" — pro Zeile: Checkbox (default an), Name, editierbare employer/job_title/email-Felder
 │   │   ├── Liste "Veränderungen" — pro Person: Checkbox (default an), Name, Liste der abweichenden Felder (alt→neu, editierbar), Anlass-Tags ("Jobwechsel"/"Beförderung") falls zutreffend
 │   │   ├── Zähler "unverändert" und "übersprungen (kein Vorname)"
 │   │   ├── "Abbrechen"-Button → schließt Dialog, keine Änderung

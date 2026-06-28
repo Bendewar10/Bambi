@@ -86,11 +86,11 @@ describe('computeImportPlan', () => {
       []
     )
     expect(plan.newContacts).toHaveLength(1)
-    expect(plan.updates).toHaveLength(0)
+    expect(plan.changes).toHaveLength(0)
     expect(plan.unchangedCount).toBe(0)
   })
 
-  it('matches by linkedin_url and only updates non-empty changed fields', () => {
+  it('matches by linkedin_url and lists only non-empty changed fields as a diff, tagged as Jobwechsel', () => {
     const existing = makeContact({ id: 'c1', first_name: 'Anna', employer: 'OldCo', linkedin_url: 'https://x/anna' })
     const plan = computeImportPlan(
       {
@@ -102,7 +102,54 @@ describe('computeImportPlan', () => {
       [existing]
     )
     expect(plan.newContacts).toHaveLength(0)
-    expect(plan.updates).toEqual([{ contactId: 'c1', changes: { employer: 'NewCo' } }])
+    expect(plan.changes).toEqual([
+      {
+        contactId: 'c1',
+        name: 'Anna',
+        diffs: [{ field: 'employer', oldValue: 'OldCo', newValue: 'NewCo' }],
+        occasions: ['Jobwechsel'],
+      },
+    ])
+  })
+
+  it('tags a job_title change as Beförderung, and both tags together when employer and job_title change at once', () => {
+    const existing = makeContact({
+      id: 'c1',
+      first_name: 'Anna',
+      employer: 'OldCo',
+      job_title: 'Consultant',
+      linkedin_url: 'https://x/anna',
+    })
+    const plan = computeImportPlan(
+      {
+        rows: [
+          {
+            first_name: 'Anna',
+            last_name: null,
+            linkedin_url: 'https://x/anna',
+            email: null,
+            employer: 'NewCo',
+            job_title: 'Project Manager',
+          },
+        ],
+        skippedCount: 0,
+      },
+      [existing]
+    )
+    expect(plan.changes[0].occasions).toEqual(['Jobwechsel', 'Beförderung'])
+  })
+
+  it('does not tag an occasion when the old value was empty (first-time fill, not a change)', () => {
+    const existing = makeContact({ id: 'c1', first_name: 'Anna', employer: null, linkedin_url: 'https://x/anna' })
+    const plan = computeImportPlan(
+      {
+        rows: [{ first_name: 'Anna', last_name: null, linkedin_url: 'https://x/anna', email: null, employer: 'NewCo', job_title: null }],
+        skippedCount: 0,
+      },
+      [existing]
+    )
+    expect(plan.changes[0].diffs).toEqual([{ field: 'employer', oldValue: null, newValue: 'NewCo' }])
+    expect(plan.changes[0].occasions).toEqual([])
   })
 
   it('never overwrites an existing value with an empty CSV field', () => {
@@ -114,7 +161,7 @@ describe('computeImportPlan', () => {
       },
       [existing]
     )
-    expect(plan.updates).toHaveLength(0)
+    expect(plan.changes).toHaveLength(0)
     expect(plan.unchangedCount).toBe(1)
   })
 
@@ -127,7 +174,14 @@ describe('computeImportPlan', () => {
       },
       [existing]
     )
-    expect(plan.updates).toEqual([{ contactId: 'c1', changes: { linkedin_url: 'https://x/anna' } }])
+    expect(plan.changes).toEqual([
+      {
+        contactId: 'c1',
+        name: 'Anna Schmidt',
+        diffs: [{ field: 'linkedin_url', oldValue: null, newValue: 'https://x/anna' }],
+        occasions: [],
+      },
+    ])
   })
 
   it('matches names case-insensitively via the fallback', () => {
@@ -140,8 +194,8 @@ describe('computeImportPlan', () => {
       [existing]
     )
     expect(plan.newContacts).toHaveLength(0)
-    expect(plan.updates).toHaveLength(1)
-    expect(plan.updates[0].contactId).toBe('c1')
+    expect(plan.changes).toHaveLength(1)
+    expect(plan.changes[0].contactId).toBe('c1')
   })
 
   it('does not match contacts that already have a different linkedin_url via name fallback', () => {
@@ -154,7 +208,7 @@ describe('computeImportPlan', () => {
       [existing]
     )
     expect(plan.newContacts).toHaveLength(1)
-    expect(plan.updates).toHaveLength(0)
+    expect(plan.changes).toHaveLength(0)
   })
 
   it('uses the first match when multiple contacts share the same name without a linkedin_url', () => {
@@ -167,7 +221,8 @@ describe('computeImportPlan', () => {
       },
       [dup1, dup2]
     )
-    expect(plan.updates).toEqual([{ contactId: 'c1', changes: { employer: 'Acme' } }])
+    expect(plan.changes).toHaveLength(1)
+    expect(plan.changes[0].contactId).toBe('c1')
   })
 
   it('counts skippedCount through from the parse result', () => {

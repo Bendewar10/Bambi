@@ -91,7 +91,7 @@ test.describe.serial('PROJ-10: LinkedIn-CSV-Import', () => {
     await page.getByRole('button', { name: 'Schließen' }).click()
   })
 
-  test('AC: preview shows correct counts, cancel applies no changes', async ({ page }) => {
+  test('AC: preview shows grouped review lists with occasion tag, cancel applies no changes', async ({ page }) => {
     await login(page)
     await page.getByRole('button', { name: 'LinkedIn importieren' }).click()
     const csv = [
@@ -102,13 +102,53 @@ test.describe.serial('PROJ-10: LinkedIn-CSV-Import', () => {
     ].join('\n')
     await page.getByLabel('LinkedIn-CSV-Datei').setInputFiles(csvFile('preview.csv', csv))
 
-    await expect(page.getByText('1 neue Kontakte')).toBeVisible()
-    await expect(page.getByText('1 werden aktualisiert')).toBeVisible()
+    await expect(page.getByText('Neue Kontakte (1)')).toBeVisible()
+    await expect(page.getByText('Veränderungen (1)')).toBeVisible()
+    await expect(page.getByText('Jobwechsel')).toBeVisible()
     await expect(page.getByText('0 unverändert')).toBeVisible()
     await expect(page.getByText('1 übersprungen (kein Vorname)')).toBeVisible()
 
     await page.getByRole('button', { name: 'Abbrechen' }).click()
     await expect(page.getByText('QA10CancelNew')).not.toBeVisible()
+  })
+
+  test('AC: unchecking a new-contact row excludes it from saving on confirm', async ({ page }) => {
+    await login(page)
+    await page.getByRole('button', { name: 'LinkedIn importieren' }).click()
+    const csv = [
+      HEADER,
+      'QA10ExcludedNew,Person,https://linkedin.com/in/qa10-excluded,,,,01 Jan 2026',
+    ].join('\n')
+    await page.getByLabel('LinkedIn-CSV-Datei').setInputFiles(csvFile('excluded.csv', csv))
+    await expect(page.getByText('Neue Kontakte (1)')).toBeVisible()
+
+    await page.getByLabel('QA10ExcludedNew Person übernehmen').click()
+    await page.getByRole('button', { name: 'Bestätigen' }).click()
+    await expect(page.getByText('0 neu, 0 aktualisiert, 0 unverändert, 0 übersprungen.')).toBeVisible()
+    await page.getByRole('button', { name: 'Schließen' }).click()
+    await expect(page.getByText('QA10ExcludedNew')).not.toBeVisible()
+  })
+
+  test('AC: editing a value in the preview before confirming saves the edited value, not the CSV value', async ({
+    page,
+  }) => {
+    await login(page)
+    await page.getByRole('button', { name: 'LinkedIn importieren' }).click()
+    const csv = [
+      HEADER,
+      'QA10ExistingMatch,,https://linkedin.com/in/qa10-existing,,NewCo,,01 Jan 2026',
+    ].join('\n')
+    await page.getByLabel('LinkedIn-CSV-Datei').setInputFiles(csvFile('edit.csv', csv))
+    await expect(page.getByText('Veränderungen (1)')).toBeVisible()
+
+    await page.locator('input[value="NewCo"]').fill('CorrectedCo')
+    await page.getByRole('button', { name: 'Bestätigen' }).click()
+    await expect(page.getByText('0 neu, 1 aktualisiert, 0 unverändert, 0 übersprungen.')).toBeVisible()
+    await page.getByRole('button', { name: 'Schließen' }).click()
+
+    await page.getByText('QA10ExistingMatch', { exact: true }).click()
+    await expect(page.getByLabel('Arbeitgeber')).toHaveValue('CorrectedCo')
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
   })
 
   test('AC: confirming import creates new contacts and updates matched ones, leaves other fields untouched', async ({
@@ -122,9 +162,9 @@ test.describe.serial('PROJ-10: LinkedIn-CSV-Import', () => {
       'QA10BrandNew,Person,https://linkedin.com/in/qa10-new,new@example.com,Acme,Dev,01 Jan 2026',
     ].join('\n')
     await page.getByLabel('LinkedIn-CSV-Datei').setInputFiles(csvFile('import.csv', csv))
-    await expect(page.getByText('1 neue Kontakte')).toBeVisible()
+    await expect(page.getByText('Neue Kontakte (1)')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Importieren' }).click()
+    await page.getByRole('button', { name: 'Bestätigen' }).click()
     await expect(page.getByText('1 neu, 1 aktualisiert, 0 unverändert, 0 übersprungen.')).toBeVisible()
     await page.getByRole('button', { name: 'Schließen' }).click()
 
@@ -147,8 +187,8 @@ test.describe.serial('PROJ-10: LinkedIn-CSV-Import', () => {
     ].join('\n')
     await page.getByLabel('LinkedIn-CSV-Datei').setInputFiles(csvFile('reimport.csv', csv))
 
-    await expect(page.getByText('0 neue Kontakte')).toBeVisible()
-    await expect(page.getByText('0 werden aktualisiert')).toBeVisible()
+    await expect(page.getByText('Neue Kontakte')).not.toBeVisible()
+    await expect(page.getByText('Veränderungen')).not.toBeVisible()
     await expect(page.getByText('2 unverändert')).toBeVisible()
   })
 })
