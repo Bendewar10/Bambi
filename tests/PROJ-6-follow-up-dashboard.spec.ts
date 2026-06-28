@@ -150,6 +150,16 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await expect(card.getByText('Geburtstag', { exact: true })).toBeVisible()
   })
 
+  test('AC: occasion card shows the formatted birthday date', async ({ page }) => {
+    const name = uniqueName('BirthdayDate')
+    await seedContact(token, userId, name, { birthday: `1990-${birthdayOffset(0)}` })
+    await login(page)
+
+    const card = cardFor(page, name)
+    await expect(card).toBeVisible()
+    await expect(card.getByText(/^Geburtstag: \d{1,2}\.\d{1,2}\.1990$/)).toBeVisible()
+  })
+
   test('AC: birthday wraps across year boundary (e.g. day 5 from now in Jan) still detected within 7 days', async ({ page }) => {
     const name = uniqueName('BirthdayWrap')
     await seedContact(token, userId, name, { birthday: `2000-${birthdayOffset(6)}` })
@@ -222,6 +232,20 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await expect(page.getByText('Kontaktmoment hinzufügen')).toHaveCount(0)
     // follow-up_interval_days is unset for this contact -> next_followup_at becomes null -> card drops off dashboard
     await expect(cardFor(page, name)).toHaveCount(0)
+  })
+
+  test('AC: "Karte öffnen" opens the contact\'s edit dialog pre-filled with that contact', async ({ page }) => {
+    const name = uniqueName('OpenCard')
+    await seedContact(token, userId, name, { next_followup_at: isoOffset(0) })
+    await login(page)
+
+    const card = cardFor(page, name)
+    await card.getByRole('button', { name: 'Karte öffnen' }).click()
+    await expect(page.getByText('Kontakt bearbeiten')).toBeVisible()
+    await expect(page.getByLabel('Vorname')).toHaveValue(name)
+
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+    await expect(page.getByText('Kontakt bearbeiten')).toHaveCount(0)
   })
 
   test('AC: "Vorschlag" generates AI draft text and shows it inline', async ({ page }) => {

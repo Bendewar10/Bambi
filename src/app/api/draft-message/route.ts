@@ -3,6 +3,7 @@ import { generateText } from 'ai'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { CATEGORY_LABELS, STRENGTH_LABELS, type Category, type Strength } from '@/lib/contacts'
 
 const requestSchema = z.object({
   contactId: z.string().uuid(),
@@ -26,13 +27,27 @@ export async function POST(request: Request) {
 
   const { data: contact } = await supabase
     .from('contacts')
-    .select('first_name, notes, context')
+    .select('first_name, last_name, notes, context, employer, job_title, city, category, strength')
     .eq('id', contactId)
     .single()
 
   if (!contact) {
     return NextResponse.json({ error: 'Kontakt nicht gefunden.' }, { status: 404 })
   }
+
+  const profileDetails = [
+    contact.last_name ? `Nachname: ${contact.last_name}` : null,
+    contact.job_title && contact.employer
+      ? `${contact.job_title} bei ${contact.employer}`
+      : contact.job_title || contact.employer || null,
+    contact.city ? `wohnt in ${contact.city}` : null,
+    contact.category ? `Kategorie: ${CATEGORY_LABELS[contact.category as Category]}` : null,
+    contact.strength ? `Beziehung: ${STRENGTH_LABELS[contact.strength as Strength]}` : null,
+    contact.context,
+    contact.notes,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join('. ')
 
   const { data: interactions } = await supabase
     .from('interactions')
@@ -66,15 +81,15 @@ export async function POST(request: Request) {
   const prompt =
     occasionType === 'birthday'
       ? `Schreib eine sehr kurze, herzliche Geburtstagsnachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.first_name}. ${
-          contact.context ? `Kontext zur Person: ${contact.context}.` : ''
+          profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''
         }${styleInstruction}`
       : `Schreib eine sehr kurze, lockere Nachricht (1-2 Sätze, auf Deutsch, per Du), um sich bei ${contact.first_name} zu melden. ${
+          profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''
+        }${
           recentNotes.length > 0
-            ? `Letzte Notizen über frühere Kontakte: ${recentNotes.join(' / ')}.`
-            : contact.context
-              ? `Kontext zur Person: ${contact.context}.`
-              : ''
-        } Knüpf wenn möglich an die Notizen an.${styleInstruction}`
+            ? ` Letzte Notizen über frühere Kontakte: ${recentNotes.join(' / ')}.`
+            : ''
+        } Knüpf wenn möglich an Kontext und Notizen an.${styleInstruction}`
 
   try {
     const { text } = await generateText({

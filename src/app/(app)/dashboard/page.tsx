@@ -6,11 +6,13 @@ import { Contact } from '@/lib/contacts'
 import { computeOccasionSections } from '@/lib/occasions'
 import { OccasionCard } from '@/components/occasion-card'
 import { InteractionFormDialog } from '@/components/interaction-form-dialog'
+import { ContactFormDialog } from '@/components/contact-form-dialog'
 
 export default function DashboardPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loggingContact, setLoggingContact] = useState<Contact | null>(null)
+  const [openCardContact, setOpenCardContact] = useState<Contact | null>(null)
 
   function loadContacts() {
     return supabase
@@ -47,6 +49,7 @@ export default function DashboardPage() {
                     key={occasion.contact.id}
                     occasion={occasion}
                     onLogInteraction={() => setLoggingContact(occasion.contact)}
+                    onOpenCard={() => setOpenCardContact(occasion.contact)}
                   />
                 ))}
               </div>
@@ -62,6 +65,7 @@ export default function DashboardPage() {
                     key={occasion.contact.id}
                     occasion={occasion}
                     onLogInteraction={() => setLoggingContact(occasion.contact)}
+                    onOpenCard={() => setOpenCardContact(occasion.contact)}
                   />
                 ))}
               </div>
@@ -82,6 +86,16 @@ export default function DashboardPage() {
           }}
         />
       )}
+
+      <ContactFormDialog
+        open={!!openCardContact}
+        onOpenChange={(open) => !open && setOpenCardContact(null)}
+        contact={openCardContact}
+        onSaved={() => {
+          setOpenCardContact(null)
+          loadContacts()
+        }}
+      />
     </div>
   )
 }

@@ -16,9 +16,15 @@ const BADGE_LABELS = {
 interface OccasionCardProps {
   occasion: ContactOccasion
   onLogInteraction: () => void
+  onOpenCard: () => void
 }
 
-export function OccasionCard({ occasion, onLogInteraction }: OccasionCardProps) {
+function formatDate(value: string | null) {
+  if (!value) return null
+  return new Date(value).toLocaleDateString('de-DE')
+}
+
+export function OccasionCard({ occasion, onLogInteraction, onOpenCard }: OccasionCardProps) {
   const { contact, badges, followupDate, birthdayDate } = occasion
   const [draftText, setDraftText] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -75,7 +81,14 @@ export function OccasionCard({ occasion, onLogInteraction }: OccasionCardProps) 
         </div>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
+        {badges.includes('birthday') && birthdayDate && (
+          <p className="text-muted-foreground">Geburtstag: {formatDate(birthdayDate)}</p>
+        )}
+
         <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={onOpenCard}>
+            Karte öffnen
+          </Button>
           <Button size="sm" onClick={onLogInteraction}>
             Kontaktiert
           </Button>

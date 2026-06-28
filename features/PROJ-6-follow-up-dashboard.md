@@ -372,6 +372,42 @@ Keine neuen Bugs gefunden.
 - **Production Ready:** YES
 - **Recommendation:** Deploy
 
+## QA Test Results — Refine 2026-06-28 ("Karte öffnen" + Geburtstagsdatum)
+
+**Tested:** 2026-06-28
+**App URL:** http://localhost:3000 (Dev)
+**Tester:** QA Engineer (AI)
+
+### Scope
+Nutzerwunsch (Chat, kein formaler `/refine`): Anlass-Karten auf dem Dashboard sollen erlauben, die Kontaktkarte (`ContactFormDialog`) trotz Geburtstags-/Follow-up-Trigger direkt zu öffnen, und das Geburtstagsdatum soll lesbar auf der Karte stehen. Beides additiv, keine bestehende AC verändert.
+
+### Acceptance Criteria Status (neu)
+- [x] Angenommen eine Anlass-Karte hat das Badge "Geburtstag", wenn die Karte angezeigt wird, dann steht das Geburtstagsdatum (de-DE formatiert) lesbar auf der Karte
+- [x] Angenommen eine Anlass-Karte wird angezeigt (Follow-up und/oder Geburtstag), wenn der Nutzer auf "Karte öffnen" klickt, dann öffnet sich der bestehende `ContactFormDialog` (PROJ-3) vorausgefüllt mit dem Kontakt dieser Karte
+- [x] Angenommen der `ContactFormDialog` wurde vom Dashboard aus geöffnet, wenn der Nutzer speichert oder abbricht, dann schließt sich der Dialog und das Dashboard lädt die Kontakte neu (Karte verschwindet, falls der Anlass dadurch außerhalb des Zeitfensters fällt)
+
+### Regression
+- `npm test`: 50/50 grün (Vitest)
+- `npm run lint`, `npm run build`: fehlerfrei
+- E2E `tests/PROJ-6-follow-up-dashboard.spec.ts`: 25/25 grün auf Chromium (2 neue Tests: "occasion card shows the formatted birthday date", "'Karte öffnen' opens the contact's edit dialog pre-filled with that contact"), bestehende 23 ACs weiterhin grün → keine Regression
+- Cross-Browser: Mobile-Safari-Projekt hat 1 **vorbestehenden** Fail (`copy button copies draft text...`, `context.grantPermissions: Unknown permission: clipboard-write`) — WebKit/Playwright unterstützt diese Permission nicht, unabhängig von dieser Änderung, nicht neu eingeführt. Nicht blockierend für diesen Scope.
+
+### Security Audit
+- [x] Keine neue Angriffsfläche: "Karte öffnen" rendert denselben `ContactFormDialog`, der bereits auf `/contacts` genutzt wird, mit demselben clientseitig schon geladenen (RLS-gefilterten) Kontakt-Objekt — kein zusätzlicher Datenzugriff, kein neuer Server-Call
+
+### Bugs Found
+Keine.
+
+### Out of Scope für diese Runde
+- `src/app/api/draft-message/route.ts` war bereits vor dieser Session uncommitted verändert (Prompt nutzt jetzt zusätzlich Nachname/Arbeitgeber/Jobtitel/Stadt/Kategorie/Stärke als Kontext) — gehört nicht zum hier angefragten Feature und wurde in dieser QA-Runde nicht geprüft. Vor Deploy separat testen (echter AI-Call, Datenleck-Check: dürfen nur eigene Kontaktfelder in den Prompt).
+
+### Summary
+- **Acceptance Criteria (Delta):** 3/3 passed
+- **Bugs Found:** 0
+- **Security:** Pass
+- **Production Ready:** YES (für diesen Scope)
+- **Recommendation:** Deploy. `draft-message/route.ts`-Änderung separat verifizieren vor `/deploy`.
+
 ## Deployment
 - **Production URL:** https://bambi-w26q.vercel.app
 - **Deployed:** 2026-06-22
