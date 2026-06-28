@@ -7,7 +7,7 @@ import { CATEGORY_LABELS, STRENGTH_LABELS, type Category, type Strength } from '
 
 const requestSchema = z.object({
   contactId: z.string().uuid(),
-  occasionType: z.enum(['followup', 'birthday']),
+  occasionType: z.enum(['followup', 'birthday', 'Jobwechsel', 'Beförderung']),
 })
 
 const MAX_DRAFT_LENGTH = 300
@@ -83,13 +83,17 @@ export async function POST(request: Request) {
       ? `Schreib eine sehr kurze, herzliche Geburtstagsnachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.first_name}. ${
           profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''
         }${styleInstruction}`
-      : `Schreib eine sehr kurze, lockere Nachricht (1-2 Sätze, auf Deutsch, per Du), um sich bei ${contact.first_name} zu melden. ${
-          profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''
-        }${
-          recentNotes.length > 0
-            ? ` Letzte Notizen über frühere Kontakte: ${recentNotes.join(' / ')}.`
-            : ''
-        } Knüpf wenn möglich an Kontext und Notizen an.${styleInstruction}`
+      : occasionType === 'Jobwechsel' || occasionType === 'Beförderung'
+        ? `Schreib eine sehr kurze, herzliche Glückwunsch-Nachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.first_name} zu ${
+            occasionType === 'Jobwechsel' ? 'seinem/ihrem neuen Job' : 'seiner/ihrer Beförderung'
+          }. ${profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''}${styleInstruction}`
+        : `Schreib eine sehr kurze, lockere Nachricht (1-2 Sätze, auf Deutsch, per Du), um sich bei ${contact.first_name} zu melden. ${
+            profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''
+          }${
+            recentNotes.length > 0
+              ? ` Letzte Notizen über frühere Kontakte: ${recentNotes.join(' / ')}.`
+              : ''
+          } Knüpf wenn möglich an Kontext und Notizen an.${styleInstruction}`
 
   try {
     const { text } = await generateText({

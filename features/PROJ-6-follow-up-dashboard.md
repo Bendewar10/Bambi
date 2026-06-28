@@ -32,6 +32,13 @@
 - Routing-Änderung aus `/frontend` brach bestehende E2E-Login-Helper in `PROJ-3-contacts.spec.ts`/`PROJ-4-contacts-list.spec.ts`/`PROJ-5-interaction-log.spec.ts` (erwarteten Redirect auf `/`, jetzt `/dashboard`) — alle drei auf `/dashboard` + anschließendes `goto('/contacts')` angepasst, volle Regression (36/36) wieder grün
 - `npm test` (7/7) + `npm run build` + `npm run lint` laufen fehlerfrei durch
 
+- **Update 2026-06-28 (Backend Refine, contact_events):** Migration `create_contact_events` direkt auf Live-Projekt angewendet — neue Tabelle `contact_events` (`id`, `contact_id` FK → `contacts` mit `ON DELETE CASCADE`, `user_id` FK → `auth.users` mit `ON DELETE CASCADE`, `type` Text-Check `Jobwechsel`/`Beförderung`, `detected_at` Timestamp Default `now()`, `dismissed_at` nullable Timestamp). RLS aktiviert, 4 Policies (`select`/`insert`/`update`/`delete` jeweils `auth.uid() = user_id`) — exakt gleiches Muster wie `interactions`. Indizes auf `contact_id`, `user_id`, plus Partial-Index auf `user_id` `WHERE dismissed_at IS NULL` für die Dashboard-Abfrage offener Events. Supabase Security Advisors danach geprüft: keine neuen Findings
+- `src/app/api/draft-message/route.ts`: `occasionType`-Zod-Enum um `'Jobwechsel'`/`'Beförderung'` erweitert; neuer Prompt-Zweig generiert eine kurze Glückwunsch-Nachricht ("zu seinem/ihrem neuen Job" bzw. "zu seiner/ihrer Beförderung"), nutzt dieselbe Kontakt-Ladelogik/Stil-Lernen wie die bestehenden zwei Typen — kein neuer Endpoint
+- `src/app/api/draft-message/draft-message.test.ts`: 2 neue Tests (`generates a Jobwechsel congratulation message`, `generates a Beförderung congratulation message`)
+- PROJ-10 (`src/components/linkedin-import-dialog.tsx`) schreibt jetzt beim Bestätigen für jede angehakte Veränderung mit Anlass-Tag(s) zusätzliche Zeilen in `contact_events` (ein Insert pro Tag, gleicher Batch-Mechanismus wie der Kontakt-Insert) — Details siehe PROJ-10-Spec
+- **Manuell end-to-end gegen echtes Supabase-Projekt + echten Anthropic-Call verifiziert:** LinkedIn-Import mit Arbeitgeber-Wechsel bestätigt → `contact_events`-Zeile angelegt → Dashboard-Sektion "Kürzlich erkannt" zeigt Kontakt mit Badge "Jobwechsel" → "Vorschlag" generiert echten Text → "Kontaktiert" speichert Interaction und markiert Event als dismissed → Karte und Sektion verschwinden danach korrekt. Testdaten anschließend bereinigt
+- `npm run build` + `npm run lint` + `npm test` (52/52) laufen fehlerfrei durch
+
 ## Implementation Notes
 - Migration `add_birthday_to_contacts`: neue nullable Spalte `birthday` (date) auf `contacts`
 - `src/lib/contacts.ts`: `Contact`-Interface um `birthday` ergänzt
@@ -153,7 +160,7 @@
 ## Open Questions
 - [ ] Welcher AI-Provider/Modell genau (z.B. über Vercel AI Gateway) — technische Entscheidung, wird in `/architecture` getroffen
 - [ ] Exakter Prompt-Wortlaut für Follow-up- vs. Geburtstags-Anlass — Feinschliff während `/frontend` oder `/backend`, keine Produktentscheidung
-- [x] Genaues Schema/Migration für `contact_events` → Struktur (plain language) in `/architecture` festgelegt, siehe "Tech Design — Refine 2026-06-28"; exakte Spaltentypen/Indizes/RLS-Policy-Syntax folgen als Implementierungsdetail in `/backend` (2026-06-28)
+- [x] Genaues Schema/Migration für `contact_events` → Migration `create_contact_events` angewendet, siehe Backend Implementation Notes (2026-06-28)
 - [x] Soll "Kürzlich erkannt" auch einen "Vorschlag"-AI-Draft-Button bekommen? → Ja, ruft dieselbe bestehende AI-Route auf (Konsistenz, kein Sonderfall), siehe Tech Decisions (2026-06-28)
 
 ## Decision Log

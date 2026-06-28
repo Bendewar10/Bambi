@@ -16,6 +16,13 @@
 - `src/lib/linkedin-import.test.ts`: Tests auf neue `changes`-Struktur umgestellt, 3 neue Tests für Anlass-Tagging (Jobwechsel, Beförderung, beide gleichzeitig, kein Tag bei Erstbefüllung)
 - Keine Schema-Änderung, kein neuer Server-Endpoint (Tech Design bestätigt)
 - `npm run lint` + `npm run build` + `npm test` (50/50) fehlerfrei
+
+## Backend Implementation Notes (Refinement 2026-06-28, Nachmittag)
+- Migration `create_contact_events` (gemeinsam mit PROJ-6 angewendet, siehe dortige Spec für exaktes Schema/RLS) — neue Tabelle, von hier aus nur beschrieben/befüllt
+- `src/components/linkedin-import-dialog.tsx` (`handleConfirm`): nach dem bestehenden Kontakt-Update-Loop ein zusätzlicher Schritt — für jede angehakte Veränderung mit `occasions` wird pro Anlass-Tag eine Zeile gebaut (`contact_id`, `user_id`, `type`) und in Batches von 50 (`BATCH_SIZE`, gleiche Konstante wie der bestehende Kontakt-Insert) in `contact_events` eingefügt
+- Kein neuer Server-Endpoint: Insert läuft über denselben direkten Supabase-Client-Zugriff wie der restliche Import, RLS auf `contact_events` schützt analog zu `contacts`
+- **Manuell end-to-end verifiziert** (siehe PROJ-6-Spec, Backend-Notiz 2026-06-28): echter Import mit Arbeitgeber-Wechsel legt korrekt eine `Jobwechsel`-Zeile in `contact_events` an
+- `npm run build` + `npm run lint` + `npm test` (52/52) weiterhin fehlerfrei
 - E2E PROJ-10 (6/6) + volle Regression aller anderen Specs (73/73) — **79/79 grün** (`--workers=1`)
 
 ## Dependencies
@@ -112,7 +119,7 @@
 - **Neu (Refine 2026-06-28):** Beim Bestätigen wird für jede angehakte Zeile mit Anlass-Tag(s) zusätzlich ein Insert in `contact_events` ausgeführt (ein Datensatz pro Tag) — gleicher Batch-Mechanismus wie der Kontakt-Insert/Update, kein neuer Server-Endpoint nötig (RLS schützt analog zu `contacts`)
 
 ## Open Questions
-- [ ] **Neu (Refine 2026-06-28):** Exaktes `contact_events`-Schema/Migration (Spaltentypen, Indizes, RLS-Policy-Syntax) — wird in `/architecture` (gemeinsam mit PROJ-6) getroffen
+- [x] Exaktes `contact_events`-Schema/Migration → Migration `create_contact_events` angewendet, siehe Backend Implementation Notes (2026-06-28)
 
 ## Decision Log
 

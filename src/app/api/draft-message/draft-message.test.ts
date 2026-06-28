@@ -89,6 +89,34 @@ describe('POST /api/draft-message', () => {
     expect(json.text).toBe('Hey Anna, lange nichts gehört!')
   })
 
+  it('generates a Jobwechsel congratulation message', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    contactSingleMock.mockResolvedValue({ data: { first_name: 'Anna', notes: null, context: null } })
+    generateTextMock.mockResolvedValue({ text: 'Hey Anna, Glückwunsch zum neuen Job!' })
+
+    const res = await POST(makeRequest({ contactId: '550e8400-e29b-41d4-a716-446655440000', occasionType: 'Jobwechsel' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.text).toBe('Hey Anna, Glückwunsch zum neuen Job!')
+    const promptArg = generateTextMock.mock.calls[0][0].prompt as string
+    expect(promptArg).toContain('neuen Job')
+  })
+
+  it('generates a Beförderung congratulation message', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    contactSingleMock.mockResolvedValue({ data: { first_name: 'Anna', notes: null, context: null } })
+    generateTextMock.mockResolvedValue({ text: 'Hey Anna, Glückwunsch zur Beförderung!' })
+
+    const res = await POST(makeRequest({ contactId: '550e8400-e29b-41d4-a716-446655440000', occasionType: 'Beförderung' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.text).toBe('Hey Anna, Glückwunsch zur Beförderung!')
+    const promptArg = generateTextMock.mock.calls[0][0].prompt as string
+    expect(promptArg).toContain('Beförderung')
+  })
+
   it('returns 502 when the AI provider call fails', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
     contactSingleMock.mockResolvedValue({ data: { first_name: 'Anna', notes: null, context: null } })

@@ -188,6 +188,18 @@ export function LinkedInImportDialog({
         if (error) throw error
       }
 
+      const eventsToInsert = includedChanges.flatMap((change) =>
+        change.occasions.map((type) => ({
+          contact_id: change.contactId,
+          user_id: userData.user.id,
+          type,
+        }))
+      )
+      for (let i = 0; i < eventsToInsert.length; i += BATCH_SIZE) {
+        const { error } = await supabase.from('contact_events').insert(eventsToInsert.slice(i, i + BATCH_SIZE))
+        if (error) throw error
+      }
+
       setSuccessMessage(
         `${contactsToInsert.length} neu, ${includedChanges.length} aktualisiert, ${counts?.unchangedCount ?? 0} unverändert, ${counts?.skippedCount ?? 0} übersprungen.`
       )
