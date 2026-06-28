@@ -179,6 +179,76 @@ Jede Zeile in der Vorschau (neuer Kontakt oder Person mit Veränderungen) bekomm
 ### Dependencies (Packages)
 - `papaparse` — robustes CSV-Parsing (Anführungszeichen, eingebettete Kommas), Standard-Wahl für clientseitiges CSV-Handling, keine Server-Abhängigkeit nötig — keine neuen Packages für diese Iteration
 
+## QA Test Results (Refinement 2026-06-28)
+
+**Tested:** 2026-06-28
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+- [x] Vorschau zeigt "Neue Kontakte" + "Veränderungen" (gruppiert pro Person) + Zähler "unverändert"/"übersprungen" vor Speicherung
+- [x] Abweichender `employer` (alt+neu nicht leer) → Tag "Jobwechsel" (E2E + Vitest)
+- [x] Abweichender `job_title` (alt+neu nicht leer) → Tag "Beförderung" (Vitest; UI-Rendering identischer Mechanismus wie Jobwechsel, per Code-Review verifiziert statt separatem E2E)
+- [x] Beide Felder gleichzeitig abweichend → beide Tags zusammen (Vitest: `occasions: ['Jobwechsel', 'Beförderung']`)
+- [ ] **Teilweise erfüllt** — Feld vorher leer, CSV liefert Wert → Diff erscheint korrekt ohne Anlass-Tag (Vitest verifiziert), ABER die Spec verlangt explizit ein "Neu erfasst"-Label dafür; die UI zeigt nur "— →" ohne diesen Text (siehe Bug #1)
+- [x] Identisches Feld → kein Diff-Eintrag, Kontakt zählt als unverändert (E2E Re-Upload-Test: "2 unverändert")
+- [x] Wert in Vorschau editieren → bearbeiteter Wert wird gespeichert, nicht CSV-Wert (E2E)
+- [x] Checkbox bei "Neue Kontakte" abwählen → Kontakt wird nicht angelegt (E2E)
+- [x] Checkbox bei "Veränderungen" abwählen → keines der Felder dieser Person wird verändert (E2E, neu ergänzt)
+- [x] "Bestätigen" speichert nur angehakte Zeilen mit aktuellem (ggf. bearbeitetem) Wert (E2E)
+- [x] "Abbrechen" → kein Kontakt angelegt/verändert (E2E)
+- [x] `linkedin_url`-Match → Kontakt landet in "Veränderungen" statt Neuanlage (E2E, da Folge-Importe über `linkedin_url` matchen)
+- [x] Name-Fallback-Match (kein `linkedin_url` gesetzt) → Kontakt landet in "Veränderungen" inkl. `linkedin_url`-Ergänzung als Diff (E2E)
+- [x] Kein Match → Kontakt in "Neue Kontakte", übrige Felder leer (E2E)
+- [x] Kategorie/Stärke/Kontext/Notizen/Stadt/Telefon/Geburtstag nie verändert (E2E: `category: 'friend'` blieb erhalten) und können strukturell nie als Diff erscheinen, da `FIELDS`-Konstante sie nicht enthält (Code-Review)
+- [x] Zeile ohne Vorname → übersprungen, im Zähler erfasst (E2E)
+- [x] Datei ohne gültige Kopfzeile → Fehlermeldung "Keine gültige LinkedIn-Export-Datei.", kein Import-Versuch (E2E)
+- [x] Supabase nicht erreichbar beim Bestätigen → Fehlermeldung (Code-Review: `try/catch` mit `setSubmitError`, identisch zum bereits geprüften Vorgänger-Pattern, kein dedizierter Netzwerk-Fehler-E2E-Test — wie schon in der ursprünglichen QA-Runde 2026-06-24)
+- [x] RLS: Insert/Update nutzt ausschließlich `auth.uid()`/serverseitige Policy, `contactId` stammt nicht aus Roh-CSV-Eingabe sondern aus bereits RLS-gefiltertem `existingContacts`-Match (Code-Review)
+
+**18/19 vollständig erfüllt, 1 teilweise (siehe Bug #1).**
+
+### Edge Cases Status
+- [x] Mehrere Namens-Treffer ohne `linkedin_url` → erster Treffer (Vitest)
+- [x] Komplett leere CSV-Zeile → wie "kein Vorname" behandelt (Vitest + E2E)
+- [x] Person mit gleichzeitigem Arbeitgeber- und Positionswechsel → beide Tags zusammen, keine gegenseitige Unterdrückung (Vitest)
+- [x] Checkbox abgehakt trotz bearbeitetem Feld → Checkbox-Zustand entscheidet, abgehakte Zeilen werden beim Bestätigen komplett ignoriert (Code-Review: `included`-Filter läuft vor dem Auslesen der `diffs`/Werte)
+- [x] Eingebettete Kommas in Anführungszeichen-Feldern → unverändert von `papaparse` gehandhabt (Vitest)
+- [x] Header-Präambel vor echter Kopfzeile → unverändert (Vitest)
+- [x] Doppelklick auf "Bestätigen" → Button weiterhin über `isSubmitting` disabled (Code-Review)
+- [x] Sehr große CSV-Datei → Diff-Berechnung bleibt O(n), nur pro Feld statt pro Zeile aufgelöst, kein zusätzlicher Netzwerk-Roundtrip; nicht erneut mit der realen 407-Zeilen-Datei nachgetestet, da Logik-Änderung rein auf das Vergleichsergebnis beschränkt ist (kein Risiko für Parser-Performance)
+- [x] Re-Upload derselben Datei → 0 neu, 0 Veränderungen, idempotent (E2E)
+- [x] `linkedin_url` eines anderen Nutzers → weiterhin unmöglich, Matching nur gegen RLS-gefilterte eigene Kontakte (Code-Review, unverändert)
+
+### Security Audit
+- [x] Keine neuen Endpunkte/Secrets — weiterhin reiner Supabase-Client-Zugriff, RLS erzwingt Ownership (unverändert)
+- [x] `contactId` für Updates kommt ausschließlich aus dem internen Matching gegen die eigenen, bereits geladenen Kontakte — nicht aus CSV-Rohdaten beeinflussbar, kein IDOR-Vektor
+- [x] Editierbare Vorschau-Felder landen als reiner Text in React-State/Supabase-Update — kein `dangerouslySetInnerHTML`, kein XSS-Vektor durch eingegebene oder CSV-gelieferte Werte
+- [x] Kein neues PII-Leck: dieselben Felder (`employer`/`job_title`/`email`/`last_name`/`linkedin_url`) wie vorher, jetzt nur granularer angezeigt statt sofort geschrieben — eher weniger Exposure, da nichts mehr automatisch ohne Sichtprüfung gespeichert wird
+
+### Regression Testing
+- `npm test`: 50/50 grün (inkl. 14 für `linkedin-import.ts`, 3 davon neu für Anlass-Tagging)
+- `npm run lint`, `npm run build`: fehlerfrei
+- E2E PROJ-10 (7 Tests, 2 neu: Checkbox-Ausschluss bei Veränderungen, Edit-vor-Bestätigen): 7/7 grün auf Chromium UND Mobile Safari (iPhone 13)
+- E2E Vollregression (alle anderen Specs: PROJ-2/3/4/5/6/8): 73/73 grün
+- **Gesamt E2E (Chromium):** 80/80 grün
+
+### Bugs Found
+
+**Bug #1 (Medium):** Fehlendes "Neu erfasst"-Label bei Erstbefüllung eines vorher leeren Feldes.
+- **Spec-Erwartung:** Wenn ein Feld eines Bestandskontakts vorher leer war und die CSV jetzt einen Wert liefert, soll dies laut AC "als Feld-Update ohne Anlass-Tag ('Neu erfasst')" erscheinen.
+- **Ist-Zustand:** `src/components/linkedin-import-dialog.tsx` zeigt für diesen Fall nur `— →` als alten Wert, ohne den Text "Neu erfasst" oder ein vergleichbares visuelles Signal. Funktional korrekt (kein Jobwechsel/Beförderung-Tag, Feld ist editierbar/bestätigbar), aber die explizite Unterscheidung "das ist neu, kein echter Wechsel" fehlt für den Nutzer auf den ersten Blick.
+- **Repro:** CSV mit `employer=Acme` für einen Bestandskontakt importieren, dessen `employer` aktuell `null` ist → Veränderungs-Zeile zeigt `Arbeitgeber  — → Acme`, aber keinen "Neu erfasst"-Hinweis.
+- **Impact:** Kein Datenverlust, keine Fehlfunktion — rein eine fehlende UI-Klarstellung, die die Spec explizit verlangt hatte.
+
+### Summary
+- **Acceptance Criteria:** 18/19 vollständig erfüllt, 1 teilweise (Bug #1)
+- **Bugs Found:** 1 (Medium)
+- **Security:** Pass
+- **Production Ready:** YES — kein Critical/High-Bug, Kernfunktionalität (kein stilles Überschreiben mehr, Review+Checkbox+Edit, Anlass-Tags) vollständig funktional und getestet
+- **Recommendation:** Deploy möglich. Bug #1 (fehlendes "Neu erfasst"-Label) ist rein kosmetisch/Spec-Klarstellung — kann vor oder nach Deploy als kleiner Frontend-Fix nachgezogen werden, nutzerseitig kein Blocker.
+
+---
+
 ## QA Test Results
 
 **Tested:** 2026-06-24

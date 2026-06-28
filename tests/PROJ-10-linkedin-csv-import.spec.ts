@@ -129,6 +129,26 @@ test.describe.serial('PROJ-10: LinkedIn-CSV-Import', () => {
     await expect(page.getByText('QA10ExcludedNew')).not.toBeVisible()
   })
 
+  test('AC: unchecking a change row excludes all of that person\'s field updates from saving', async ({ page }) => {
+    await login(page)
+    await page.getByRole('button', { name: 'LinkedIn importieren' }).click()
+    const csv = [
+      HEADER,
+      'QA10ExistingMatch,,https://linkedin.com/in/qa10-existing,,SkippedCo,,01 Jan 2026',
+    ].join('\n')
+    await page.getByLabel('LinkedIn-CSV-Datei').setInputFiles(csvFile('skip-change.csv', csv))
+    await expect(page.getByText('Veränderungen (1)')).toBeVisible()
+
+    await page.getByLabel('Änderungen für QA10ExistingMatch übernehmen').click()
+    await page.getByRole('button', { name: 'Bestätigen' }).click()
+    await expect(page.getByText('0 neu, 0 aktualisiert, 0 unverändert, 0 übersprungen.')).toBeVisible()
+    await page.getByRole('button', { name: 'Schließen' }).click()
+
+    await page.getByText('QA10ExistingMatch', { exact: true }).click()
+    await expect(page.getByLabel('Arbeitgeber')).toHaveValue('OldCo')
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+  })
+
   test('AC: editing a value in the preview before confirming saves the edited value, not the CSV value', async ({
     page,
   }) => {
