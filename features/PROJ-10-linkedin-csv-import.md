@@ -1,6 +1,6 @@
 # PROJ-10: LinkedIn-CSV-Import
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-06-24
 **Last Updated:** 2026-06-28
 
@@ -302,8 +302,17 @@ Keine Bugs gefunden.
 - **Recommendation:** Deploy.
 
 ## Deployment
+
+### Ursprünglicher Deploy (2026-06-24)
 - Commit `b74b492` gepusht zu `origin/main`, Tag `v1.9.0-PROJ-10`
 - Migration `add_linkedin_url_to_contacts` bereits vorab auf Live-Projekt angewendet (siehe Backend Implementation Notes)
 - Vercel-Build erfolgreich (55s), Deployment `Ready`, Production
+- **Production URL:** https://bambi-w26q.vercel.app
+- `https://bambi-w26q.vercel.app/login` mit 200 verifiziert
+
+### Refinement-Deploy (2026-06-28)
+- Commits `53891f6` (docs/architecture), `aeade21` (feat), `092814b` (test/QA), `f79d8cb` (fix Bug #1) gepusht zu `origin/main`, Tag `v1.10.0-PROJ-10`
+- Keine Migration nötig (kein Schema-Change in dieser Iteration)
+- Vercel-Build erfolgreich (47s), Deployment `Ready`, Production
 - **Production URL:** https://bambi-w26q.vercel.app
 - `https://bambi-w26q.vercel.app/login` mit 200 verifiziert
