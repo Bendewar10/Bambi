@@ -273,6 +273,39 @@ Jede Zeile in der Vorschau (neuer Kontakt oder Person mit Veränderungen) bekomm
 
 ---
 
+## QA Test Results (Refinement 2026-06-28, Nachmittag — Persistenz für Dashboard)
+
+**Tested:** 2026-06-28
+**App URL:** http://localhost:3000 (Dev), echtes Supabase-Projekt
+**Tester:** QA Engineer (AI)
+
+### Scope
+Nur die neue Subsektion "Persistenz für Dashboard" (`contact_events`-Insert beim Bestätigen eines Imports). Volle Details und der zugehörige End-to-End-Test (Import → Dashboard → AI → Dismiss) stehen in der PROJ-6-Spec, QA-Abschnitt "Refine 2026-06-28 (14-Tage-Vorschau + Kürzlich erkannt, Backend)" — hier nur die import-seitigen ACs.
+
+### Acceptance Criteria Status
+- [x] Angehakte Veränderungs-Zeile mit Anlass-Tag(s) → beim Bestätigen wird pro Tag eine `contact_events`-Zeile angelegt (verifiziert per direktem REST-Query nach Bestätigen: `type` enthält `Jobwechsel`)
+- [x] Ausgeschlossene (nicht angehakte) Veränderungs-Zeile mit Anlass-Tag → kein `contact_events`-Eintrag (verifiziert: leeres Array nach Bestätigen)
+- [x] Erstbefüllung eines leeren Feldes ("Neu erfasst") → kein `contact_events`-Eintrag (verifiziert: leeres Array nach Bestätigen)
+- [ ] Fehlschlag beim Anlegen der `contact_events`-Zeilen lässt bereits gespeicherte Kontaktdaten unangetastet — **nicht automatisiert getestet** (Netzwerkfehler mitten im Import lässt sich in Playwright nicht zuverlässig auf genau diesen einen Request beschränkt simulieren). Code-Review: `handleConfirm` führt Kontakt-Insert/Update vollständig aus, BEVOR der `contact_events`-Insert-Block beginnt — ein Fehler dort wirft erst danach, bereits geschriebene Kontaktdaten werden nicht zurückgerollt. Verhalten entspricht der AC, Risiko gering (reiner Fallback-Pfad, gleiches Muster wie der bereits bestehende Kontakt-Insert)
+
+**3/4 automatisiert verifiziert, 1 code-reviewed (Netzwerkfehler-Fall, analog zu früheren Clipboard-Error-Präzedenzfällen in diesem Projekt).**
+
+### Security Audit Results
+- Siehe PROJ-6-Spec für den vollständigen `contact_events`-RLS-Audit (BUG-5 dort dokumentiert — betrifft die Tabelle, nicht den Import-Schreibpfad selbst: der Import schreibt ausschließlich `contact_id`s, die der Nutzer per RLS-gefilterter `existingContacts`-Liste bereits selbst besitzt, kann also dieses Loch über die UI nicht ausnutzen)
+
+### Regression Testing
+- `tests/PROJ-10-linkedin-csv-import.spec.ts`: 9/9 grün (2 neue Tests für diese ACs)
+- `npm test` (70/70), `npm run lint`, `npm run build`: fehlerfrei
+
+### Summary
+- **Acceptance Criteria:** 3/4 automatisiert + 1 code-reviewed, alle bestanden
+- **Bugs Found:** 0 neue (BUG-5 aus PROJ-6-QA betrifft die Tabelle allgemein, nicht den Import-Pfad)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy zusammen mit PROJ-6.
+
+---
+
 ## QA Test Results
 
 **Tested:** 2026-06-24

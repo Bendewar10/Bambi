@@ -46,10 +46,38 @@ async function seedContact(token: string, userId: string, name: string, fields: 
 }
 
 async function cleanupContacts(token: string) {
+  // contact_events rows cascade-delete with their contact (ON DELETE CASCADE), no separate cleanup needed
   await fetch(`${SUPABASE_URL}/rest/v1/contacts?first_name=like.QA6*`, {
     method: 'DELETE',
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
   })
+}
+
+async function deleteContact(token: string, contactId: string) {
+  await fetch(`${SUPABASE_URL}/rest/v1/contacts?id=eq.${contactId}`, {
+    method: 'DELETE',
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+  })
+}
+
+async function seedContactEvent(
+  token: string,
+  userId: string,
+  contactId: string,
+  type: 'Jobwechsel' | 'Beförderung'
+) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/contact_events`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({ contact_id: contactId, user_id: userId, type }),
+  })
+  const [event] = await res.json()
+  return event.id as string
 }
 
 async function login(page: Page) {
@@ -120,15 +148,47 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await expect(card.getByText('Follow-up', { exact: true })).toBeVisible()
   })
 
-  test('AC: follow-up due in 3 days appears in "Diese Woche"', async ({ page }) => {
+  test('AC: follow-up due in 3 days appears in "Nächste 14 Tage"', async ({ page }) => {
     const name = uniqueName('WeekFollowup')
     await seedContact(token, userId, name, { next_followup_at: isoOffset(3) })
     await login(page)
 
-    await expect(page.getByRole('heading', { name: 'Diese Woche' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Nächste 14 Tage' })).toBeVisible()
     const card = cardFor(page, name)
     await expect(card).toBeVisible()
     await expect(card.getByText('Follow-up', { exact: true })).toBeVisible()
+  })
+
+  test('AC: follow-up due in exactly 14 days appears in "Nächste 14 Tage" (upper window boundary)', async ({ page }) => {
+    const name = uniqueName('Window14')
+    await seedContact(token, userId, name, { next_followup_at: isoOffset(14) })
+    await login(page)
+
+    await expect(sectionFor(page, 'Nächste 14 Tage').getByText(name)).toBeVisible()
+  })
+
+  test('AC: follow-up due in 15 days does not appear anywhere (just outside window)', async ({ page }) => {
+    const name = uniqueName('Window15')
+    await seedContact(token, userId, name, { next_followup_at: isoOffset(15) })
+    await login(page)
+
+    await expect(page.getByText(name)).toHaveCount(0)
+  })
+
+  test('AC: cards in "Nächste 14 Tage" are sorted chronologically by occasion date', async ({ page }) => {
+    const nameFar = uniqueName('SortFar')
+    const nameNear = uniqueName('SortNear')
+    await seedContact(token, userId, nameFar, { next_followup_at: isoOffset(12) })
+    await seedContact(token, userId, nameNear, { next_followup_at: isoOffset(2) })
+    await login(page)
+
+    const section = sectionFor(page, 'Nächste 14 Tage')
+    const texts = await section.locator('[class*="rounded-lg"]').allTextContents()
+    const nearIndex = texts.findIndex((t) => t.includes(nameNear))
+    const farIndex = texts.findIndex((t) => t.includes(nameFar))
+    expect(nearIndex).toBeGreaterThanOrEqual(0)
+    expect(farIndex).toBeGreaterThanOrEqual(0)
+    expect(nearIndex).toBeLessThan(farIndex)
   })
 
   test('AC: birthday today appears in "Heute & überfällig" with Geburtstag badge', async ({ page }) => {
@@ -160,7 +220,15 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await expect(card.getByText(/^Geburtstag: \d{1,2}\.\d{1,2}\.1990$/)).toBeVisible()
   })
 
-  test('AC: birthday wraps across year boundary (e.g. day 5 from now in Jan) still detected within 7 days', async ({ page }) => {
+  test('AC: birthday in 10 days appears in "Nächste 14 Tage" (would have missed the old 7-day window)', async ({ page }) => {
+    const name = uniqueName('BirthdayExtended')
+    await seedContact(token, userId, name, { birthday: `2000-${birthdayOffset(10)}` })
+    await login(page)
+
+    await expect(sectionFor(page, 'Nächste 14 Tage').getByText(name)).toBeVisible()
+  })
+
+  test('AC: birthday wraps across year boundary (e.g. day 5 from now in Jan) still detected within 14 days', async ({ page }) => {
     const name = uniqueName('BirthdayWrap')
     await seedContact(token, userId, name, { birthday: `2000-${birthdayOffset(6)}` })
     await login(page)
@@ -192,7 +260,7 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await login(page)
 
     const todayCard = sectionFor(page, 'Heute & überfällig').locator('[class*="rounded-lg"]', { hasText: name })
-    const weekCard = sectionFor(page, 'Diese Woche').locator('[class*="rounded-lg"]', { hasText: name })
+    const weekCard = sectionFor(page, 'Nächste 14 Tage').locator('[class*="rounded-lg"]', { hasText: name })
     await expect(todayCard).toBeVisible()
     await expect(weekCard).toBeVisible()
     await expect(todayCard.getByText('Follow-up', { exact: true })).toBeVisible()
@@ -405,6 +473,77 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
 
     await expect(page.getByText('Geburtstag darf nicht in der Zukunft liegen')).toBeVisible()
     await page.getByRole('button', { name: 'Abbrechen' }).click()
+  })
+
+  test('AC: open import event appears in "Kürzlich erkannt" with its type badge', async ({ page }) => {
+    const name = uniqueName('ImportEvent')
+    const contactId = await seedContact(token, userId, name)
+    await seedContactEvent(token, userId, contactId, 'Jobwechsel')
+    await login(page)
+
+    await expect(page.getByRole('heading', { name: 'Kürzlich erkannt' })).toBeVisible()
+    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class*="rounded-lg"]', { hasText: name })
+    await expect(card).toBeVisible()
+    await expect(card.getByText('Jobwechsel', { exact: true })).toBeVisible()
+
+    await deleteContact(token, contactId)
+  })
+
+  test('AC: "Kürzlich erkannt" is hidden when no open import event exists', async ({ page }) => {
+    const name = uniqueName('NoImportEvent')
+    await seedContact(token, userId, name, { next_followup_at: isoOffset(0) })
+    await login(page)
+
+    await expect(page.getByRole('heading', { name: 'Kürzlich erkannt' })).toHaveCount(0)
+  })
+
+  test('AC: contact with two open import events shows both badges on one card', async ({ page }) => {
+    const name = uniqueName('TwoEvents')
+    const contactId = await seedContact(token, userId, name)
+    await seedContactEvent(token, userId, contactId, 'Jobwechsel')
+    await seedContactEvent(token, userId, contactId, 'Beförderung')
+    await login(page)
+
+    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class*="rounded-lg"]', { hasText: name })
+    await expect(card.getByText('Jobwechsel', { exact: true })).toBeVisible()
+    await expect(card.getByText('Beförderung', { exact: true })).toBeVisible()
+  })
+
+  test('AC: "Kontaktiert" on an import-event card dismisses all of that contact\'s open events', async ({ page }) => {
+    const name = uniqueName('Dismiss')
+    const contactId = await seedContact(token, userId, name)
+    await seedContactEvent(token, userId, contactId, 'Jobwechsel')
+    await seedContactEvent(token, userId, contactId, 'Beförderung')
+    await login(page)
+
+    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class*="rounded-lg"]', { hasText: name })
+    await card.getByRole('button', { name: 'Kontaktiert' }).click()
+    await page.getByLabel('Kanal').click()
+    await page.getByRole('option', { name: 'Call' }).click()
+    await page.getByRole('button', { name: 'Speichern' }).click()
+
+    await expect(page.getByText('Kontaktmoment hinzufügen')).toHaveCount(0)
+    await expect(page.locator('[class*="rounded-lg"]', { hasText: name })).toHaveCount(0)
+
+    await deleteContact(token, contactId)
+  })
+
+  test('AC: "Vorschlag" on an import-event card calls the AI route with the event type', async ({ page }) => {
+    const name = uniqueName('ImportDraft')
+    const contactId = await seedContact(token, userId, name)
+    await seedContactEvent(token, userId, contactId, 'Jobwechsel')
+    await login(page)
+
+    let receivedOccasionType: string | undefined
+    await page.route('**/api/draft-message', async (route) => {
+      receivedOccasionType = JSON.parse(route.request().postData() ?? '{}').occasionType
+      await route.fulfill({ status: 200, json: { text: 'Glückwunsch zum neuen Job!' } })
+    })
+
+    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class*="rounded-lg"]', { hasText: name })
+    await card.getByRole('button', { name: 'Vorschlag' }).click()
+    await expect(card.getByText('Glückwunsch zum neuen Job!')).toBeVisible()
+    expect(receivedOccasionType).toBe('Jobwechsel')
   })
 
   test('Security: unauthenticated request to /api/draft-message is blocked', async ({ request }) => {

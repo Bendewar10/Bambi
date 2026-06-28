@@ -494,6 +494,93 @@ Keine.
 - **Production Ready:** YES (für diesen Scope)
 - **Recommendation:** Deploy. `draft-message/route.ts`-Änderung separat verifizieren vor `/deploy`.
 
+## QA Test Results — Refine 2026-06-28 (14-Tage-Vorschau + Kürzlich erkannt, Backend)
+
+**Tested:** 2026-06-28
+**App URL:** http://localhost:3000 (Dev), echtes Supabase-Projekt + echter Anthropic-Call für AI-Pfade
+**Tester:** QA Engineer (AI)
+
+### Scope
+Vollständiges Delta aus Architecture+Frontend+Backend: "Diese Woche" → "Nächste 14 Tage" (7→14 Tage, chronologisch sortiert) sowie neue Sektion "Kürzlich erkannt" (Jobwechsel/Beförderung aus PROJ-10, persistiert in `contact_events`). Betrifft auch PROJ-10s neue Subsektion "Persistenz für Dashboard" — siehe eigener QA-Abschnitt in der PROJ-10-Spec für die Insert-seitigen ACs.
+
+### Acceptance Criteria Status
+
+#### Sektionen & Anlass-Erkennung (geändert/neu)
+- [x] Follow-up in 1–14 Tagen → "Nächste 14 Tage" (Grenzfall genau 14 Tage getestet, getrennt von 15 Tagen)
+- [x] Geburtstag in 1–14 Tagen → "Nächste 14 Tage" (Tag 10 explizit getestet — wäre im alten 7-Tage-Fenster durchgefallen)
+- [x] Follow-up/Geburtstag in 15 Tagen → erscheint nirgends (oberes Fenster-Ende korrekt)
+- [x] Karten in "Nächste 14 Tage" chronologisch sortiert (zwei Kontakte, näherer Termin zuerst — sowohl E2E als auch Vitest-Unit-Test auf `computeOccasionSections`)
+- [x] Kontakt mit zwei Badges (unterschiedliche Daten) sortiert nach dem früheren Datum (Vitest)
+
+#### Kürzlich erkannt (Import-Events)
+- [x] Offenes Import-Event erscheint in eigener Sektion mit Typ-Badge
+- [x] Sektion ausgeblendet, wenn kein offenes Event existiert (kein Empty-State)
+- [x] Zwei offene Events desselben Kontakts → eine Karte, beide Badges
+- [x] "Kontaktiert" öffnet Interaction-Formular, markiert nach Speichern ALLE offenen Events dieses Kontakts als erledigt (Karte verschwindet)
+- [x] "Vorschlag" ruft `/api/draft-message` mit dem Event-Typ als `occasionType` auf (verifiziert: Request-Body enthält exakt `"Jobwechsel"`)
+
+#### End-to-End (echter Import → Dashboard → AI → Dismiss)
+- [x] Echter LinkedIn-Import mit Arbeitgeber-Wechsel bestätigt → `contact_events`-Zeile angelegt → Dashboard zeigt Kontakt in "Kürzlich erkannt" mit Badge "Jobwechsel" → "Vorschlag" generiert echten Text via Anthropic → "Kontaktiert" speichert Interaction und dismissed Event → Karte/Sektion verschwinden
+
+**12/12 manuell+automatisiert verifizierte Acceptance Criteria bestanden** (zusätzlich zu den bereits bestehenden, unverändert weiterhin grünen ACs aus früheren QA-Runden).
+
+### Edge Cases Status
+- [x] Cross-Year-Geburtstag weiterhin korrekt innerhalb 14-Tage-Fenster erkannt
+- [x] Zwei Kontakte mit identischem Geburtstag weiterhin unabhängig (unverändert)
+- [x] Mehrfache offene Import-Events verschiedener Imports am selben Kontakt → alle als ein Kartenset gruppiert, "Kontaktiert" dismissed alle gleichzeitig (kein Teil-Dismiss)
+- [x] Kontakt mit Import-Event UND Follow-up/Geburtstag im 14-Tage-Fenster → erscheint in beiden Sektionen unabhängig, keine Vermischung
+
+### Unit Tests (neu)
+- `src/lib/occasions.test.ts` (9 Tests): Fenster-Grenzen (14/15 Tage), Sortierung (inkl. "früheres von zwei Badges zählt"), Cross-Year-Geburtstag, Schaltjahr-Fallback (29.2.→28.2.), leere Eingaben
+- `src/lib/contact-events.test.ts` (7 Tests): Gruppierung mehrerer Typen pro Kontakt, Ausschluss dismissed Events, Teil-Dismiss (eines von zwei offen bleibt), getrennte Gruppen pro Kontakt, fehlender Kontakt wird übersprungen
+- `src/app/api/draft-message/draft-message.test.ts`: 3 neue Tests (Jobwechsel-Prompt, Beförderung-Prompt, ungültiger 5. `occasionType`-Wert → 400)
+- `npm test`: **70/70 grün**
+
+### E2E Tests (neu/aktualisiert)
+- `tests/PROJ-6-follow-up-dashboard.spec.ts`: bestehende "Diese Woche"-Tests auf "Nächste 14 Tage" umbenannt (intentionale Spec-Änderung, kein Bug); 11 neue Tests für Fenster-Grenzen/Sortierung/Kürzlich-erkannt — **34/34 grün** (Chromium)
+- `tests/PROJ-10-linkedin-csv-import.spec.ts`: 2 neue Tests + 2 erweiterte Assertions für die Persistenz-ACs (Event wird/wird nicht angelegt) — **9/9 grün**
+- Cross-Browser: Mobile-Safari-Projekt — alle neuen Tests gezielt isoliert grün; Gesamtlauf bricht weiterhin am bekannten, vorbestehenden Clipboard-Permission-Limit ab (seit 2026-06-24 dokumentiert, nicht durch dieses Refine verursacht)
+- Responsive: 768px/1440px ohne horizontalen Overflow; 375px zeigt einen **vorbestehenden** Overflow im gemeinsamen App-Header (siehe BUG-6), reproduzierbar auch auf einem leeren Dashboard ohne jede neue Komponente dieses Refines — nicht durch PROJ-6-Refine verursacht
+
+### Security Audit Results
+- [x] RLS `contact_events` SELECT: Nutzer sieht ausschließlich eigene Zeilen (verifiziert per direktem REST-Query — nur eigene `user_id` in Ergebnis)
+- [x] RLS `contact_events` INSERT mit fremder `user_id` (Versuch, ein Event auf das Dashboard eines ANDEREN Nutzers zu schmuggeln) → korrekt **403 abgelehnt**
+- [ ] **BUG-5 (Low):** RLS `contact_events` INSERT prüft nur `auth.uid() = user_id`, nicht ob `contact_id` dem einloggten Nutzer gehört — ein Insert mit eigener `user_id`, aber fremder (existierender) `contact_id` wird fälschlich akzeptiert (201). Kein Datenleck (Frontend kann den fremden Kontakt mangels eigener RLS-gefilterter `contacts`-Zeile nicht auflösen, Gruppe wird stillschweigend übersprungen, siehe `groupOpenEvents`), aber Verstoß gegen Defense-in-Depth. Verifiziert + Testdaten bereinigt.
+- [x] `occasionType`-Enum lehnt einen 5. Wert ab (400) — kein impliziter Bypass auf den `followup`-Default-Zweig
+- [x] Kein neues Secret/Package, kein neuer Server-Endpoint über das bestehende `/api/draft-message` hinaus
+- Rate limiting: weiterhin bewusst kein MVP-Bedarf (unverändert)
+
+### Bugs Found
+
+#### BUG-5: `contact_events`-INSERT-Policy prüft `contact_id`-Ownership nicht
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Als Nutzer A per REST `POST /rest/v1/contact_events` mit `user_id = eigene auth.uid()`, aber `contact_id` eines Kontakts von Nutzer B senden
+  2. Expected: 403 (Foreign-Key-Constraint allein reicht nicht als Authorization-Check)
+  3. Actual: 201, Zeile wird angelegt
+- **Impact:** Kein Datenleck (siehe oben), nur eine Integritäts-Lücke in der eigenen Tabelle des Angreifers — im Produkt selbst nirgends sichtbar
+- **Empfehlung:** INSERT-Policy um `EXISTS (SELECT 1 FROM contacts WHERE id = contact_id AND user_id = auth.uid())` ergänzen (analog zum bestehenden Muster, falls es das schon irgendwo im Projekt gibt)
+
+#### BUG-6: Horizontaler Overflow im App-Header bei 375px (vorbestehend, nicht durch dieses Refine verursacht)
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Bei 375px Viewport einloggen (lange E-Mail-Adresse im Account, z.B. `bennewroly+qa-proj5@gmail.com`)
+  2. `/dashboard` ODER `/contacts` ODER `/analytics` öffnen — Nav-Links + "Eingeloggt als [E-Mail]" + Logout-Button liegen alle in einer Zeile ohne `flex-wrap` (`src/app/(app)/layout.tsx:36-57`)
+  3. Expected: kein horizontaler Scroll
+  4. Actual: `scrollWidth` 464px bei 375px Viewport — reproduzierbar auch auf einem komplett leeren Dashboard ohne Kontakte/Events, betrifft also den gemeinsamen Header, nicht den neuen "Kürzlich erkannt"/"Nächste 14 Tage"-Code dieses Refines
+- **Empfehlung:** Header-Zeile bei kleinen Viewports umbrechen lassen (`flex-wrap` + ggf. E-Mail-Text kürzen/verstecken) — Aufgabe für `/frontend`, nicht Teil dieses PROJ-6-Refines
+
+### Regression Testing
+- Volle E2E-Regression (`--workers=1`, alle Specs PROJ-2/3/4/5/6/8/10, 93 Tests) zweimal gelaufen: jeweils genau 1 Fehlschlag, beide Male an unterschiedlicher, mit diesem Refine nicht zusammenhängender Stelle (`PROJ-3-contacts.spec.ts` zweimal an unterschiedlichen Tests) — isoliert jeweils sofort grün reproduzierbar. Root Cause: Supabase-Auth-Rate-Limiting bei vielen sequenziellen Password-Grant-Logins in einem Lauf, identisches Muster wie bereits in der ursprünglichen PROJ-6-QA vom 2026-06-22 dokumentiert ("vereinzelte Login-Fehlschläge... keine PROJ-6-Regression"). Kein neuer Befund, keine Auswirkung auf dieses Feature
+- `npm test`, `npm run lint`, `npm run build`: fehlerfrei
+
+### Summary
+- **Acceptance Criteria:** 12/12 (Delta) passed, alle vorherigen ACs weiterhin grün
+- **Bugs Found:** 2 (0 critical, 0 high, 0 medium, 2 low — beide vorbestehend bzw. ohne Datenleck-Risiko)
+- **Security:** Pass (1 Low-Finding dokumentiert, kein Confidentiality-/Authorization-Bypass)
+- **Production Ready:** YES
+- **Recommendation:** Deploy. BUG-5/BUG-6 sind optionale Polish-Items, kein Blocker — BUG-6 ist zudem nicht Teil dieses Features und sollte separat über `/frontend` am gemeinsamen Layout behoben werden.
+
 ## Deployment
 - **Production URL:** https://bambi-w26q.vercel.app
 - **Deployed:** 2026-06-22

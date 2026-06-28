@@ -70,6 +70,12 @@ describe('POST /api/draft-message', () => {
     expect(res.status).toBe(400)
   })
 
+  it('returns 400 for an occasionType outside the four accepted values', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    const res = await POST(makeRequest({ contactId: '550e8400-e29b-41d4-a716-446655440000', occasionType: 'anniversary' }))
+    expect(res.status).toBe(400)
+  })
+
   it('returns 404 when contact is not found (or not owned)', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
     contactSingleMock.mockResolvedValue({ data: null })

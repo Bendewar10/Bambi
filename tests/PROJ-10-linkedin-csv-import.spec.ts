@@ -38,10 +38,29 @@ async function seedContact(token: string, userId: string, fields: Record<string,
 }
 
 async function cleanupContacts(token: string) {
+  // contact_events rows cascade-delete with their contact (ON DELETE CASCADE), no separate cleanup needed
   await fetch(`${SUPABASE_URL}/rest/v1/contacts?first_name=like.QA10*`, {
     method: 'DELETE',
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
   })
+}
+
+async function getContactIdByName(token: string, firstName: string) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/contacts?first_name=eq.${encodeURIComponent(firstName)}&select=id`,
+    { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+  )
+  const [contact] = await res.json()
+  return contact.id as string
+}
+
+async function getOpenEventTypes(token: string, contactId: string) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/contact_events?contact_id=eq.${contactId}&dismissed_at=is.null&select=type`,
+    { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+  )
+  const rows: { type: string }[] = await res.json()
+  return rows.map((r) => r.type).sort()
 }
 
 async function login(page: Page) {
@@ -160,6 +179,27 @@ test.describe.serial('PROJ-10: LinkedIn-CSV-Import', () => {
     await page.getByText('QA10ExistingMatch', { exact: true }).click()
     await expect(page.getByLabel('Arbeitgeber')).toHaveValue('OldCo')
     await page.getByRole('button', { name: 'Abbrechen' }).click()
+
+    // AC (Persistenz für Dashboard): excluded change row -> no contact_events row written
+    const contactId = await getContactIdByName(token, 'QA10ExistingMatch')
+    expect(await getOpenEventTypes(token, contactId)).toEqual([])
+  })
+
+  test('AC (Persistenz für Dashboard): a first-time fill ("Neu erfasst") writes no contact_events row', async ({
+    page,
+  }) => {
+    await login(page)
+    await page.getByRole('button', { name: 'LinkedIn importieren' }).click()
+    const csv = [HEADER, 'QA10ExistingMatch,,,,,QA10ConfirmedNewTitle,01 Jan 2026'].join('\n')
+    await page.getByLabel('LinkedIn-CSV-Datei').setInputFiles(csvFile('confirm-new-fill.csv', csv))
+    await expect(page.getByText('Neu erfasst')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Bestätigen' }).click()
+    await expect(page.getByText(/aktualisiert/)).toBeVisible()
+    await page.getByRole('button', { name: 'Schließen' }).click()
+
+    const contactId = await getContactIdByName(token, 'QA10ExistingMatch')
+    expect(await getOpenEventTypes(token, contactId)).toEqual([])
   })
 
   test('AC: editing a value in the preview before confirming saves the edited value, not the CSV value', async ({
@@ -208,6 +248,10 @@ test.describe.serial('PROJ-10: LinkedIn-CSV-Import', () => {
     const categoryTrigger = page.getByLabel('Kategorie')
     await expect(categoryTrigger).toContainText('Freund')
     await page.getByRole('button', { name: 'Abbrechen' }).click()
+
+    // AC (Persistenz für Dashboard): confirmed employer change with non-empty old value writes a Jobwechsel event
+    const contactId = await getContactIdByName(token, 'QA10ExistingMatch')
+    expect(await getOpenEventTypes(token, contactId)).toContain('Jobwechsel')
   })
 
   test('AC: re-uploading the same file afterwards reports no further updates (idempotent)', async ({ page }) => {
