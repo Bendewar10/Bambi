@@ -36,20 +36,25 @@ export function nextBirthdayOccurrence(birthday: string, today: Date): Date {
   return candidate
 }
 
+export const UPCOMING_WINDOW_DAYS = 14
+
 export function computeOccasionSections(contacts: Contact[], today: Date = new Date()) {
   const todaySection: ContactOccasion[] = []
-  const weekSection: ContactOccasion[] = []
+  const upcoming: { occasion: ContactOccasion; sortDate: Date }[] = []
 
   for (const contact of contacts) {
     const todayBadges: OccasionBadge[] = []
-    const weekBadges: OccasionBadge[] = []
+    const upcomingBadges: OccasionBadge[] = []
+    let upcomingSortDate: Date | null = null
 
     if (contact.next_followup_at) {
-      const followupDays = daysBetween(today, new Date(contact.next_followup_at))
+      const followupDate = new Date(contact.next_followup_at)
+      const followupDays = daysBetween(today, followupDate)
       if (followupDays <= 0) {
         todayBadges.push('followup')
-      } else if (followupDays <= 7) {
-        weekBadges.push('followup')
+      } else if (followupDays <= UPCOMING_WINDOW_DAYS) {
+        upcomingBadges.push('followup')
+        upcomingSortDate = followupDate
       }
     }
 
@@ -58,8 +63,11 @@ export function computeOccasionSections(contacts: Contact[], today: Date = new D
       const birthdayDays = daysBetween(today, nextOccurrence)
       if (birthdayDays === 0) {
         todayBadges.push('birthday')
-      } else if (birthdayDays <= 7) {
-        weekBadges.push('birthday')
+      } else if (birthdayDays <= UPCOMING_WINDOW_DAYS) {
+        upcomingBadges.push('birthday')
+        if (!upcomingSortDate || nextOccurrence < upcomingSortDate) {
+          upcomingSortDate = nextOccurrence
+        }
       }
     }
 
@@ -71,15 +79,20 @@ export function computeOccasionSections(contacts: Contact[], today: Date = new D
         birthdayDate: contact.birthday,
       })
     }
-    if (weekBadges.length > 0) {
-      weekSection.push({
-        contact,
-        badges: weekBadges,
-        followupDate: contact.next_followup_at,
-        birthdayDate: contact.birthday,
+    if (upcomingBadges.length > 0 && upcomingSortDate) {
+      upcoming.push({
+        occasion: {
+          contact,
+          badges: upcomingBadges,
+          followupDate: contact.next_followup_at,
+          birthdayDate: contact.birthday,
+        },
+        sortDate: upcomingSortDate,
       })
     }
   }
 
-  return { todaySection, weekSection }
+  upcoming.sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime())
+
+  return { todaySection, upcomingSection: upcoming.map((u) => u.occasion) }
 }

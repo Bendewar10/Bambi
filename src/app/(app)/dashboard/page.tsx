@@ -4,14 +4,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Contact } from '@/lib/contacts'
 import { computeOccasionSections } from '@/lib/occasions'
+import { ContactEvent, groupOpenEvents } from '@/lib/contact-events'
 import { OccasionCard } from '@/components/occasion-card'
+import { ImportEventCard } from '@/components/import-event-card'
 import { InteractionFormDialog } from '@/components/interaction-form-dialog'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
 
 export default function DashboardPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [events, setEvents] = useState<ContactEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loggingContact, setLoggingContact] = useState<Contact | null>(null)
+  const [dismissingEventIds, setDismissingEventIds] = useState<string[] | null>(null)
   const [openCardContact, setOpenCardContact] = useState<Contact | null>(null)
 
   function loadContacts() {
@@ -24,13 +28,47 @@ export default function DashboardPage() {
       })
   }
 
+  function loadEvents() {
+    return supabase
+      .from('contact_events')
+      .select('*')
+      .then(({ data, error }) => {
+        setEvents(error ? [] : data ?? [])
+      })
+  }
+
   useEffect(() => {
     void loadContacts()
+    void loadEvents()
   }, [])
 
-  const { todaySection, weekSection } = useMemo(() => computeOccasionSections(contacts), [contacts])
+  const { todaySection, upcomingSection } = useMemo(() => computeOccasionSections(contacts), [contacts])
+  const eventGroups = useMemo(() => groupOpenEvents(events, contacts), [events, contacts])
 
-  const hasAnyOccasion = todaySection.length > 0 || weekSection.length > 0
+  const hasAnyOccasion = todaySection.length > 0 || upcomingSection.length > 0
+
+  function openInteractionForOccasion(contact: Contact) {
+    setDismissingEventIds(null)
+    setLoggingContact(contact)
+  }
+
+  function openInteractionForEventGroup(group: { contact: Contact; events: ContactEvent[] }) {
+    setDismissingEventIds(group.events.map((e) => e.id))
+    setLoggingContact(group.contact)
+  }
+
+  async function handleInteractionSaved() {
+    setLoggingContact(null)
+    if (dismissingEventIds) {
+      await supabase
+        .from('contact_events')
+        .update({ dismissed_at: new Date().toISOString() })
+        .in('id', dismissingEventIds)
+      setDismissingEventIds(null)
+    }
+    loadContacts()
+    loadEvents()
+  }
 
   return (
     <div className="w-full max-w-4xl space-y-8">
@@ -48,7 +86,7 @@ export default function DashboardPage() {
                   <OccasionCard
                     key={occasion.contact.id}
                     occasion={occasion}
-                    onLogInteraction={() => setLoggingContact(occasion.contact)}
+                    onLogInteraction={() => openInteractionForOccasion(occasion.contact)}
                     onOpenCard={() => setOpenCardContact(occasion.contact)}
                   />
                 ))}
@@ -56,15 +94,15 @@ export default function DashboardPage() {
             </section>
           )}
 
-          {weekSection.length > 0 && (
+          {upcomingSection.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Diese Woche</h2>
+              <h2 className="text-lg font-semibold">Nächste 14 Tage</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {weekSection.map((occasion) => (
+                {upcomingSection.map((occasion) => (
                   <OccasionCard
                     key={occasion.contact.id}
                     occasion={occasion}
-                    onLogInteraction={() => setLoggingContact(occasion.contact)}
+                    onLogInteraction={() => openInteractionForOccasion(occasion.contact)}
                     onOpenCard={() => setOpenCardContact(occasion.contact)}
                   />
                 ))}
@@ -74,16 +112,28 @@ export default function DashboardPage() {
         </>
       )}
 
+      {eventGroups.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Kürzlich erkannt</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {eventGroups.map((group) => (
+              <ImportEventCard
+                key={group.contact.id}
+                group={group}
+                onLogInteraction={() => openInteractionForEventGroup(group)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       {loggingContact && (
         <InteractionFormDialog
           open={!!loggingContact}
           onOpenChange={(open) => !open && setLoggingContact(null)}
           contactId={loggingContact.id}
           interaction={null}
-          onSaved={() => {
-            setLoggingContact(null)
-            loadContacts()
-          }}
+          onSaved={handleInteractionSaved}
         />
       )}
 
