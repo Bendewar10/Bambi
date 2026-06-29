@@ -1,8 +1,8 @@
 # PROJ-11: AI Chat Assistant (Sidebar-Popup)
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-06-29
-**Last Updated:** 2026-06-29 (Backend)
+**Last Updated:** 2026-06-29 (QA)
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — Chat liest/schreibt Contact-Daten
@@ -165,7 +165,79 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
 - `npm run build`, `npm run lint`, `npm test` (88 Tests) alle grün
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-06-29
+**App URL:** http://localhost:3000 (dev), real Supabase project + real Claude Haiku 4.5 calls (no mocks)
+**Tester:** QA Engineer (AI)
+
+### Automated Suites
+- `npm test` (Vitest): 88/88 passed (incl. 18 new for `/api/chat`, `/api/chat/messages`, `/api/chat/confirm`)
+- `npm run build`: passed, no TS errors
+- `npm run lint`: passed, no warnings
+- `npm run test:e2e` full regression (chromium, serial, shared QA account): 101/106 passed — the 5 non-PROJ-11 "failures" seen in an earlier *parallel* run were confirmed to be pre-existing flakiness from running multiple browser projects against one shared QA account concurrently (reproduced: same specs pass 10/10 when run serially), not caused by this feature. See `tests/PROJ-11-ai-chat-assistant.spec.ts` (new, 14 tests) — run individually on both `chromium` and `Mobile Safari`: 13 passed, 1 `fixme` (BUG-2 below).
+
+### Acceptance Criteria Status
+- [x] Chat-Button überall, Panel öffnet von rechts mit Verlauf/Leerzustand
+- [x] Leerzustand zeigt Begrüßung + Beispiel-Fragen
+- [x] Einzel-Kontakt-Fragen korrekt aus echten Daten beantwortet
+- [x] Aggregierte Fragen serverseitig aus eigenen Daten berechnet (nicht geraten)
+- [x] Interaktion loggen direkt ausgeführt, bestätigt in Antwort
+- [x] Follow-up-Termin direkt aktualisiert, bestätigt
+- [x] Neuer Kontakt direkt angelegt, bestätigt
+- [x] Überschreiben gefüllter Felder zeigt alten/neuen Wert + Bestätigung vor Schreiben
+- [x] Löschen (Kontakt/Interaktion) zeigt Bestätigungsanfrage vor Ausführung
+- [ ] BUG-2 (Medium): Bulk-Aktion zeigt manchmal nur Text-Rückfrage statt Bestätigungskarte (Tool wird nicht aufgerufen) — siehe unten
+- [x] Mehrdeutiger Namens-Treffer → Chat fragt nach (mit Unterscheidungsmerkmal), keine Aktion ausgeführt
+- [x] Bestätigen führt exakt die zuvor gespeicherte Aktion aus (kein erneutes KI-Interpretieren — verifiziert: confirm-Route ruft kein LLM auf)
+- [x] Ablehnen → keine Datenänderung, Abbruch bestätigt
+- [x] KI-Fehler zeigt Fehlermeldung im Verlauf, Eingabe erneut sendbar (Vitest-getestet: 502-Pfad)
+- [x] Verlauf bleibt nach Reload erhalten (letzte 50)
+- [x] RLS: anderer Nutzer sieht nur eigene Daten (strukturell durch RLS-Policies erzwungen + Confirm-Route gibt 409 bei fremder/nicht-existierender Pending-Action-ID)
+
+### Edge Cases Status
+- [x] Unbekannter Kontaktname → Chat sagt, dass nichts gefunden wurde (kein Halluzinieren) — beobachtet im BUG-1-Repro
+- [x] Leere Nachricht → Senden-Button bleibt deaktiviert (clientseitig), serverseitig Zod-validiert (400)
+- [x] Datensatz beim Bestätigen schon weg → Pending-Action wird `expired`, Chat kommuniziert das statt Fehler zu werfen (Vitest-getestet)
+- [x] >50 Nachrichten → UI lädt nur letzte 50 (DB behält Rest)
+- [x] Netzwerkfehler beim Senden → Eingabe bleibt erhalten, Fehler-Banner mit „Erneut senden"
+- [x] Mehrdeutiger Name (zwei „Mara"s) → Rückfrage statt Annahme (3/3 reproduziert)
+
+### Security Audit Results
+- [x] Authentication: `/api/chat`, `/api/chat/messages`, `/api/chat/confirm` ohne Session → Redirect zu `/login` (App-weites Middleware-Verhalten, konsistent mit allen anderen API-Routen)
+- [x] Authorization: Pending-Actions sind RLS-gescoped auf `user_id`; Confirm-Route filtert zusätzlich explizit nach `user_id` — fremde/erratene IDs liefern 409, kein Datenzugriff
+- [x] Input validation: Zod auf allen drei Routen; `update_contact_field` validiert Feldname gegen Whitelist + Werteformat pro Feldtyp (z.B. `strength` nur 1-3); React escaped Chat-Inhalte automatisch (kein `dangerouslySetInnerHTML` → kein XSS-Vektor)
+- [x] Destruktive Aktionen können nicht ohne gespeicherten Pending-Action-Datensatz ausgeführt werden — es gibt kein Tool, das direkt löscht/überschreibt
+- [x] Rate limiting: bewusst keins (Decision Log: kein Budget-Constraint für v1) — kein Bug, dokumentierte Entscheidung
+
+### Bugs Found
+
+#### BUG-1: Optimistische User-Nachricht verschwindet, wenn History-Fetch nach dem Senden zurückkommt
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Chat öffnen (History-GET `/api/chat/messages` startet)
+  2. Sofort eine Nachricht abschicken, bevor das GET zurückkommt
+  3. Erwartet: eigene Nachricht bleibt sichtbar, Antwort kommt dazu
+  4. Tatsächlich: wenn das GET *nach* dem optimistischen Hinzufügen zurückkommt, überschreibt `setMessages(data.messages ?? [])` in `chat-widget.tsx` den State komplett (statt zu mergen) — die eigene Nachricht verschwindet aus der UI, bis die Antwort kommt (dann ist nur noch die Antwort sichtbar, keine User-Nachricht)
+  - Reproduziert via Playwright + Debug-Logging (GET-Resolve kam nach optimistischem Add). Daten in der DB sind korrekt — reines UI-State-Problem.
+- **Priority:** Fix before deployment (Race ist real, auch wenn in der App selbst durch normale Tipp-Verzögerung selten getroffen — bei langsamem Netzwerk/Supabase-Latenz aber plausibel)
+
+#### BUG-2: Bulk-Aktion manchmal als Text-Rückfrage statt Bestätigungskarte
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Zwei Kontakte ohne Follow-up-Termin anlegen
+  2. „Lösch alle Kontakte ohne Follow-up-Termin." schreiben
+  3. Erwartet: Bestätigungskarte mit Liste + Bestätigen/Abbrechen-Buttons (`propose_bulk_delete_contacts`-Tool)
+  4. Tatsächlich (3/3 reproduziert): Haiku listet die Kontakte korrekt per Text auf und fragt „Soll ich die beiden löschen?", ruft aber das Propose-Tool nicht auf — keine Karte, kein strukturierter Bestätigungs-Flow
+  - Kein Sicherheitsrisiko: es existiert kein Tool, das ohne Pending-Action direkt löscht, also kann nichts ungewollt gelöscht werden — der Nutzer müsste im Klartext "ja" antworten, was vermutlich erst dann das Tool triggert (zweite Bestätigungsrunde, nur UX-Reibung)
+  - Vermutete Ursache: bereits im Architecture-Schritt als Risiko notiert (Haiku statt Sonnet für Tool-Orchestrierung — siehe Decision Log)
+- **Priority:** Fix in next sprint — Vorschlag: System-Prompt schärfen ("rufe bei JEDER vorgeschlagenen Aktion das passende Tool auf, frage nie nur im Klartext nach Bestätigung") oder Sonnet für diesen Fall testen
+
+### Summary
+- **Acceptance Criteria:** 15/16 passed (1 Medium bug)
+- **Bugs Found:** 2 total (0 critical, 1 high, 1 medium, 0 low)
+- **Security:** Pass — no findings
+- **Production Ready:** NO
+- **Recommendation:** Fix BUG-1 (High, message-display race) before deploy. BUG-2 (Medium) should be fixed too but isn't a hard blocker on its own — flag to the user as a known limitation if shipped before the fix.
 
 ## Deployment
 _To be added by /deploy_
