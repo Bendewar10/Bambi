@@ -1,8 +1,8 @@
 # PROJ-11: AI Chat Assistant (Sidebar-Popup)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-06-29
-**Last Updated:** 2026-06-29 (QA)
+**Last Updated:** 2026-06-29 (Deploy)
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — Chat liest/schreibt Contact-Daten
@@ -242,4 +242,9 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
 - **Recommendation:** Deploy.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Production URL:** https://bambi-w26q.vercel.app
+- **Deployed:** 2026-06-29
+- **Verification:** Production-Smoke-Test (Playwright gegen Live-URL) — Login, Chat öffnen, echte Frage gestellt, KI-Antwort kam aus echten (leeren) Account-Daten zurück, keine Console-/Page-Errors
+- Keine neuen Env-Vars nötig (ANTHROPIC_API_KEY + Supabase-Vars bereits aus PROJ-6/8/9-Deploys in Vercel gesetzt)
+- DB-Migration `create_chat_tables` (chat_messages, pending_actions) bereits direkt auf dem Supabase-Projekt angewendet (kein separater Migrationsschritt beim Deploy nötig)
