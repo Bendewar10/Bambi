@@ -2,7 +2,7 @@
 
 ## Status: In Progress
 **Created:** 2026-06-29
-**Last Updated:** 2026-06-29 (Frontend)
+**Last Updated:** 2026-06-29 (Backend)
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — Chat liest/schreibt Contact-Daten
@@ -153,6 +153,16 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
   - `POST /api/chat` Body `{ content: string }` → `{ message: ChatMessage, pendingAction?: PendingAction | null }`
   - `POST /api/chat/confirm` Body `{ pendingActionId: string, decision: 'confirm' | 'decline' }` → `{ message: ChatMessage }`
 - Verifiziert per Playwright-Screenshot (Login → Dashboard → Chat öffnen): Button + Panel rendern korrekt, Fehler-Banner zeigt erwarteten 404 (Backend fehlt noch), kein UI-Crash
+
+## Backend Implementation Notes
+- DB-Migration `create_chat_tables`: Tabellen `chat_messages` (id, user_id, role, content, created_at) und `pending_actions` (id, user_id, chat_message_id, action_type, summary, payload jsonb, status, created_at), beide RLS-geschützt (`<table>_<select|insert|update|delete>_own`, `auth.uid() = user_id`), Indizes auf `(user_id, created_at)` bzw. `(user_id, status)`
+- `src/lib/chat-server.ts` — Tool-Definitionen für den KI-Agenten (AI SDK `tool()`): `list_contacts`, `get_contact_interactions`, `list_upcoming_birthdays`, `get_network_stats` (read-only); `log_interaction`, `set_followup`, `create_contact` (direkt, keine Bestätigung — laut Spec-AC); `update_contact_field` (direkt wenn Feld leer, sonst Pending-Action); `propose_delete_contact`, `propose_delete_interaction`, `propose_bulk_delete_contacts` (immer Pending-Action)
+- Vor jeder neuen Pending-Action wird die vorherige offene automatisch auf `expired` gesetzt (`expirePendingActions`) — erfüllt Decision "nur eine offene Pending Action gleichzeitig"
+- `GET /api/chat/messages`, `POST /api/chat`, `POST /api/chat/confirm` — wie im Frontend-Vertrag erwartet, implementiert in `src/app/api/chat/`
+- `POST /api/chat`: Nutzer-Nachricht wird vor dem KI-Call gespeichert (bleibt bei AI-Fehler erhalten), Modell ist `claude-haiku-4-5-20251001` mit `stopWhen: stepCountIs(5)` für Multi-Tool-Turns
+- `POST /api/chat/confirm`: führt exakt das in `pending_actions.payload` gespeicherte aus (kein erneuter KI-Call) — wenn der Datensatz inzwischen weg ist, wird die Pending-Action auf `expired` gesetzt und das im Chat kommuniziert, statt einen Fehler zu werfen
+- 18 Vitest-Integrationstests (Auth/Validierung/Happy-Path je Route) + End-to-End mit echter DB via Playwright verifiziert: Aggregat-Frage, direkte Kontaktanlage, Löschen mit Bestätigungs-Flow (inkl. DB-Check nach Bestätigen)
+- `npm run build`, `npm run lint`, `npm test` (88 Tests) alle grün
 
 ## QA Test Results
 _To be added by /qa_
