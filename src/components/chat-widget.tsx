@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, type Variants } from 'framer-motion'
-import { MessageSquare, Send, Sparkles, Trash2, X } from 'lucide-react'
+import { MessageSquare, PanelLeft, Plus, Send, Sparkles, Trash2, X } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,7 +16,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
-import { CHAT_EXAMPLE_PROMPTS, ChatMessage, PendingAction } from '@/lib/chat'
+import { CHAT_EXAMPLE_PROMPTS, ChatMessage, Conversation, PendingAction } from '@/lib/chat'
+
+const MOBILE_BREAKPOINT_PX = 640
 
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
@@ -52,6 +54,9 @@ export function ChatWidget() {
   const [open, setOpen] = useState(false)
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const [input, setInput] = useState('')
@@ -59,20 +64,30 @@ export function ChatWidget() {
   const [isConfirming, setIsConfirming] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [lastFailedContent, setLastFailedContent] = useState<string | null>(null)
-  const [isDeletingHistory, setIsDeletingHistory] = useState(false)
+  const [isDeletingConversation, setIsDeletingConversation] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const scrollAnchorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (open && window.innerWidth >= MOBILE_BREAKPOINT_PX) {
+      setSidebarOpen(true)
+    }
+  }, [open])
+
+  useEffect(() => {
     if (!open || hasLoadedHistory) return
     setIsLoadingHistory(true)
-    fetch('/api/chat/messages')
-      .then((res) => res.json())
-      .then((data) => {
+    Promise.all([
+      fetch('/api/chat/conversations').then((res) => res.json()),
+      fetch('/api/chat/messages').then((res) => res.json()),
+    ])
+      .then(([conversationsData, messagesData]) => {
+        setConversations(conversationsData.conversations ?? [])
+        setActiveConversationId(messagesData.conversationId ?? null)
         // Guard against a fast send completing before this fetch resolves: only
         // apply the fetched history if nothing has been added locally since.
-        setMessages((prev) => (prev.length > 0 ? prev : data.messages ?? []))
-        setPendingAction(data.pendingAction ?? null)
+        setMessages((prev) => (prev.length > 0 ? prev : messagesData.messages ?? []))
+        setPendingAction(messagesData.pendingAction ?? null)
         setHasLoadedHistory(true)
       })
       .catch(() => setSendError('Verlauf konnte nicht geladen werden.'))
@@ -82,6 +97,49 @@ export function ChatWidget() {
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, pendingAction, isSending])
+
+  function closeSidebarOnMobile() {
+    if (typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT_PX) {
+      setSidebarOpen(false)
+    }
+  }
+
+  async function selectConversation(id: string) {
+    if (id === activeConversationId) {
+      closeSidebarOnMobile()
+      return
+    }
+    setIsLoadingHistory(true)
+    setSendError(null)
+    try {
+      const res = await fetch(`/api/chat/messages?conversationId=${id}`)
+      if (!res.ok) throw new Error('request failed')
+      const data = await res.json()
+      setActiveConversationId(data.conversationId ?? null)
+      setMessages(data.messages ?? [])
+      setPendingAction(data.pendingAction ?? null)
+    } catch {
+      setSendError('Konversation konnte nicht geladen werden.')
+    } finally {
+      setIsLoadingHistory(false)
+      closeSidebarOnMobile()
+    }
+  }
+
+  function startNewChat() {
+    setActiveConversationId(null)
+    setMessages([])
+    setPendingAction(null)
+    setSendError(null)
+    closeSidebarOnMobile()
+  }
+
+  function refreshConversations() {
+    fetch('/api/chat/conversations')
+      .then((res) => res.json())
+      .then((data) => setConversations(data.conversations ?? []))
+      .catch(() => {})
+  }
 
   async function sendMessage(content: string) {
     const trimmed = content.trim()
@@ -102,13 +160,15 @@ export function ChatWidget() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: trimmed }),
+        body: JSON.stringify({ content: trimmed, conversationId: activeConversationId ?? undefined }),
       })
       if (!res.ok) throw new Error('request failed')
       const data = await res.json()
       setMessages((prev) => [...prev, data.message])
       setPendingAction(data.pendingAction ?? null)
+      setActiveConversationId(data.conversationId ?? null)
       setLastFailedContent(null)
+      refreshConversations()
     } catch {
       setSendError('Antwort konnte nicht geladen werden.')
       setLastFailedContent(trimmed)
@@ -147,18 +207,24 @@ export function ChatWidget() {
     void sendMessage(input)
   }
 
-  async function clearHistory() {
-    setIsDeletingHistory(true)
+  async function deleteActiveConversation() {
+    if (!activeConversationId) return
+    setIsDeletingConversation(true)
     setSendError(null)
     try {
-      const res = await fetch('/api/chat/messages', { method: 'DELETE' })
+      const res = await fetch(`/api/chat/conversations/${activeConversationId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('request failed')
-      setMessages([])
-      setPendingAction(null)
+      const remaining = conversations.filter((c) => c.id !== activeConversationId)
+      setConversations(remaining)
+      if (remaining.length > 0) {
+        await selectConversation(remaining[0].id)
+      } else {
+        startNewChat()
+      }
     } catch {
-      setSendError('Verlauf konnte nicht gelöscht werden.')
+      setSendError('Konversation konnte nicht gelöscht werden.')
     } finally {
-      setIsDeletingHistory(false)
+      setIsDeletingConversation(false)
       setShowClearConfirm(false)
     }
   }
@@ -175,178 +241,235 @@ export function ChatWidget() {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="flex w-[380px] flex-col overflow-hidden rounded-2xl border border-border/40 bg-background/60 shadow-2xl backdrop-blur-xl ring-1 ring-white/10"
+            className={cn(
+              'relative flex h-[488px] overflow-hidden rounded-2xl border border-border/40 bg-background/60 shadow-2xl backdrop-blur-xl ring-1 ring-white/10 transition-[width] duration-200',
+              sidebarOpen ? 'w-[380px] sm:w-[640px]' : 'w-[380px]'
+            )}
           >
-            <div className="relative overflow-hidden border-b border-border/40 bg-muted/30 p-4">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5 opacity-50" />
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <AssistantAvatar className="h-10 w-10" />
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">Assistent</h3>
-                    <span className="text-xs text-muted-foreground">Online</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  {!isEmpty && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Verlauf löschen"
-                      className="h-8 w-8 rounded-full hover:bg-background/50"
-                      onClick={() => setShowClearConfirm(true)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  )}
+            {sidebarOpen && (
+              <div
+                className={cn(
+                  'flex flex-col border-r border-border/40 bg-background/70 backdrop-blur-xl',
+                  'absolute inset-y-0 left-0 z-20 w-full sm:static sm:z-auto sm:w-[220px]'
+                )}
+              >
+                <div className="flex items-center justify-between border-b border-border/40 p-3">
+                  <span className="text-sm font-semibold">Chats</span>
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Chat schließen"
-                    className="h-8 w-8 rounded-full hover:bg-background/50"
-                    onClick={() => setOpen(false)}
+                    aria-label="Neuer Chat"
+                    className="h-7 w-7 rounded-full"
+                    onClick={startNewChat}
                   >
-                    <X className="size-4" />
+                    <Plus className="size-4" />
                   </Button>
                 </div>
-              </div>
-            </div>
-
-            <div className="flex h-[420px] flex-col gap-3 overflow-y-auto bg-gradient-to-b from-background/20 to-background/40 p-4">
-              {isLoadingHistory ? (
-                <p className="text-sm text-muted-foreground">Lädt...</p>
-              ) : isEmpty ? (
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <AssistantAvatar className="h-8 w-8" />
-                    <div className="max-w-[85%] rounded-2xl rounded-tl-none border border-border/20 bg-muted/50 px-4 py-2.5 text-sm shadow-sm backdrop-blur-sm">
-                      Frag mich was zu deinen Kontakten, oder bitte mich, etwas für dich zu erledigen.
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {CHAT_EXAMPLE_PROMPTS.map((prompt) => (
-                      <Button
-                        key={prompt}
-                        variant="outline"
-                        className="h-auto justify-start rounded-xl text-left text-sm"
-                        onClick={() => setInput(prompt)}
-                      >
-                        {prompt}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {messages.map((message) => (
-                    <motion.div
-                      key={message.id}
-                      data-testid="chat-message"
-                      variants={messageVariants}
-                      initial="hidden"
-                      animate="visible"
-                      className={cn(
-                        'flex gap-3',
-                        message.role === 'user' ? 'flex-row-reverse self-end' : ''
-                      )}
-                    >
-                      {message.role === 'assistant' && <AssistantAvatar className="h-8 w-8" />}
-                      <div
-                        className={cn(
-                          'flex max-w-[85%] flex-col gap-1',
-                          message.role === 'user' ? 'items-end' : ''
-                        )}
-                      >
-                        <div
+                <div className="flex-1 overflow-y-auto p-2">
+                  {conversations.length === 0 ? (
+                    <p className="p-2 text-xs text-muted-foreground">Noch keine Chats.</p>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      {conversations.map((conversation) => (
+                        <button
+                          key={conversation.id}
+                          data-testid="conversation-item"
+                          onClick={() => selectConversation(conversation.id)}
                           className={cn(
-                            'rounded-2xl px-4 py-2.5 text-sm shadow-sm',
-                            message.role === 'user'
-                              ? 'rounded-tr-none bg-primary text-primary-foreground'
-                              : 'rounded-tl-none border border-border/20 bg-muted/50 backdrop-blur-sm'
+                            'truncate rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted/60',
+                            conversation.id === activeConversationId ? 'bg-primary/10 font-medium text-primary' : ''
                           )}
                         >
-                          <p className="whitespace-pre-wrap">{message.content}</p>
-                        </div>
-                        <span className="px-1 text-[10px] text-muted-foreground">
-                          {formatTime(message.created_at)}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {pendingAction && pendingAction.status === 'pending' && (
-                    <div
-                      data-testid="pending-action-card"
-                      className="rounded-2xl border border-amber-300/60 bg-amber-50/80 p-3 text-sm shadow-sm backdrop-blur-sm dark:border-amber-800/60 dark:bg-amber-950/60"
-                    >
-                      <p className="font-medium">Bestätigung nötig</p>
-                      <p className="mt-1 text-muted-foreground">{pendingAction.summary}</p>
-                      <div className="mt-3 flex gap-2">
-                        <Button
-                          size="sm"
-                          className="rounded-full"
-                          disabled={isConfirming}
-                          onClick={() => respondToPendingAction('confirm')}
-                        >
-                          Bestätigen
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="rounded-full"
-                          disabled={isConfirming}
-                          onClick={() => respondToPendingAction('decline')}
-                        >
-                          Abbrechen
-                        </Button>
-                      </div>
+                          {conversation.title || 'Neuer Chat'}
+                        </button>
+                      ))}
                     </div>
-                  )}
-
-                  {isSending && (
-                    <div className="flex gap-3">
-                      <AssistantAvatar className="h-8 w-8" />
-                      <div className="flex h-10 w-16 items-center justify-center gap-1 rounded-2xl rounded-tl-none border border-border/20 bg-muted/50 px-4 py-3 shadow-sm backdrop-blur-sm">
-                        <span className="size-1.5 animate-bounce rounded-full bg-foreground/40 [animation-delay:-0.3s]" />
-                        <span className="size-1.5 animate-bounce rounded-full bg-foreground/40 [animation-delay:-0.15s]" />
-                        <span className="size-1.5 animate-bounce rounded-full bg-foreground/40" />
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {sendError && (
-                <div className="flex items-center justify-between gap-2 rounded-xl border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
-                  <span>{sendError}</span>
-                  {lastFailedContent && (
-                    <Button size="sm" variant="outline" onClick={() => sendMessage(lastFailedContent)}>
-                      Erneut senden
-                    </Button>
                   )}
                 </div>
-              )}
-              <div ref={scrollAnchorRef} />
-            </div>
+              </div>
+            )}
 
-            <div className="border-t border-border/40 bg-background/60 p-3 backdrop-blur-md">
-              <form className="relative flex items-center gap-2" onSubmit={handleSubmit}>
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Nachricht an den Assistenten..."
-                  aria-label="Chat-Nachricht"
-                  className="flex-1 rounded-full border border-border/40 bg-background/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10"
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  disabled={isSending || !input.trim()}
-                  className="h-10 w-10 rounded-full shadow-lg transition-transform hover:scale-105"
-                >
-                  <Send className="size-4" />
-                </Button>
-              </form>
+            <div className="flex flex-1 flex-col">
+              <div className="relative overflow-hidden border-b border-border/40 bg-muted/30 p-4">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5 opacity-50" />
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={sidebarOpen ? 'Chat-Liste ausblenden' : 'Chat-Liste einblenden'}
+                      className="h-8 w-8 rounded-full hover:bg-background/50"
+                      onClick={() => setSidebarOpen((prev) => !prev)}
+                    >
+                      <PanelLeft className="size-4" />
+                    </Button>
+                    <AssistantAvatar className="h-10 w-10" />
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Assistent</h3>
+                      <span className="text-xs text-muted-foreground">Online</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {!isEmpty && activeConversationId && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Verlauf löschen"
+                        className="h-8 w-8 rounded-full hover:bg-background/50"
+                        onClick={() => setShowClearConfirm(true)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Chat schließen"
+                      className="h-8 w-8 rounded-full hover:bg-background/50"
+                      onClick={() => setOpen(false)}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-1 flex-col gap-3 overflow-y-auto bg-gradient-to-b from-background/20 to-background/40 p-4">
+                {isLoadingHistory ? (
+                  <p className="text-sm text-muted-foreground">Lädt...</p>
+                ) : isEmpty ? (
+                  <div className="space-y-4">
+                    <div className="flex gap-3">
+                      <AssistantAvatar className="h-8 w-8" />
+                      <div className="max-w-[85%] rounded-2xl rounded-tl-none border border-border/20 bg-muted/50 px-4 py-2.5 text-sm shadow-sm backdrop-blur-sm">
+                        Frag mich was zu deinen Kontakten, oder bitte mich, etwas für dich zu erledigen.
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {CHAT_EXAMPLE_PROMPTS.map((prompt) => (
+                        <Button
+                          key={prompt}
+                          variant="outline"
+                          className="h-auto justify-start rounded-xl text-left text-sm"
+                          onClick={() => setInput(prompt)}
+                        >
+                          {prompt}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {messages.map((message) => (
+                      <motion.div
+                        key={message.id}
+                        data-testid="chat-message"
+                        variants={messageVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className={cn(
+                          'flex gap-3',
+                          message.role === 'user' ? 'flex-row-reverse self-end' : ''
+                        )}
+                      >
+                        {message.role === 'assistant' && <AssistantAvatar className="h-8 w-8" />}
+                        <div
+                          className={cn(
+                            'flex max-w-[85%] flex-col gap-1',
+                            message.role === 'user' ? 'items-end' : ''
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'rounded-2xl px-4 py-2.5 text-sm shadow-sm',
+                              message.role === 'user'
+                                ? 'rounded-tr-none bg-primary text-primary-foreground'
+                                : 'rounded-tl-none border border-border/20 bg-muted/50 backdrop-blur-sm'
+                            )}
+                          >
+                            <p className="whitespace-pre-wrap">{message.content}</p>
+                          </div>
+                          <span className="px-1 text-[10px] text-muted-foreground">
+                            {formatTime(message.created_at)}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+
+                    {pendingAction && pendingAction.status === 'pending' && (
+                      <div
+                        data-testid="pending-action-card"
+                        className="rounded-2xl border border-amber-300/60 bg-amber-50/80 p-3 text-sm shadow-sm backdrop-blur-sm dark:border-amber-800/60 dark:bg-amber-950/60"
+                      >
+                        <p className="font-medium">Bestätigung nötig</p>
+                        <p className="mt-1 text-muted-foreground">{pendingAction.summary}</p>
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            size="sm"
+                            className="rounded-full"
+                            disabled={isConfirming}
+                            onClick={() => respondToPendingAction('confirm')}
+                          >
+                            Bestätigen
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-full"
+                            disabled={isConfirming}
+                            onClick={() => respondToPendingAction('decline')}
+                          >
+                            Abbrechen
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {isSending && (
+                      <div className="flex gap-3">
+                        <AssistantAvatar className="h-8 w-8" />
+                        <div className="flex h-10 w-16 items-center justify-center gap-1 rounded-2xl rounded-tl-none border border-border/20 bg-muted/50 px-4 py-3 shadow-sm backdrop-blur-sm">
+                          <span className="size-1.5 animate-bounce rounded-full bg-foreground/40 [animation-delay:-0.3s]" />
+                          <span className="size-1.5 animate-bounce rounded-full bg-foreground/40 [animation-delay:-0.15s]" />
+                          <span className="size-1.5 animate-bounce rounded-full bg-foreground/40" />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {sendError && (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
+                    <span>{sendError}</span>
+                    {lastFailedContent && (
+                      <Button size="sm" variant="outline" onClick={() => sendMessage(lastFailedContent)}>
+                        Erneut senden
+                      </Button>
+                    )}
+                  </div>
+                )}
+                <div ref={scrollAnchorRef} />
+              </div>
+
+              <div className="border-t border-border/40 bg-background/60 p-3 backdrop-blur-md">
+                <form className="relative flex items-center gap-2" onSubmit={handleSubmit}>
+                  <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Nachricht an den Assistenten..."
+                    aria-label="Chat-Nachricht"
+                    className="flex-1 rounded-full border border-border/40 bg-background/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10"
+                  />
+                  <Button
+                    type="submit"
+                    size="icon"
+                    disabled={isSending || !input.trim()}
+                    className="h-10 w-10 rounded-full shadow-lg transition-transform hover:scale-105"
+                  >
+                    <Send className="size-4" />
+                  </Button>
+                </form>
+              </div>
             </div>
           </motion.div>
         )}
@@ -373,13 +496,12 @@ export function ChatWidget() {
           <AlertDialogHeader>
             <AlertDialogTitle>Verlauf löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Der gesamte Chat-Verlauf wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht
-              werden.
+              Diese Konversation wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingHistory}>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={clearHistory} disabled={isDeletingHistory}>
+            <AlertDialogCancel disabled={isDeletingConversation}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteActiveConversation} disabled={isDeletingConversation}>
               Löschen
             </AlertDialogAction>
           </AlertDialogFooter>

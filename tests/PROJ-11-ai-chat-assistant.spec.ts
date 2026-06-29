@@ -75,7 +75,8 @@ async function wipeAllContacts(token: string, userId: string) {
 }
 
 async function wipeChatData(token: string, userId: string) {
-  await fetch(`${SUPABASE_URL}/rest/v1/chat_messages?user_id=eq.${userId}`, {
+  // Deleting conversations cascades chat_messages and pending_actions via FK.
+  await fetch(`${SUPABASE_URL}/rest/v1/conversations?user_id=eq.${userId}`, {
     method: 'DELETE',
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
   })
@@ -105,6 +106,13 @@ async function openChat(page: Page) {
   // Wait for the loading indicator to clear (a real UI signal) instead of relying on
   // network-idle timing, so this regression suite tests the feature, not the race.
   await expect(page.getByText('Lädt...')).toHaveCount(0, { timeout: 10000 })
+}
+
+async function ensureSidebarOpen(page: Page) {
+  const newChatButton = page.getByRole('button', { name: 'Neuer Chat' })
+  if (await newChatButton.isVisible().catch(() => false)) return
+  await page.getByRole('button', { name: 'Chat-Liste einblenden' }).click()
+  await expect(newChatButton).toBeVisible()
 }
 
 async function sendMessage(page: Page, text: string) {
@@ -290,10 +298,12 @@ test.describe.serial('PROJ-11: AI Chat Assistant', () => {
 
     await page.reload()
     await openChat(page)
-    await expect(page.getByText('Wie viele Kontakte habe ich?')).toBeVisible()
+    await expect(page.getByText('Wie viele Kontakte habe ich?').first()).toBeVisible()
   })
 
-  test('AC: clearing chat history asks for confirmation, then empties the panel and the DB', async ({ page }) => {
+  test('AC: clearing the active conversation asks for confirmation, then empties the panel and the DB', async ({
+    page,
+  }) => {
     await login(page)
     await openChat(page)
     await sendMessage(page, 'Wie viele Kontakte habe ich?')
@@ -311,6 +321,55 @@ test.describe.serial('PROJ-11: AI Chat Assistant', () => {
 
     await page.reload()
     await openChat(page)
+    await expect(page.getByText('Frag mich was zu deinen Kontakten')).toBeVisible()
+  })
+
+  test('AC: new chat starts a separate conversation, both appear in the sidebar', async ({ page }) => {
+    await login(page)
+    await openChat(page)
+    await sendMessage(page, 'Wie viele Kontakte habe ich?')
+    await expect(page.locator('[data-testid="chat-message"]').nth(1)).toBeVisible({ timeout: AI_TIMEOUT })
+
+    await ensureSidebarOpen(page)
+    await page.getByRole('button', { name: 'Neuer Chat' }).click()
+    await expect(page.getByText('Frag mich was zu deinen Kontakten')).toBeVisible()
+    await sendMessage(page, 'Wer hat diese Woche Geburtstag?')
+    await expect(page.locator('[data-testid="chat-message"]').nth(1)).toBeVisible({ timeout: AI_TIMEOUT })
+
+    await ensureSidebarOpen(page)
+    await expect(page.locator('[data-testid="conversation-item"]')).toHaveCount(2)
+    await expect(page.getByTestId('conversation-item').filter({ hasText: 'Wie viele Kontakte habe ich?' })).toBeVisible()
+    await expect(page.getByTestId('conversation-item').filter({ hasText: 'Wer hat diese Woche Geburtstag?' })).toBeVisible()
+  })
+
+  test('AC: switching conversation in the sidebar loads that conversation\'s messages', async ({ page }) => {
+    await login(page)
+    await openChat(page)
+    await sendMessage(page, 'Wie viele Kontakte habe ich?')
+    await expect(page.locator('[data-testid="chat-message"]').nth(1)).toBeVisible({ timeout: AI_TIMEOUT })
+
+    await ensureSidebarOpen(page)
+    await page.getByRole('button', { name: 'Neuer Chat' }).click()
+    await sendMessage(page, 'Wer hat diese Woche Geburtstag?')
+    await expect(page.locator('[data-testid="chat-message"]').nth(1)).toBeVisible({ timeout: AI_TIMEOUT })
+
+    await ensureSidebarOpen(page)
+    await page.getByTestId('conversation-item').filter({ hasText: 'Wie viele Kontakte habe ich?' }).click()
+    await expect(page.getByText('Wie viele Kontakte habe ich?').first()).toBeVisible()
+    await expect(page.locator('[data-testid="chat-message"]')).toHaveCount(2)
+  })
+
+  test('AC: deleting the active conversation switches to another one, or to a fresh new chat if none remain', async ({
+    page,
+  }) => {
+    await login(page)
+    await openChat(page)
+    await sendMessage(page, 'Wie viele Kontakte habe ich?')
+    await expect(page.locator('[data-testid="chat-message"]').nth(1)).toBeVisible({ timeout: AI_TIMEOUT })
+
+    await page.getByRole('button', { name: 'Verlauf löschen' }).click()
+    await page.getByRole('button', { name: 'Löschen' }).click()
+    await expect(page.locator('[data-testid="conversation-item"]')).toHaveCount(0)
     await expect(page.getByText('Frag mich was zu deinen Kontakten')).toBeVisible()
   })
 
@@ -332,9 +391,20 @@ test.describe.serial('PROJ-11: AI Chat Assistant', () => {
     expect(res.status()).toBe(409)
   })
 
-  test('Security: unauthenticated request to DELETE /api/chat/messages is blocked', async ({ request }) => {
-    const res = await request.delete('http://localhost:3000/api/chat/messages', { maxRedirects: 0 })
+  test('Security: unauthenticated request to DELETE /api/chat/conversations/:id is blocked', async ({ request }) => {
+    const res = await request.delete(
+      'http://localhost:3000/api/chat/conversations/00000000-0000-0000-0000-000000000000',
+      { maxRedirects: 0 }
+    )
     expect([401, 307, 308]).toContain(res.status())
+  })
+
+  test('Security: deleting a non-existent or unowned conversation returns 404', async ({ page }) => {
+    await login(page)
+    const res = await page.request.delete(
+      '/api/chat/conversations/00000000-0000-0000-0000-000000000000'
+    )
+    expect(res.status()).toBe(404)
   })
 
   test('Security: invalid decision value is rejected', async ({ page }) => {

@@ -10,11 +10,12 @@ const requestSchema = z.object({
 async function reply(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   userId: string,
+  conversationId: string,
   content: string
 ) {
   const { data, error } = await supabase
     .from('chat_messages')
-    .insert({ user_id: userId, role: 'assistant', content })
+    .insert({ user_id: userId, conversation_id: conversationId, role: 'assistant', content })
     .select()
     .single()
   if (error || !data) throw new Error('Antwort konnte nicht gespeichert werden.')
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
   try {
     if (decision === 'decline') {
       await supabase.from('pending_actions').update({ status: 'declined' }).eq('id', pendingActionId)
-      const message = await reply(supabase, userId, 'Okay, abgebrochen — es wurde nichts geändert.')
+      const message = await reply(supabase, userId, pendingAction.conversation_id, 'Okay, abgebrochen — es wurde nichts geändert.')
       return NextResponse.json({ message })
     }
 
@@ -68,11 +69,11 @@ export async function POST(request: Request) {
       if (error) throw new Error(error.message)
       if (!count) {
         await supabase.from('pending_actions').update({ status: 'expired' }).eq('id', pendingActionId)
-        const message = await reply(supabase, userId, 'Dieser Kontakt existiert nicht mehr — nichts zu löschen.')
+        const message = await reply(supabase, userId, pendingAction.conversation_id, 'Dieser Kontakt existiert nicht mehr — nichts zu löschen.')
         return NextResponse.json({ message })
       }
       await supabase.from('pending_actions').update({ status: 'confirmed' }).eq('id', pendingActionId)
-      const message = await reply(supabase, userId, 'Erledigt — der Kontakt wurde gelöscht.')
+      const message = await reply(supabase, userId, pendingAction.conversation_id, 'Erledigt — der Kontakt wurde gelöscht.')
       return NextResponse.json({ message })
     }
 
@@ -85,11 +86,11 @@ export async function POST(request: Request) {
       if (error) throw new Error(error.message)
       if (!count) {
         await supabase.from('pending_actions').update({ status: 'expired' }).eq('id', pendingActionId)
-        const message = await reply(supabase, userId, 'Dieser Kontaktmoment existiert nicht mehr — nichts zu löschen.')
+        const message = await reply(supabase, userId, pendingAction.conversation_id, 'Dieser Kontaktmoment existiert nicht mehr — nichts zu löschen.')
         return NextResponse.json({ message })
       }
       await supabase.from('pending_actions').update({ status: 'confirmed' }).eq('id', pendingActionId)
-      const message = await reply(supabase, userId, 'Erledigt — der Kontaktmoment wurde gelöscht.')
+      const message = await reply(supabase, userId, pendingAction.conversation_id, 'Erledigt — der Kontaktmoment wurde gelöscht.')
       return NextResponse.json({ message })
     }
 
@@ -103,11 +104,11 @@ export async function POST(request: Request) {
       if (error) throw new Error(error.message)
       if (!count) {
         await supabase.from('pending_actions').update({ status: 'expired' }).eq('id', pendingActionId)
-        const message = await reply(supabase, userId, 'Dieser Kontakt existiert nicht mehr — Feld wurde nicht geändert.')
+        const message = await reply(supabase, userId, pendingAction.conversation_id, 'Dieser Kontakt existiert nicht mehr — Feld wurde nicht geändert.')
         return NextResponse.json({ message })
       }
       await supabase.from('pending_actions').update({ status: 'confirmed' }).eq('id', pendingActionId)
-      const message = await reply(supabase, userId, 'Erledigt — das Feld wurde geändert.')
+      const message = await reply(supabase, userId, pendingAction.conversation_id, 'Erledigt — das Feld wurde geändert.')
       return NextResponse.json({ message })
     }
 
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
         .eq('user_id', userId)
       if (error) throw new Error(error.message)
       await supabase.from('pending_actions').update({ status: 'confirmed' }).eq('id', pendingActionId)
-      const message = await reply(supabase, userId, `Erledigt — ${count ?? 0} Kontakte wurden gelöscht.`)
+      const message = await reply(supabase, userId, pendingAction.conversation_id, `Erledigt — ${count ?? 0} Kontakte wurden gelöscht.`)
       return NextResponse.json({ message })
     }
 

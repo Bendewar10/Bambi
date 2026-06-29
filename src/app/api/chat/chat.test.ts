@@ -6,11 +6,20 @@ vi.mock('ai', async () => {
   return { ...actual, generateText: generateTextMock }
 })
 
-const { getUserMock, historyLimitMock, insertMock, pendingLimitMock } = vi.hoisted(() => ({
+const {
+  getUserMock,
+  historyLimitMock,
+  insertMessageMock,
+  pendingLimitMock,
+  conversationFetchMock,
+  conversationInsertMock,
+} = vi.hoisted(() => ({
   getUserMock: vi.fn(),
   historyLimitMock: vi.fn(),
-  insertMock: vi.fn(),
+  insertMessageMock: vi.fn(),
   pendingLimitMock: vi.fn(),
+  conversationFetchMock: vi.fn(),
+  conversationInsertMock: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase-server', () => ({
@@ -21,8 +30,15 @@ vi.mock('@/lib/supabase-server', () => ({
         return {
           select: () => ({ eq: () => ({ order: () => ({ limit: historyLimitMock }) }) }),
           insert: (row: { role: string; content: string }) => ({
-            select: () => ({ single: () => insertMock(row) }),
+            select: () => ({ single: () => insertMessageMock(row) }),
           }),
+        }
+      }
+      if (table === 'conversations') {
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ single: conversationFetchMock }) }) }),
+          insert: (row: { title: string }) => ({ select: () => ({ single: () => conversationInsertMock(row) }) }),
+          update: () => ({ eq: () => Promise.resolve({ error: null }) }),
         }
       }
       return {
@@ -43,7 +59,10 @@ describe('POST /api/chat', () => {
     vi.clearAllMocks()
     historyLimitMock.mockResolvedValue({ data: [] })
     pendingLimitMock.mockResolvedValue({ data: [] })
-    insertMock.mockImplementation((row) =>
+    conversationInsertMock.mockImplementation((row) =>
+      Promise.resolve({ data: { id: 'conv-new', ...row }, error: null })
+    )
+    insertMessageMock.mockImplementation((row) =>
       Promise.resolve({ data: { id: `id-${row.role}`, ...row, created_at: 'now' }, error: null })
     )
   })
@@ -66,7 +85,14 @@ describe('POST /api/chat', () => {
     expect(res.status).toBe(400)
   })
 
-  it('saves the user message, calls the AI, and returns the assistant reply with no pending action', async () => {
+  it('returns 404 when conversationId is given but not found/owned', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    conversationFetchMock.mockResolvedValue({ data: null })
+    const res = await POST(makeRequest({ content: 'Hallo', conversationId: '550e8400-e29b-41d4-a716-446655440000' }))
+    expect(res.status).toBe(404)
+  })
+
+  it('creates a new conversation when no conversationId is given, saves the user message, calls the AI, and returns the assistant reply with no pending action', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
     generateTextMock.mockResolvedValue({ text: 'Du hast aktuell 0 Kontakte.' })
 
@@ -74,9 +100,29 @@ describe('POST /api/chat', () => {
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ role: 'user', content: 'Wie viele Kontakte habe ich?' }))
+    expect(conversationInsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Wie viele Kontakte habe ich?' })
+    )
+    expect(json.conversationId).toBe('conv-new')
+    expect(insertMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'user', content: 'Wie viele Kontakte habe ich?', conversation_id: 'conv-new' })
+    )
     expect(json.message.content).toBe('Du hast aktuell 0 Kontakte.')
     expect(json.pendingAction).toBeNull()
+  })
+
+  it('reuses an existing conversation when conversationId is given', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    const conversationId = '550e8400-e29b-41d4-a716-446655440000'
+    conversationFetchMock.mockResolvedValue({ data: { id: conversationId } })
+    generateTextMock.mockResolvedValue({ text: 'Klar, sag mir mehr.' })
+
+    const res = await POST(makeRequest({ content: 'Noch eine Frage', conversationId }))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(conversationInsertMock).not.toHaveBeenCalled()
+    expect(json.conversationId).toBe(conversationId)
   })
 
   it('returns the open pending action created during this turn', async () => {

@@ -17,7 +17,15 @@ export interface PendingAction {
   created_at: string
 }
 
+export interface Conversation {
+  id: string
+  title: string
+  updated_at: string
+}
+
 export const CHAT_HISTORY_LIMIT = 50
+export const CONVERSATIONS_LIMIT = 50
+export const CONVERSATION_TITLE_MAX_LENGTH = 40
 
 export const CHAT_EXAMPLE_PROMPTS = [
   'Wer hat diese Woche Geburtstag?',

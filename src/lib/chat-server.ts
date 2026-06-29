@@ -78,16 +78,17 @@ function parseFieldValue(field: EditableField, value: string): { ok: true; parse
   return { ok: true, parsed: value.trim().slice(0, 300) }
 }
 
-async function expirePendingActions(supabase: SupabaseServer, userId: string) {
+async function expirePendingActions(supabase: SupabaseServer, conversationId: string) {
   await supabase
     .from('pending_actions')
     .update({ status: 'expired' })
-    .eq('user_id', userId)
+    .eq('conversation_id', conversationId)
     .eq('status', 'pending')
 }
 
 interface CreatePendingActionArgs {
   userId: string
+  conversationId: string
   chatMessageId: string
   actionType: 'delete_contact' | 'delete_interaction' | 'overwrite_contact_field' | 'bulk_delete_contacts'
   summary: string
@@ -95,11 +96,12 @@ interface CreatePendingActionArgs {
 }
 
 async function createPendingAction(supabase: SupabaseServer, args: CreatePendingActionArgs) {
-  await expirePendingActions(supabase, args.userId)
+  await expirePendingActions(supabase, args.conversationId)
   const { data, error } = await supabase
     .from('pending_actions')
     .insert({
       user_id: args.userId,
+      conversation_id: args.conversationId,
       chat_message_id: args.chatMessageId,
       action_type: args.actionType,
       summary: args.summary,
@@ -122,7 +124,12 @@ Regeln:
 - Bei fehlenden Pflichtangaben (z.B. Kontaktname fehlt) frag gezielt nach, statt zu raten.
 - Antworte als reiner Fließtext ohne Markdown.`
 
-export function buildChatTools(supabase: SupabaseServer, userId: string, chatMessageId: string) {
+export function buildChatTools(
+  supabase: SupabaseServer,
+  userId: string,
+  conversationId: string,
+  chatMessageId: string
+) {
   return {
     list_contacts: tool({
       description:
@@ -389,6 +396,7 @@ export function buildChatTools(supabase: SupabaseServer, userId: string, chatMes
         const summary = `${fieldLabel} von ${name} ändern: "${currentValue}" → "${parsed.parsed}"`
         const pending = await createPendingAction(supabase, {
           userId,
+          conversationId,
           chatMessageId,
           actionType: 'overwrite_contact_field',
           summary,
@@ -413,6 +421,7 @@ export function buildChatTools(supabase: SupabaseServer, userId: string, chatMes
         const summary = `Kontakt ${getFullName(contact)} wird unwiderruflich gelöscht (inkl. aller Kontaktmomente).`
         const pending = await createPendingAction(supabase, {
           userId,
+          conversationId,
           chatMessageId,
           actionType: 'delete_contact',
           summary,
@@ -438,6 +447,7 @@ export function buildChatTools(supabase: SupabaseServer, userId: string, chatMes
         const summary = `Kontaktmoment vom ${interaction.occurred_at} (${CHANNEL_LABELS[interaction.channel as Channel]}) mit ${getFullName(contactRow)} wird gelöscht.`
         const pending = await createPendingAction(supabase, {
           userId,
+          conversationId,
           chatMessageId,
           actionType: 'delete_interaction',
           summary,
@@ -462,6 +472,7 @@ export function buildChatTools(supabase: SupabaseServer, userId: string, chatMes
         const summary = `${contacts.length} Kontakte werden unwiderruflich gelöscht: ${names.join(', ')}.`
         const pending = await createPendingAction(supabase, {
           userId,
+          conversationId,
           chatMessageId,
           actionType: 'bulk_delete_contacts',
           summary,

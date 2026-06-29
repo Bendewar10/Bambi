@@ -17,6 +17,7 @@
 - Als Nutzer möchte ich, dass der Chat bei riskanten Aktionen (Löschen, Überschreiben vorhandener Werte) erst nachfragt, damit mir keine Daten versehentlich verloren gehen.
 - Als Nutzer möchte ich den Chat-Verlauf über Sessions hinweg wiederfinden, damit ich an frühere Unterhaltungen anknüpfen kann.
 - Als Nutzer möchte ich den gesamten Chat-Verlauf löschen können (wie bei ChatGPT), damit ich neu anfangen kann, ohne dass alte Nachrichten stören.
+- Als Nutzer möchte ich mehrere getrennte Konversationen führen und über eine Seitenleiste zwischen ihnen wechseln können (wie bei Claude.ai/ChatGPT), damit verschiedene Themen nicht in einem einzigen Verlauf vermischt werden.
 
 ## Out of Scope
 - Team-/Multi-User-Features (kein Team-Feature laut PRD)
@@ -48,6 +49,11 @@
 - [ ] Angenommen ein anderer Nutzer ist eingeloggt, wenn er den Chat öffnet, dann sieht er ausschließlich seinen eigenen Verlauf und seine eigenen Kontakte/Interaktionen (RLS-Schutz)
 - [ ] Angenommen der Chat hat Verlauf, wenn der Nutzer auf den Löschen-Button im Header klickt, dann erscheint eine Bestätigungsabfrage, bevor irgendetwas gelöscht wird
 - [ ] Angenommen der Nutzer bestätigt das Löschen, dann werden alle eigenen Chat-Nachrichten (und eine offene Pending-Action) endgültig gelöscht und der Chat zeigt wieder den Leerzustand
+- [ ] Angenommen der Nutzer klickt "Neuer Chat", dann wird eine neue, leere Konversation gestartet (Leerzustand), ohne die bisherige zu verändern
+- [ ] Angenommen der Nutzer hat mehrere Konversationen, dann listet die Seitenleiste sie nach letzter Aktivität sortiert mit einem aus der ersten Nachricht abgeleiteten Titel
+- [ ] Angenommen der Nutzer klickt eine Konversation in der Seitenleiste an, dann lädt der Chat genau deren Nachrichten und Pending-Action (falls offen)
+- [ ] Angenommen der Nutzer löscht die aktive Konversation, dann wechselt der Chat zur nächsten vorhandenen Konversation oder zu einem neuen Leerzustand, falls keine mehr existiert
+- [ ] Angenommen der Bildschirm ist schmal (Mobile), dann ist die Seitenleiste standardmäßig ausgeblendet und über ein Toggle-Icon erreichbar, ohne den Chat-Bereich zu verdecken
 
 ## Edge Cases
 - Nutzer stellt Frage zu Kontakt, der nicht existiert → Chat antwortet, dass kein passender Kontakt gefunden wurde, statt zu raten/halluzinieren
@@ -99,6 +105,14 @@
 | Keine neuen Packages nötig | `ai`, `@ai-sdk/anthropic`, `zod` bereits im Projekt (siehe draft-message/network-insights Routen) | 2026-06-29 |
 | Neue Route `DELETE /api/chat/messages` löscht alle `chat_messages` (cascade löscht `pending_actions`) für `auth.uid()` | Eine Route, ein DELETE-Statement, RLS erzwingt ownership; FK-Cascade auf `pending_actions.chat_message_id` macht zweiten Löschvorgang unnötig | 2026-06-29 |
 | Löschen-Button (Trash-Icon) im Chat-Header + shadcn `AlertDialog` als Bestätigung | Gleiches UI-Pattern wie Löschen in `interaction-log-sheet.tsx`, kein neues Component nötig | 2026-06-29 |
+| Multi-Conversation: neue Tabelle `conversations` + `conversation_id` FK auf `chat_messages`/`pending_actions` (ON DELETE CASCADE) | Nutzerwunsch nach Claude.ai-artiger Chat-Liste; Cascade macht Löschen einer Konversation zu einem einzigen DELETE-Statement | 2026-06-29 |
+| Konversations-Titel = erste ~40 Zeichen der ersten Nutzer-Nachricht | Kostenlos (kein extra KI-Call), sofort verfügbar, genau wie vom Nutzer gewünscht | 2026-06-29 |
+| "Neuer Chat" erzeugt KEINE Konversation in der DB, bis die erste Nachricht gesendet wird | Verhindert leere Geister-Konversationen in der Seitenleiste, falls Nutzer abbricht ohne zu schreiben | 2026-06-29 |
+| Pending-Action-Scope ("nur eine offene gleichzeitig") jetzt pro Konversation statt pro Nutzer | Mit mehreren Konversationen wäre nutzer-weites Expire falsch — eine Bestätigung in Chat A darf eine offene in Chat B nicht stillschweigend verwerfen | 2026-06-29 |
+| Bestehende Migration: ein Legacy-`conversations`-Eintrag pro Nutzer mit existierenden `chat_messages`, Titel aus deren erster Nachricht | Nicht-destruktiv — echte Produktionsdaten (10 Nachrichten eines aktiven Nutzers) blieben erhalten statt gewiped zu werden | 2026-06-29 |
+| Sidebar auf Mobile (<640px) als absolutes Overlay über dem Chat, Desktop als feste Spalte (Panel wird breiter) | Erfüllt "ausblendbar auf Mobile" ohne den Chat-Bereich zu zerquetschen; ein gemeinsamer Toggle-State für beide Breakpoints hält die Logik einfach | 2026-06-29 |
+| Sidebar-Default: offen auf Desktop, geschlossen auf Mobile (per `window.innerWidth`-Check beim Öffnen) | QA-Fund: Sidebar-Default "immer offen" blockierte auf Mobile als Overlay den gesamten Chat-Bereich (Klicks abgefangen) — siehe QA Bugs | 2026-06-29 |
+| Alte globale `DELETE /api/chat/messages` entfernt, ersetzt durch `DELETE /api/chat/conversations/[id]` | Löschen ist jetzt pro Konversation sinnvoll, nicht mehr global; saubere REST-Semantik | 2026-06-29 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -263,4 +277,15 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
 - Verlauf-löschen-Feature (DELETE `/api/chat/messages`, Bestätigungsdialog) deployed — Unit-Tests (3 neu) + E2E-Test grün, RLS + Cascade-FK (`pending_actions` → `chat_messages`, `ON DELETE CASCADE`) gegen DB verifiziert
 - Modell-Wechsel Haiku → Sonnet 4.6 für `/api/chat` (siehe Technical Decisions) — adressiert BUG-2 aus QA
 - `npm run build`, `npm run lint`, `npm test` (91/91) grün vor Deploy
+
+### Update 2026-06-29: Multi-Conversation (Seitenleiste mit Chat-Verlauf)
+- DB-Migration `add_chat_conversations`: neue Tabelle `conversations` (id, user_id, title, created_at, updated_at, RLS), `conversation_id`-FK (NOT NULL, ON DELETE CASCADE) auf `chat_messages` und `pending_actions`. Nicht-destruktiv migriert — ein Legacy-`conversations`-Eintrag pro Nutzer mit existierenden Nachrichten wurde aus deren erster Nachricht erzeugt, echte Produktionsdaten (10 Nachrichten) blieben erhalten
+- Neue Routen: `GET /api/chat/conversations` (Liste, sortiert nach `updated_at`), `DELETE /api/chat/conversations/[id]` (ersetzt die alte globale `DELETE /api/chat/messages`)
+- `POST /api/chat` nimmt optional `conversationId` — ohne ID wird eine neue Konversation angelegt (Titel aus erster Nachricht), mit ID wird Ownership geprüft (404 wenn fremd/nicht vorhanden)
+- `GET /api/chat/messages` nimmt optional `?conversationId=` — ohne Parameter wird automatisch die zuletzt aktive Konversation geladen
+- `chat-widget.tsx`: linke Seitenleiste (Chat-Liste + "Neuer Chat"), Conversation-Switching, Toggle-Icon im Header. Sidebar auf Desktop als feste Spalte (Panel wird breiter), auf Mobile als Overlay (Panel bleibt schmal)
+- **Bug gefunden + gefixt (QA, High):** Sidebar-Default "immer offen" blockierte auf Mobile (<640px) als Overlay den gesamten Chat-Bereich — kein Button war klickbar. Fix: Sidebar startet geschlossen, öffnet sich automatisch nur auf Desktop-Breite beim Öffnen des Chats
+- Bestehende Bugfix-Lücke beim Umbau gefunden + gefixt: `confirm/route.ts` versuchte Antwort-Nachrichten ohne `conversation_id` einzufügen (jetzt NOT NULL) → alle 8 `reply()`-Aufrufe um `pendingAction.conversation_id` ergänzt
+- E2E-Suite erweitert auf 20 Tests (vorher 16): "Neuer Chat" startet getrennte Konversation, Sidebar zeigt beide, Wechsel lädt richtige Nachrichten, Löschen der aktiven Konversation wechselt zur nächsten oder zu Leerzustand — alle 20/20 auf `chromium` und `Mobile Safari` grün
+- `npm run build`, `npm run lint`, `npm test` (100/100) grün vor Deploy
 - Production-Deployment Ready: https://bambi-w26q-bendewar10s-projects.vercel.app
