@@ -1,16 +1,41 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, MessageCircle, Send } from 'lucide-react'
+import { AnimatePresence, motion, type Variants } from 'framer-motion'
+import { MessageSquare, Send, Sparkles, X } from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 import { CHAT_EXAMPLE_PROMPTS, ChatMessage, PendingAction } from '@/lib/chat'
 
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+}
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0, y: 20, scale: 0.95, transformOrigin: 'bottom right' },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: 'spring', damping: 25, stiffness: 300, staggerChildren: 0.05 },
+  },
+  exit: { opacity: 0, y: 20, scale: 0.95, transition: { duration: 0.2 } },
+}
+
+const messageVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 500, damping: 30 } },
+}
+
+function AssistantAvatar({ className }: { className?: string }) {
+  return (
+    <Avatar className={cn('border border-border/40 shadow-sm', className)}>
+      <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
+        <Sparkles className="size-4" />
+      </AvatarFallback>
+    </Avatar>
+  )
 }
 
 export function ChatWidget() {
@@ -110,152 +135,197 @@ export function ChatWidget() {
     void sendMessage(input)
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      void sendMessage(input)
-    }
-  }
-
   const isEmpty = hasLoadedHistory && messages.length === 0 && !pendingAction
 
   return (
-    <>
-      <Button
-        onClick={() => setOpen(true)}
-        size="icon"
-        aria-label="Chat öffnen"
-        className="fixed bottom-6 right-6 z-50 size-12 rounded-full shadow-lg"
-      >
-        <MessageCircle className="size-5" />
-      </Button>
-
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-          <SheetHeader className="border-b p-4">
-            <SheetTitle>Assistent</SheetTitle>
-          </SheetHeader>
-
-          <ScrollArea className="flex-1 p-4">
-            {isLoadingHistory ? (
-              <p className="text-sm text-muted-foreground">Lädt...</p>
-            ) : isEmpty ? (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Frag mich was zu deinen Kontakten, oder bitte mich, etwas für dich zu erledigen.
-                </p>
-                <div className="flex flex-col gap-2">
-                  {CHAT_EXAMPLE_PROMPTS.map((prompt) => (
-                    <Button
-                      key={prompt}
-                      variant="outline"
-                      className="h-auto justify-start text-left text-sm"
-                      onClick={() => setInput(prompt)}
-                    >
-                      {prompt}
-                    </Button>
-                  ))}
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="chat-window"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="flex w-[380px] flex-col overflow-hidden rounded-2xl border border-border/40 bg-background/60 shadow-2xl backdrop-blur-xl ring-1 ring-white/10"
+          >
+            <div className="relative overflow-hidden border-b border-border/40 bg-muted/30 p-4">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5 opacity-50" />
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AssistantAvatar className="h-10 w-10" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Assistent</h3>
+                    <span className="text-xs text-muted-foreground">Online</span>
+                  </div>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Chat schließen"
+                  className="h-8 w-8 rounded-full hover:bg-background/50"
+                  onClick={() => setOpen(false)}
+                >
+                  <X className="size-4" />
+                </Button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    data-testid="chat-message"
-                    className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}
-                  >
-                    <div
+            </div>
+
+            <div className="flex h-[420px] flex-col gap-3 overflow-y-auto bg-gradient-to-b from-background/20 to-background/40 p-4">
+              {isLoadingHistory ? (
+                <p className="text-sm text-muted-foreground">Lädt...</p>
+              ) : isEmpty ? (
+                <div className="space-y-4">
+                  <div className="flex gap-3">
+                    <AssistantAvatar className="h-8 w-8" />
+                    <div className="max-w-[85%] rounded-2xl rounded-tl-none border border-border/20 bg-muted/50 px-4 py-2.5 text-sm shadow-sm backdrop-blur-sm">
+                      Frag mich was zu deinen Kontakten, oder bitte mich, etwas für dich zu erledigen.
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {CHAT_EXAMPLE_PROMPTS.map((prompt) => (
+                      <Button
+                        key={prompt}
+                        variant="outline"
+                        className="h-auto justify-start rounded-xl text-left text-sm"
+                        onClick={() => setInput(prompt)}
+                      >
+                        {prompt}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {messages.map((message) => (
+                    <motion.div
+                      key={message.id}
+                      data-testid="chat-message"
+                      variants={messageVariants}
+                      initial="hidden"
+                      animate="visible"
                       className={cn(
-                        'max-w-[85%] rounded-lg px-3 py-2 text-sm',
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-foreground'
+                        'flex gap-3',
+                        message.role === 'user' ? 'flex-row-reverse self-end' : ''
                       )}
                     >
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                      <p
+                      {message.role === 'assistant' && <AssistantAvatar className="h-8 w-8" />}
+                      <div
                         className={cn(
-                          'mt-1 text-[10px] opacity-70',
-                          message.role === 'user' ? 'text-right' : 'text-left'
+                          'flex max-w-[85%] flex-col gap-1',
+                          message.role === 'user' ? 'items-end' : ''
                         )}
                       >
-                        {formatTime(message.created_at)}
-                      </p>
+                        <div
+                          className={cn(
+                            'rounded-2xl px-4 py-2.5 text-sm shadow-sm',
+                            message.role === 'user'
+                              ? 'rounded-tr-none bg-primary text-primary-foreground'
+                              : 'rounded-tl-none border border-border/20 bg-muted/50 backdrop-blur-sm'
+                          )}
+                        >
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                        </div>
+                        <span className="px-1 text-[10px] text-muted-foreground">
+                          {formatTime(message.created_at)}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
+
+                  {pendingAction && pendingAction.status === 'pending' && (
+                    <div
+                      data-testid="pending-action-card"
+                      className="rounded-2xl border border-amber-300/60 bg-amber-50/80 p-3 text-sm shadow-sm backdrop-blur-sm dark:border-amber-800/60 dark:bg-amber-950/60"
+                    >
+                      <p className="font-medium">Bestätigung nötig</p>
+                      <p className="mt-1 text-muted-foreground">{pendingAction.summary}</p>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          className="rounded-full"
+                          disabled={isConfirming}
+                          onClick={() => respondToPendingAction('confirm')}
+                        >
+                          Bestätigen
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-full"
+                          disabled={isConfirming}
+                          onClick={() => respondToPendingAction('decline')}
+                        >
+                          Abbrechen
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )}
 
-                {pendingAction && pendingAction.status === 'pending' && (
-                  <div
-                    data-testid="pending-action-card"
-                    className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950"
-                  >
-                    <p className="font-medium">Bestätigung nötig</p>
-                    <p className="mt-1 text-muted-foreground">{pendingAction.summary}</p>
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        size="sm"
-                        disabled={isConfirming}
-                        onClick={() => respondToPendingAction('confirm')}
-                      >
-                        {isConfirming ? <Loader2 className="size-4 animate-spin" /> : 'Bestätigen'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isConfirming}
-                        onClick={() => respondToPendingAction('decline')}
-                      >
-                        Abbrechen
-                      </Button>
+                  {isSending && (
+                    <div className="flex gap-3">
+                      <AssistantAvatar className="h-8 w-8" />
+                      <div className="flex h-10 w-16 items-center justify-center gap-1 rounded-2xl rounded-tl-none border border-border/20 bg-muted/50 px-4 py-3 shadow-sm backdrop-blur-sm">
+                        <span className="size-1.5 animate-bounce rounded-full bg-foreground/40 [animation-delay:-0.3s]" />
+                        <span className="size-1.5 animate-bounce rounded-full bg-foreground/40 [animation-delay:-0.15s]" />
+                        <span className="size-1.5 animate-bounce rounded-full bg-foreground/40" />
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </>
+              )}
 
-                {isSending && (
-                  <div className="flex justify-start">
-                    <div className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-                      <Loader2 className="size-4 animate-spin" />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              {sendError && (
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
+                  <span>{sendError}</span>
+                  {lastFailedContent && (
+                    <Button size="sm" variant="outline" onClick={() => sendMessage(lastFailedContent)}>
+                      Erneut senden
+                    </Button>
+                  )}
+                </div>
+              )}
+              <div ref={scrollAnchorRef} />
+            </div>
 
-            {sendError && (
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
-                <span>{sendError}</span>
-                {lastFailedContent && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => sendMessage(lastFailedContent)}
-                  >
-                    Erneut senden
-                  </Button>
-                )}
-              </div>
-            )}
-            <div ref={scrollAnchorRef} />
-          </ScrollArea>
+            <div className="border-t border-border/40 bg-background/60 p-3 backdrop-blur-md">
+              <form className="relative flex items-center gap-2" onSubmit={handleSubmit}>
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Nachricht an den Assistenten..."
+                  aria-label="Chat-Nachricht"
+                  className="flex-1 rounded-full border border-border/40 bg-background/50 px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/10"
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={isSending || !input.trim()}
+                  className="h-10 w-10 rounded-full shadow-lg transition-transform hover:scale-105"
+                >
+                  <Send className="size-4" />
+                </Button>
+              </form>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="flex gap-2 border-t p-4">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Nachricht an den Assistenten..."
-              rows={2}
-              className="resize-none"
-              aria-label="Chat-Nachricht"
-            />
-            <Button type="submit" size="icon" disabled={isSending || !input.trim()}>
-              <Send className="size-4" />
-            </Button>
-          </form>
-        </SheetContent>
-      </Sheet>
-    </>
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setOpen((prev) => !prev)}
+        aria-label={open ? 'Chat schließen' : 'Chat öffnen'}
+        className={cn(
+          'group relative flex h-14 w-14 items-center justify-center rounded-full shadow-2xl transition-all duration-300',
+          open
+            ? 'rotate-90 bg-destructive text-destructive-foreground'
+            : 'bg-primary text-primary-foreground hover:shadow-primary/25'
+        )}
+      >
+        <span className="absolute inset-0 -z-10 rounded-full bg-inherit opacity-20 blur-xl transition-opacity duration-300 group-hover:opacity-40" />
+        {open ? <X className="size-6" /> : <MessageSquare className="size-6" />}
+      </motion.button>
+    </div>
   )
 }
