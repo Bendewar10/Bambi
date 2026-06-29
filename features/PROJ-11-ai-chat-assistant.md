@@ -88,7 +88,7 @@
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| Modell: Claude Haiku 4.5 (wie draft-message/network-insights) | Konsistent mit Rest der App, günstiger; Tool-Beschreibungen klar genug gehalten, dass Haiku zuverlässig das richtige Tool wählt | 2026-06-29 |
+| Modell: Claude Sonnet 4.6 (vorher Haiku 4.5) | Upgrade nach BUG-2 (Haiku rief Propose-Tool bei Bulk-Aktionen manchmal nicht auf — bekanntes Tool-Orchestrierungs-Risiko, siehe QA). Sonnet zuverlässiger bei Multi-Tool-Turns und komplexen Netzwerk-Fragen; draft-message/network-insights bleiben auf Haiku (einfachere Single-Shot-Tasks, kein Tool-Calling) | 2026-06-29 |
 | Tool-Calling über AI SDK (`tools`-Parameter) statt vollem Datendump im Prompt | Skaliert mit wachsender Kontaktliste, günstiger pro Anfrage, KI sucht/handelt gezielt statt alles im Kontext zu lesen | 2026-06-29 |
 | Zwei-Phasen-Ausführung für destruktive Aktionen: Vorschlag (kein Write) → eigene Bestätigung führt exakt den gespeicherten Vorschlag aus | Erfüllt Acceptance Criteria "genau die zuvor angezeigte Aktion, kein erneutes Interpretieren" — Bestätigung ruft KEIN erneutes LLM auf, sondern führt 1:1 das aus, was vorgeschlagen wurde | 2026-06-29 |
 | Pending Actions in eigener Tabelle `pending_actions` (nicht im Client-State) | Überlebt Reload/Tab-Wechsel; Status-Feld (pending/confirmed/declined/expired) macht Lifecycle klar nachvollziehbar | 2026-06-29 |
@@ -145,7 +145,7 @@ Direkte Aktionen (Interaktion loggen, Follow-up setzen, neuen Kontakt anlegen, l
 
 ### C) Tech Decisions (für PM erklärt)
 
-- **Haiku-Modell**: gleiches Modell wie bei der Nachrichtenvorschlag-Funktion — günstig, schnell, für klar definierte Aufgaben (Tool auswählen, Antwort formulieren) ausreichend gut.
+- **Sonnet-4.6-Modell**: zuverlässiger bei Tool-Orchestrierung als Haiku (siehe BUG-2), bewusst teurer/langsamer in Kauf genommen für diese Route. Nachrichtenvorschlag-Funktion bleibt auf Haiku.
 - **Tool-Calling statt Datendump**: die KI bekommt keine komplette Kontaktliste in jede Anfrage gepackt, sondern "Werkzeuge" (z.B. "Kontakt suchen", "Interaktion anlegen", "Follow-up setzen"), die sie bei Bedarf selbst aufruft. Bleibt schnell und günstig, egal wie groß das Netzwerk wird.
 - **Zwei-Phasen-Bestätigung**: bei riskanten Aktionen schlägt die KI zuerst nur vor, was sie tun würde — ohne etwas zu verändern. Erst der Klick auf "Bestätigen" löst die echte Änderung aus, und zwar exakt das, was vorher angezeigt wurde (kein erneutes Nachdenken der KI, kein Risiko einer abweichenden Interpretation).
 - **Eigene Tabelle für Vorschläge**: macht den Bestätigungs-Schritt zuverlässig, auch wenn der Nutzer das Browser-Tab wechselt oder neu lädt, bevor er bestätigt.
@@ -169,7 +169,7 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
 - `src/lib/chat-server.ts` — Tool-Definitionen für den KI-Agenten (AI SDK `tool()`): `list_contacts`, `get_contact_interactions`, `list_upcoming_birthdays`, `get_network_stats` (read-only); `log_interaction`, `set_followup`, `create_contact` (direkt, keine Bestätigung — laut Spec-AC); `update_contact_field` (direkt wenn Feld leer, sonst Pending-Action); `propose_delete_contact`, `propose_delete_interaction`, `propose_bulk_delete_contacts` (immer Pending-Action)
 - Vor jeder neuen Pending-Action wird die vorherige offene automatisch auf `expired` gesetzt (`expirePendingActions`) — erfüllt Decision "nur eine offene Pending Action gleichzeitig"
 - `GET /api/chat/messages`, `POST /api/chat`, `POST /api/chat/confirm` — wie im Frontend-Vertrag erwartet, implementiert in `src/app/api/chat/`
-- `POST /api/chat`: Nutzer-Nachricht wird vor dem KI-Call gespeichert (bleibt bei AI-Fehler erhalten), Modell ist `claude-haiku-4-5-20251001` mit `stopWhen: stepCountIs(5)` für Multi-Tool-Turns
+- `POST /api/chat`: Nutzer-Nachricht wird vor dem KI-Call gespeichert (bleibt bei AI-Fehler erhalten), Modell ist `claude-sonnet-4-6` mit `stopWhen: stepCountIs(5)` für Multi-Tool-Turns
 - `POST /api/chat/confirm`: führt exakt das in `pending_actions.payload` gespeicherte aus (kein erneuter KI-Call) — wenn der Datensatz inzwischen weg ist, wird die Pending-Action auf `expired` gesetzt und das im Chat kommuniziert, statt einen Fehler zu werfen
 - 18 Vitest-Integrationstests (Auth/Validierung/Happy-Path je Route) + End-to-End mit echter DB via Playwright verifiziert: Aggregat-Frage, direkte Kontaktanlage, Löschen mit Bestätigungs-Flow (inkl. DB-Check nach Bestätigen)
 - `npm run build`, `npm run lint`, `npm test` (88 Tests) alle grün
@@ -258,3 +258,9 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
 - **Verification:** Production-Smoke-Test (Playwright gegen Live-URL) — Login, Chat öffnen, echte Frage gestellt, KI-Antwort kam aus echten (leeren) Account-Daten zurück, keine Console-/Page-Errors
 - Keine neuen Env-Vars nötig (ANTHROPIC_API_KEY + Supabase-Vars bereits aus PROJ-6/8/9-Deploys in Vercel gesetzt)
 - DB-Migration `create_chat_tables` (chat_messages, pending_actions) bereits direkt auf dem Supabase-Projekt angewendet (kein separater Migrationsschritt beim Deploy nötig)
+
+### Update 2026-06-29: Verlauf löschen + Modell-Wechsel
+- Verlauf-löschen-Feature (DELETE `/api/chat/messages`, Bestätigungsdialog) deployed — Unit-Tests (3 neu) + E2E-Test grün, RLS + Cascade-FK (`pending_actions` → `chat_messages`, `ON DELETE CASCADE`) gegen DB verifiziert
+- Modell-Wechsel Haiku → Sonnet 4.6 für `/api/chat` (siehe Technical Decisions) — adressiert BUG-2 aus QA
+- `npm run build`, `npm run lint`, `npm test` (91/91) grün vor Deploy
+- Production-Deployment Ready: https://bambi-w26q-bendewar10s-projects.vercel.app
