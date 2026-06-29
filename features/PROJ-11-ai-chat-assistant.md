@@ -1,6 +1,6 @@
 # PROJ-11: AI Chat Assistant (Sidebar-Popup)
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-06-29
 **Last Updated:** 2026-06-29 (QA)
 
@@ -174,7 +174,7 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
 - `npm test` (Vitest): 88/88 passed (incl. 18 new for `/api/chat`, `/api/chat/messages`, `/api/chat/confirm`)
 - `npm run build`: passed, no TS errors
 - `npm run lint`: passed, no warnings
-- `npm run test:e2e` full regression (chromium, serial, shared QA account): 101/106 passed — the 5 non-PROJ-11 "failures" seen in an earlier *parallel* run were confirmed to be pre-existing flakiness from running multiple browser projects against one shared QA account concurrently (reproduced: same specs pass 10/10 when run serially), not caused by this feature. See `tests/PROJ-11-ai-chat-assistant.spec.ts` (new, 14 tests) — run individually on both `chromium` and `Mobile Safari`: 13 passed, 1 `fixme` (BUG-2 below).
+- `npm run test:e2e` full regression (chromium, serial, shared QA account): 101/106 passed — the 5 non-PROJ-11 "failures" seen in an earlier *parallel* run were confirmed to be pre-existing flakiness from running multiple browser projects against one shared QA account concurrently (reproduced: same specs pass 10/10 when run serially), not caused by this feature. See `tests/PROJ-11-ai-chat-assistant.spec.ts` (new, 14 tests) — after both bugs below were fixed: 14/14 passed on both `chromium` and `Mobile Safari`.
 
 ### Acceptance Criteria Status
 - [x] Chat-Button überall, Panel öffnet von rechts mit Verlauf/Leerzustand
@@ -186,7 +186,7 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
 - [x] Neuer Kontakt direkt angelegt, bestätigt
 - [x] Überschreiben gefüllter Felder zeigt alten/neuen Wert + Bestätigung vor Schreiben
 - [x] Löschen (Kontakt/Interaktion) zeigt Bestätigungsanfrage vor Ausführung
-- [ ] BUG-2 (Medium): Bulk-Aktion zeigt manchmal nur Text-Rückfrage statt Bestätigungskarte (Tool wird nicht aufgerufen) — siehe unten
+- [x] Bulk-Aktion zeigt Bestätigungskarte mit Anzahl + Liste (BUG-2 — siehe unten, FIXED)
 - [x] Mehrdeutiger Namens-Treffer → Chat fragt nach (mit Unterscheidungsmerkmal), keine Aktion ausgeführt
 - [x] Bestätigen führt exakt die zuvor gespeicherte Aktion aus (kein erneutes KI-Interpretieren — verifiziert: confirm-Route ruft kein LLM auf)
 - [x] Ablehnen → keine Datenänderung, Abbruch bestätigt
@@ -211,7 +211,7 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
 
 ### Bugs Found
 
-#### BUG-1: Optimistische User-Nachricht verschwindet, wenn History-Fetch nach dem Senden zurückkommt
+#### BUG-1: Optimistische User-Nachricht verschwindet, wenn History-Fetch nach dem Senden zurückkommt — FIXED
 - **Severity:** High
 - **Steps to Reproduce:**
   1. Chat öffnen (History-GET `/api/chat/messages` startet)
@@ -220,8 +220,9 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
   4. Tatsächlich: wenn das GET *nach* dem optimistischen Hinzufügen zurückkommt, überschreibt `setMessages(data.messages ?? [])` in `chat-widget.tsx` den State komplett (statt zu mergen) — die eigene Nachricht verschwindet aus der UI, bis die Antwort kommt (dann ist nur noch die Antwort sichtbar, keine User-Nachricht)
   - Reproduziert via Playwright + Debug-Logging (GET-Resolve kam nach optimistischem Add). Daten in der DB sind korrekt — reines UI-State-Problem.
 - **Priority:** Fix before deployment (Race ist real, auch wenn in der App selbst durch normale Tipp-Verzögerung selten getroffen — bei langsamem Netzwerk/Supabase-Latenz aber plausibel)
+- **Fix:** `setMessages((prev) => (prev.length > 0 ? prev : data.messages ?? []))` in `chat-widget.tsx` — History-Fetch überschreibt nur noch, wenn lokal noch nichts hinzugekommen ist. Verifiziert: 3/3 Läufe ohne jeglichen Wait zwischen Öffnen und Senden (Worst-Case-Timing), Suite 14/14 grün.
 
-#### BUG-2: Bulk-Aktion manchmal als Text-Rückfrage statt Bestätigungskarte
+#### BUG-2: Bulk-Aktion manchmal als Text-Rückfrage statt Bestätigungskarte — FIXED
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. Zwei Kontakte ohne Follow-up-Termin anlegen
@@ -230,14 +231,15 @@ Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projek
   4. Tatsächlich (3/3 reproduziert): Haiku listet die Kontakte korrekt per Text auf und fragt „Soll ich die beiden löschen?", ruft aber das Propose-Tool nicht auf — keine Karte, kein strukturierter Bestätigungs-Flow
   - Kein Sicherheitsrisiko: es existiert kein Tool, das ohne Pending-Action direkt löscht, also kann nichts ungewollt gelöscht werden — der Nutzer müsste im Klartext "ja" antworten, was vermutlich erst dann das Tool triggert (zweite Bestätigungsrunde, nur UX-Reibung)
   - Vermutete Ursache: bereits im Architecture-Schritt als Risiko notiert (Haiku statt Sonnet für Tool-Orchestrierung — siehe Decision Log)
-- **Priority:** Fix in next sprint — Vorschlag: System-Prompt schärfen ("rufe bei JEDER vorgeschlagenen Aktion das passende Tool auf, frage nie nur im Klartext nach Bestätigung") oder Sonnet für diesen Fall testen
+- **Priority:** Fix in next sprint
+- **Fix:** System-Prompt in `chat-server.ts` (`CHAT_SYSTEM_PROMPT`) geschärft — explizite Regel hinzugefügt: bei löschenden/überschreibenden/Bulk-Anfragen MUSS das passende Werkzeug aufgerufen werden, nie nur Text-Rückfrage. Verifiziert: 3/3 Läufe zeigen jetzt korrekt die Bestätigungskarte.
 
 ### Summary
-- **Acceptance Criteria:** 15/16 passed (1 Medium bug)
-- **Bugs Found:** 2 total (0 critical, 1 high, 1 medium, 0 low)
+- **Acceptance Criteria:** 16/16 passed
+- **Bugs Found:** 2 total, both FIXED (0 critical, 1 high, 1 medium, 0 low)
 - **Security:** Pass — no findings
-- **Production Ready:** NO
-- **Recommendation:** Fix BUG-1 (High, message-display race) before deploy. BUG-2 (Medium) should be fixed too but isn't a hard blocker on its own — flag to the user as a known limitation if shipped before the fix.
+- **Production Ready:** YES
+- **Recommendation:** Deploy.
 
 ## Deployment
 _To be added by /deploy_

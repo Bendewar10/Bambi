@@ -32,7 +32,9 @@ export function ChatWidget() {
     fetch('/api/chat/messages')
       .then((res) => res.json())
       .then((data) => {
-        setMessages(data.messages ?? [])
+        // Guard against a fast send completing before this fetch resolves: only
+        // apply the fetched history if nothing has been added locally since.
+        setMessages((prev) => (prev.length > 0 ? prev : data.messages ?? []))
         setPendingAction(data.pendingAction ?? null)
         setHasLoadedHistory(true)
       })

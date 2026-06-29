@@ -262,12 +262,7 @@ test.describe.serial('PROJ-11: AI Chat Assistant', () => {
     await expect.poll(async () => getContact(token, contactId), { timeout: AI_TIMEOUT }).toBeNull()
   })
 
-  // Bug PROJ-11 QA (Medium): Haiku sometimes asks for bulk-delete confirmation as
-  // plain chat text instead of calling propose_bulk_delete_contacts, so the
-  // structured confirmation card never appears. Reproduced 3/3 runs. No security
-  // impact (there is no direct-delete tool), but it deviates from the spec's
-  // "Bestätigungskarte" requirement. See QA Test Results in the feature spec.
-  test.fixme('AC: bulk delete proposes all matching contacts and confirmation removes them all', async ({ page }) => {
+  test('AC: bulk delete proposes all matching contacts and confirmation removes them all', async ({ page }) => {
     const id1 = await seedContact(token, userId, 'Anna Krüger')
     const id2 = await seedContact(token, userId, 'Paul Richter')
 
