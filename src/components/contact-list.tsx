@@ -97,7 +97,7 @@ export function ContactList() {
     search.trim() !== '' || citySearch.trim() !== '' || categoryFilter !== ALL || strengthFilter !== ALL
 
   return (
-    <div className="w-full max-w-4xl space-y-4">
+    <div className="w-full max-w-6xl space-y-4">
       <div className="flex flex-wrap items-end gap-2">
         <Input
           placeholder="Name suchen..."
@@ -156,7 +156,7 @@ export function ContactList() {
             : 'Noch keine Kontakte.'}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
           {filteredContacts.map((contact) => (
             <ContactCard
               key={contact.id}

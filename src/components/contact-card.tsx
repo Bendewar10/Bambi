@@ -1,10 +1,17 @@
 'use client'
 
 import { Contact, CATEGORY_LABELS, STRENGTH_LABELS, getFullName } from '@/lib/contacts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { History, Linkedin } from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { History, Linkedin, MoreVertical, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ContactCardProps {
@@ -19,6 +26,12 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleDateString('de-DE')
 }
 
+function getInitials(contact: Contact) {
+  const first = contact.first_name?.[0] ?? ''
+  const last = contact.last_name?.[0] ?? ''
+  return (first + last).toUpperCase() || '?'
+}
+
 export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: ContactCardProps) {
   const isOverdue = contact.next_followup_at
     ? new Date(contact.next_followup_at) < new Date()
@@ -28,20 +41,29 @@ export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: Contac
     <Card
       onClick={onEdit}
       className={cn(
-        'cursor-pointer transition-colors hover:bg-accent',
+        'cursor-pointer rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md',
         isOverdue && 'border-destructive'
       )}
     >
-      <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
-        <CardTitle className="truncate text-base">{getFullName(contact)}</CardTitle>
-        <div className="flex shrink-0 gap-1">
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0 p-4">
+        <Avatar className="h-10 w-10 shrink-0">
+          <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
+            {getInitials(contact)}
+          </AvatarFallback>
+        </Avatar>
+
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 text-base font-semibold leading-tight">{getFullName(contact)}</h3>
+          {contact.job_title || contact.employer ? (
+            <p className="truncate text-sm text-muted-foreground">
+              {[contact.job_title, contact.employer].filter(Boolean).join(' · ')}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
           {contact.linkedin_url && (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="LinkedIn-Profil öffnen"
-              asChild
-            >
+            <Button variant="ghost" size="icon" aria-label="LinkedIn-Profil öffnen" asChild>
               <a
                 href={contact.linkedin_url}
                 target="_blank"
@@ -52,30 +74,44 @@ export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: Contac
               </a>
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Verlauf"
-            onClick={(e) => {
-              e.stopPropagation()
-              onShowHistory()
-            }}
-          >
-            <History className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete()
-            }}
-          >
-            Löschen
-          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Mehr Optionen"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onShowHistory()
+                }}
+              >
+                <History className="size-4" />
+                Verlauf
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete()
+                }}
+              >
+                <Trash2 className="size-4" />
+                Löschen
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2 text-sm">
+
+      <CardContent className="space-y-2 p-4 pt-0 text-sm">
         <div className="flex flex-wrap gap-1">
           {contact.category && <Badge variant="secondary">{CATEGORY_LABELS[contact.category]}</Badge>}
           {contact.strength && <Badge variant="outline">{STRENGTH_LABELS[contact.strength]}</Badge>}
