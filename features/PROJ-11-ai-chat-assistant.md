@@ -2,7 +2,7 @@
 
 ## Status: Deployed
 **Created:** 2026-06-29
-**Last Updated:** 2026-06-29 (Deploy)
+**Last Updated:** 2026-06-29 (Refine — Verlauf löschen)
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — Chat liest/schreibt Contact-Daten
@@ -16,6 +16,7 @@
 - Als Nutzer möchte ich per Chat neue Kontakte anlegen und bestehende Felder ändern können, damit Datenpflege auch unterwegs per Chat möglich ist.
 - Als Nutzer möchte ich, dass der Chat bei riskanten Aktionen (Löschen, Überschreiben vorhandener Werte) erst nachfragt, damit mir keine Daten versehentlich verloren gehen.
 - Als Nutzer möchte ich den Chat-Verlauf über Sessions hinweg wiederfinden, damit ich an frühere Unterhaltungen anknüpfen kann.
+- Als Nutzer möchte ich den gesamten Chat-Verlauf löschen können (wie bei ChatGPT), damit ich neu anfangen kann, ohne dass alte Nachrichten stören.
 
 ## Out of Scope
 - Team-/Multi-User-Features (kein Team-Feature laut PRD)
@@ -45,6 +46,8 @@
 - [ ] Angenommen die KI-Anfrage schlägt fehl (Timeout/API-Fehler), wenn der Nutzer eine Nachricht sendet, dann zeigt der Chat eine Fehlermeldung im Verlauf und die Nutzereingabe bleibt nicht verloren (erneut sendbar)
 - [ ] Angenommen der Nutzer öffnet den Chat erneut nach einem Reload, dann sind frühere Nachrichten (bis zu den letzten 50) weiterhin sichtbar
 - [ ] Angenommen ein anderer Nutzer ist eingeloggt, wenn er den Chat öffnet, dann sieht er ausschließlich seinen eigenen Verlauf und seine eigenen Kontakte/Interaktionen (RLS-Schutz)
+- [ ] Angenommen der Chat hat Verlauf, wenn der Nutzer auf den Löschen-Button im Header klickt, dann erscheint eine Bestätigungsabfrage, bevor irgendetwas gelöscht wird
+- [ ] Angenommen der Nutzer bestätigt das Löschen, dann werden alle eigenen Chat-Nachrichten (und eine offene Pending-Action) endgültig gelöscht und der Chat zeigt wieder den Leerzustand
 
 ## Edge Cases
 - Nutzer stellt Frage zu Kontakt, der nicht existiert → Chat antwortet, dass kein passender Kontakt gefunden wurde, statt zu raten/halluzinieren
@@ -55,6 +58,8 @@
 - Mehrere Browser-Tabs gleichzeitig offen → beide zeigen denselben persistierten Verlauf (kein Echtzeit-Sync zwischen Tabs nötig für v1, Reload reicht)
 - Nutzer versucht über Chat auf Daten anderer Nutzer zuzugreifen (z.B. durch Prompt-Manipulation) → serverseitige RLS-Policies verhindern Zugriff unabhängig vom Prompt-Inhalt
 - Netzwerkfehler beim Senden (Client offline) → Nutzereingabe bleibt im Eingabefeld erhalten, Fehlermeldung statt stillem Verlust
+- Verlauf wird gelöscht, während eine Pending Action offen ist → wird mitgelöscht, keine verwaiste Bestätigungskarte
+- Löschen schlägt durch Netzwerkfehler fehl → Fehlermeldung, Verlauf bleibt unverändert sichtbar (kein teilweises Löschen)
 
 ## Technical Requirements (optional)
 - Security: Authentication required (wie bestehende API-Routen); alle Datenzugriffe serverseitig RLS-geschützt, niemals Client-Payload für Datenwerte vertrauen
@@ -77,6 +82,8 @@
 | Kein Tageslimit für Nachrichten in v1 | Solo-Projekt ohne festes Budget laut PRD; Haiku-Kosten pro Nachricht minimal | 2026-06-29 |
 | Chat-Button auf jeder eingeloggten Seite verfügbar (nicht nur Dashboard) | Nutzer will Chat "immer erreichbar", nicht an eine Seite gebunden | 2026-06-29 |
 | Priorität P1 (nicht P0) | Kein MVP-Blocker, baut auf bestehender KI-Infra (draft-message, network-insights) auf | 2026-06-29 |
+| Löschen-Button löscht ganzen Verlauf (nicht einzelne Nachrichten) | Nutzerwunsch explizit "wie bei ChatGPT" — eine Konversation pro Account, kein Multi-Thread-Konzept, Einzelnachrichten-Löschung nicht relevant | 2026-06-29 |
+| Bestätigungsdialog vor Verlauf-Löschen | Konsistent mit bestehendem Pattern (`interaction-log-sheet.tsx` AlertDialog vor Löschen), verhindert versehentlichen Datenverlust | 2026-06-29 |
 
 ### Technical Decisions
 | Decision | Rationale | Date |
@@ -90,6 +97,8 @@
 | Right-Side Panel mit shadcn `Sheet` (wie `interaction-log-sheet.tsx`) | Bereits etabliertes Pattern im Projekt, keine neue Abhängigkeit nötig | 2026-06-29 |
 | Floating Trigger-Button im Root-Layout (nicht pro Seite) | Einzige Stelle, die garantiert auf jeder eingeloggten Seite gerendert wird | 2026-06-29 |
 | Keine neuen Packages nötig | `ai`, `@ai-sdk/anthropic`, `zod` bereits im Projekt (siehe draft-message/network-insights Routen) | 2026-06-29 |
+| Neue Route `DELETE /api/chat/messages` löscht alle `chat_messages` (cascade löscht `pending_actions`) für `auth.uid()` | Eine Route, ein DELETE-Statement, RLS erzwingt ownership; FK-Cascade auf `pending_actions.chat_message_id` macht zweiten Löschvorgang unnötig | 2026-06-29 |
+| Löschen-Button (Trash-Icon) im Chat-Header + shadcn `AlertDialog` als Bestätigung | Gleiches UI-Pattern wie Löschen in `interaction-log-sheet.tsx`, kein neues Component nötig | 2026-06-29 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
