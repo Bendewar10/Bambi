@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
+import { ChatWidget } from '@/components/chat-widget'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
@@ -57,6 +58,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       {children}
+      <ChatWidget />
     </div>
   )
 }

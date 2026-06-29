@@ -1,8 +1,8 @@
 # PROJ-11: AI Chat Assistant (Sidebar-Popup)
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-06-29
-**Last Updated:** 2026-06-29 (Architecture)
+**Last Updated:** 2026-06-29 (Frontend)
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — Chat liest/schreibt Contact-Daten
@@ -143,6 +143,16 @@ Direkte Aktionen (Interaktion loggen, Follow-up setzen, neuen Kontakt anlegen, l
 
 ### D) Dependencies
 Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projekt installiert (genutzt von den bestehenden Routen `draft-message` und `network-insights`).
+
+## Frontend Implementation Notes
+- `src/components/chat-widget.tsx` — Floating Trigger-Button (unten rechts, fixed) + Sheet-Panel (shadcn `Sheet`, von rechts), enthält Message-List, Empty-State mit Beispiel-Prompts, Pending-Action-Karte (Bestätigen/Abbrechen), Fehler-Banner mit "Erneut senden", Eingabefeld (Enter sendet, Shift+Enter neue Zeile)
+- Eingebunden in `src/app/(app)/layout.tsx` — läuft auf jeder eingeloggten Seite (Dashboard, Kontakte, Analytics)
+- `src/lib/chat.ts` — Typen (`ChatMessage`, `PendingAction`) + Beispiel-Prompts-Konstante
+- Erwarteter API-Vertrag (noch nicht implementiert, für `/backend`):
+  - `GET /api/chat/messages` → `{ messages: ChatMessage[], pendingAction: PendingAction | null }`
+  - `POST /api/chat` Body `{ content: string }` → `{ message: ChatMessage, pendingAction?: PendingAction | null }`
+  - `POST /api/chat/confirm` Body `{ pendingActionId: string, decision: 'confirm' | 'decline' }` → `{ message: ChatMessage }`
+- Verifiziert per Playwright-Screenshot (Login → Dashboard → Chat öffnen): Button + Panel rendern korrekt, Fehler-Banner zeigt erwarteten 404 (Backend fehlt noch), kein UI-Crash
 
 ## QA Test Results
 _To be added by /qa_
