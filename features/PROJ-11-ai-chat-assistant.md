@@ -1,8 +1,8 @@
 # PROJ-11: AI Chat Assistant (Sidebar-Popup)
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-06-29
-**Last Updated:** 2026-06-29
+**Last Updated:** 2026-06-29 (Architecture)
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — Chat liest/schreibt Contact-Daten
@@ -61,7 +61,7 @@
 - Destruktive Aktionen (Löschen, Überschreiben nicht-leerer Felder, Bulk-Änderungen) erfordern explizite Nutzerbestätigung vor Ausführung
 
 ## Open Questions
-- [ ] Welches Modell/welche Technik für Tool-Calling (Kontakt-Suche, Aktionen ausführen) — Architecture-Entscheidung
+- [x] Welches Modell/welche Technik für Tool-Calling — geklärt, siehe Tech Design
 - [ ] Soll Chat-Verlauf je Gerät oder global pro Nutzer-Account gespeichert werden (für v1 angenommen: global pro Nutzer-Account, da Single-User ohne Team-Feature)
 
 ## Decision Log
@@ -81,13 +81,68 @@
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _To be added by /architecture_ | | |
+| Modell: Claude Haiku 4.5 (wie draft-message/network-insights) | Konsistent mit Rest der App, günstiger; Tool-Beschreibungen klar genug gehalten, dass Haiku zuverlässig das richtige Tool wählt | 2026-06-29 |
+| Tool-Calling über AI SDK (`tools`-Parameter) statt vollem Datendump im Prompt | Skaliert mit wachsender Kontaktliste, günstiger pro Anfrage, KI sucht/handelt gezielt statt alles im Kontext zu lesen | 2026-06-29 |
+| Zwei-Phasen-Ausführung für destruktive Aktionen: Vorschlag (kein Write) → eigene Bestätigung führt exakt den gespeicherten Vorschlag aus | Erfüllt Acceptance Criteria "genau die zuvor angezeigte Aktion, kein erneutes Interpretieren" — Bestätigung ruft KEIN erneutes LLM auf, sondern führt 1:1 das aus, was vorgeschlagen wurde | 2026-06-29 |
+| Pending Actions in eigener Tabelle `pending_actions` (nicht im Client-State) | Überlebt Reload/Tab-Wechsel; Status-Feld (pending/confirmed/declined/expired) macht Lifecycle klar nachvollziehbar | 2026-06-29 |
+| Nur eine offene Pending Action gleichzeitig pro Nutzer | Verhindert Verwechslung, falls Nutzer eine neue Anfrage stellt, bevor er die vorherige bestätigt hat — ältere wird automatisch auf "expired" gesetzt | 2026-06-29 |
+| Chat-Verlauf in eigener Tabelle `chat_messages`, RLS auf `user_id` | Gleiches Muster wie `contacts`/`interactions` — pro Nutzer isoliert, kein Sonderfall | 2026-06-29 |
+| Right-Side Panel mit shadcn `Sheet` (wie `interaction-log-sheet.tsx`) | Bereits etabliertes Pattern im Projekt, keine neue Abhängigkeit nötig | 2026-06-29 |
+| Floating Trigger-Button im Root-Layout (nicht pro Seite) | Einzige Stelle, die garantiert auf jeder eingeloggten Seite gerendert wird | 2026-06-29 |
+| Keine neuen Packages nötig | `ai`, `@ai-sdk/anthropic`, `zod` bereits im Projekt (siehe draft-message/network-insights Routen) | 2026-06-29 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure
+```
+Root Layout (überall, eingeloggter Bereich)
+└── ChatTrigger (schwebender Button, unten rechts, alle Seiten)
+└── ChatPanel (Sheet, öffnet von rechts)
+    ├── Empty State (Begrüßung + 2-3 Beispiel-Fragen, nur bei leerem Verlauf)
+    ├── Message List (scrollbar, lädt letzte 50 Nachrichten)
+    │   ├── User-Nachricht
+    │   ├── Assistant-Nachricht (Text-Antwort)
+    │   └── Pending-Action-Karte (bei vorgeschlagener destruktiver/Bulk-Aktion)
+    │       ├── Klartext-Zusammenfassung ("Lösche Kontakt Tom Müller")
+    │       ├── Bestätigen-Button
+    │       └── Abbrechen-Button
+    ├── Fehler-Banner (bei KI-/Netzwerkfehler, mit erneut senden)
+    └── Eingabefeld + Senden-Button
+```
+
+### B) Data Model (plain language)
+
+**Chat-Nachricht** (Tabelle `chat_messages`):
+- Wer (Nutzer-ID)
+- Wer hat geschrieben (Nutzer oder Assistent)
+- Text der Nachricht
+- Zeitstempel
+- Gespeichert in: Supabase, RLS-geschützt pro Nutzer
+
+**Vorgeschlagene Aktion** (Tabelle `pending_actions`):
+- Wer (Nutzer-ID)
+- Zu welcher Chat-Nachricht gehört es
+- Welche Art Aktion (z.B. "Kontakt löschen", "Feld überschreiben", "Bulk-Löschen")
+- Klartext-Zusammenfassung, die dem Nutzer angezeigt wurde
+- Die exakten Daten, die bei Bestätigung ausgeführt werden (z.B. welcher Kontakt, welches Feld, welcher neuer Wert)
+- Status: wartend / bestätigt / abgelehnt / abgelaufen
+- Zeitstempel
+- Gespeichert in: Supabase, RLS-geschützt pro Nutzer
+
+Direkte Aktionen (Interaktion loggen, Follow-up setzen, neuen Kontakt anlegen, leeres Feld befüllen) brauchen keinen Pending-Eintrag — die werden sofort beim Verarbeiten der Nachricht ausgeführt und das Ergebnis fließt direkt in die Assistant-Antwort ein.
+
+### C) Tech Decisions (für PM erklärt)
+
+- **Haiku-Modell**: gleiches Modell wie bei der Nachrichtenvorschlag-Funktion — günstig, schnell, für klar definierte Aufgaben (Tool auswählen, Antwort formulieren) ausreichend gut.
+- **Tool-Calling statt Datendump**: die KI bekommt keine komplette Kontaktliste in jede Anfrage gepackt, sondern "Werkzeuge" (z.B. "Kontakt suchen", "Interaktion anlegen", "Follow-up setzen"), die sie bei Bedarf selbst aufruft. Bleibt schnell und günstig, egal wie groß das Netzwerk wird.
+- **Zwei-Phasen-Bestätigung**: bei riskanten Aktionen schlägt die KI zuerst nur vor, was sie tun würde — ohne etwas zu verändern. Erst der Klick auf "Bestätigen" löst die echte Änderung aus, und zwar exakt das, was vorher angezeigt wurde (kein erneutes Nachdenken der KI, kein Risiko einer abweichenden Interpretation).
+- **Eigene Tabelle für Vorschläge**: macht den Bestätigungs-Schritt zuverlässig, auch wenn der Nutzer das Browser-Tab wechselt oder neu lädt, bevor er bestätigt.
+
+### D) Dependencies
+Keine neuen Packages — `ai`, `@ai-sdk/anthropic`, `zod` sind bereits im Projekt installiert (genutzt von den bestehenden Routen `draft-message` und `network-insights`).
 
 ## QA Test Results
 _To be added by /qa_
