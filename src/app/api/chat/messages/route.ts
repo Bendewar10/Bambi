@@ -31,3 +31,19 @@ export async function GET() {
     pendingAction: pendingActions?.[0] ?? null,
   })
 }
+
+export async function DELETE() {
+  const supabase = await createSupabaseServerClient()
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData.user) {
+    return NextResponse.json({ error: 'Nicht eingeloggt.' }, { status: 401 })
+  }
+
+  // Cascade-FK auf pending_actions.chat_message_id löscht offene Pending-Actions mit.
+  const { error } = await supabase.from('chat_messages').delete().eq('user_id', userData.user.id)
+  if (error) {
+    return NextResponse.json({ error: 'Verlauf konnte nicht gelöscht werden.' }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true })
+}

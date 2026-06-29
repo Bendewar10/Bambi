@@ -19,6 +19,7 @@
       "Edit(**/.ssh/**)"
     ],
     "allow": [
+      "Bash(*)",
       "Bash(npm *)",
       "Bash(npx *)",
       "Bash(git commit:*)",

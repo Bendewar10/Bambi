@@ -2,9 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, type Variants } from 'framer-motion'
-import { MessageSquare, Send, Sparkles, X } from 'lucide-react'
+import { MessageSquare, Send, Sparkles, Trash2, X } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { CHAT_EXAMPLE_PROMPTS, ChatMessage, PendingAction } from '@/lib/chat'
 
@@ -49,6 +59,8 @@ export function ChatWidget() {
   const [isConfirming, setIsConfirming] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [lastFailedContent, setLastFailedContent] = useState<string | null>(null)
+  const [isDeletingHistory, setIsDeletingHistory] = useState(false)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const scrollAnchorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -135,6 +147,22 @@ export function ChatWidget() {
     void sendMessage(input)
   }
 
+  async function clearHistory() {
+    setIsDeletingHistory(true)
+    setSendError(null)
+    try {
+      const res = await fetch('/api/chat/messages', { method: 'DELETE' })
+      if (!res.ok) throw new Error('request failed')
+      setMessages([])
+      setPendingAction(null)
+    } catch {
+      setSendError('Verlauf konnte nicht gelöscht werden.')
+    } finally {
+      setIsDeletingHistory(false)
+      setShowClearConfirm(false)
+    }
+  }
+
   const isEmpty = hasLoadedHistory && messages.length === 0 && !pendingAction
 
   return (
@@ -159,15 +187,28 @@ export function ChatWidget() {
                     <span className="text-xs text-muted-foreground">Online</span>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Chat schließen"
-                  className="h-8 w-8 rounded-full hover:bg-background/50"
-                  onClick={() => setOpen(false)}
-                >
-                  <X className="size-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  {!isEmpty && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Verlauf löschen"
+                      className="h-8 w-8 rounded-full hover:bg-background/50"
+                      onClick={() => setShowClearConfirm(true)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Chat schließen"
+                    className="h-8 w-8 rounded-full hover:bg-background/50"
+                    onClick={() => setOpen(false)}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -326,6 +367,24 @@ export function ChatWidget() {
         <span className="absolute inset-0 -z-10 rounded-full bg-inherit opacity-20 blur-xl transition-opacity duration-300 group-hover:opacity-40" />
         {open ? <X className="size-6" /> : <MessageSquare className="size-6" />}
       </motion.button>
+
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Verlauf löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Der gesamte Chat-Verlauf wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht
+              werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingHistory}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={clearHistory} disabled={isDeletingHistory}>
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

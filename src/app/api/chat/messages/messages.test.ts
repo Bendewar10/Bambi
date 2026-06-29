@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { getUserMock, messagesLimitMock, pendingLimitMock } = vi.hoisted(() => ({
+const { getUserMock, messagesLimitMock, pendingLimitMock, deleteMessagesMock } = vi.hoisted(() => ({
   getUserMock: vi.fn(),
   messagesLimitMock: vi.fn(),
   pendingLimitMock: vi.fn(),
+  deleteMessagesMock: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase-server', () => ({
@@ -11,7 +12,10 @@ vi.mock('@/lib/supabase-server', () => ({
     auth: { getUser: getUserMock },
     from: (table: string) => {
       if (table === 'chat_messages') {
-        return { select: () => ({ eq: () => ({ order: () => ({ limit: messagesLimitMock }) }) }) }
+        return {
+          select: () => ({ eq: () => ({ order: () => ({ limit: messagesLimitMock }) }) }),
+          delete: () => ({ eq: deleteMessagesMock }),
+        }
       }
       return {
         select: () => ({ eq: () => ({ eq: () => ({ order: () => ({ limit: pendingLimitMock }) }) }) }),
@@ -20,7 +24,7 @@ vi.mock('@/lib/supabase-server', () => ({
   }),
 }))
 
-import { GET } from './route'
+import { GET, DELETE } from './route'
 
 describe('GET /api/chat/messages', () => {
   beforeEach(() => {
@@ -62,5 +66,35 @@ describe('GET /api/chat/messages', () => {
     const json = await res.json()
 
     expect(json.pendingAction.id).toBe('p1')
+  })
+})
+
+describe('DELETE /api/chat/messages', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    deleteMessagesMock.mockResolvedValue({ error: null })
+  })
+
+  it('returns 401 when not authenticated', async () => {
+    getUserMock.mockResolvedValue({ data: { user: null } })
+    const res = await DELETE()
+    expect(res.status).toBe(401)
+  })
+
+  it('deletes all chat messages for the authenticated user', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    const res = await DELETE()
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(deleteMessagesMock).toHaveBeenCalledWith('user_id', 'u1')
+  })
+
+  it('returns 500 when the delete fails', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    deleteMessagesMock.mockResolvedValue({ error: { message: 'db error' } })
+    const res = await DELETE()
+    expect(res.status).toBe(500)
   })
 })

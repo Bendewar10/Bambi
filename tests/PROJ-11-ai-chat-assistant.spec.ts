@@ -293,6 +293,27 @@ test.describe.serial('PROJ-11: AI Chat Assistant', () => {
     await expect(page.getByText('Wie viele Kontakte habe ich?')).toBeVisible()
   })
 
+  test('AC: clearing chat history asks for confirmation, then empties the panel and the DB', async ({ page }) => {
+    await login(page)
+    await openChat(page)
+    await sendMessage(page, 'Wie viele Kontakte habe ich?')
+    await expect(page.locator('[data-testid="chat-message"]').nth(1)).toBeVisible({ timeout: AI_TIMEOUT })
+
+    await page.getByRole('button', { name: 'Verlauf löschen' }).click()
+    await expect(page.getByText('Verlauf löschen?')).toBeVisible()
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+    await expect(page.locator('[data-testid="chat-message"]')).toHaveCount(2)
+
+    await page.getByRole('button', { name: 'Verlauf löschen' }).click()
+    await page.getByRole('button', { name: 'Löschen' }).click()
+    await expect(page.locator('[data-testid="chat-message"]')).toHaveCount(0)
+    await expect(page.getByText('Frag mich was zu deinen Kontakten')).toBeVisible()
+
+    await page.reload()
+    await openChat(page)
+    await expect(page.getByText('Frag mich was zu deinen Kontakten')).toBeVisible()
+  })
+
   test('Security: unauthenticated request to /api/chat is blocked', async ({ request }) => {
     const res = await request.post('http://localhost:3000/api/chat', {
       data: { content: 'Hallo' },
@@ -309,6 +330,11 @@ test.describe.serial('PROJ-11: AI Chat Assistant', () => {
       data: { pendingActionId: '00000000-0000-0000-0000-000000000000', decision: 'confirm' },
     })
     expect(res.status()).toBe(409)
+  })
+
+  test('Security: unauthenticated request to DELETE /api/chat/messages is blocked', async ({ request }) => {
+    const res = await request.delete('http://localhost:3000/api/chat/messages', { maxRedirects: 0 })
+    expect([401, 307, 308]).toContain(res.status())
   })
 
   test('Security: invalid decision value is rejected', async ({ page }) => {

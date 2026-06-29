@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
   try {
     const { text } = await generateText({
-      model: anthropic('claude-haiku-4-5-20251001'),
+      model: anthropic('claude-sonnet-4-6'),
       system: CHAT_SYSTEM_PROMPT,
       messages: [...(history ?? []).reverse(), { role: 'user' as const, content }],
       tools,
