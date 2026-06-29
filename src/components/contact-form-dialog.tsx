@@ -59,6 +59,9 @@ const contactSchema = z.object({
   notes: z.string().trim().max(2000, 'Max. 2000 Zeichen').optional(),
   city: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
   phone: z.string().trim().max(30, 'Max. 30 Zeichen').optional(),
+  linkedin_url: z
+    .union([z.literal(''), z.string().trim().max(300, 'Max. 300 Zeichen').url('Ungültige URL')])
+    .optional(),
   birthday: z
     .string()
     .optional()
@@ -93,6 +96,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
       notes: '',
       city: '',
       phone: '',
+      linkedin_url: '',
       birthday: '',
       followup_interval_days: '',
     },
@@ -113,6 +117,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
         notes: contact?.notes ?? '',
         city: contact?.city ?? '',
         phone: contact?.phone ?? '',
+        linkedin_url: contact?.linkedin_url ?? '',
         birthday: contact?.birthday ?? '',
         followup_interval_days: contact?.followup_interval_days
           ? String(contact.followup_interval_days)
@@ -147,6 +152,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
         notes: values.notes || null,
         city: values.city || null,
         phone: values.phone || null,
+        linkedin_url: values.linkedin_url || null,
         birthday: values.birthday || null,
         followup_interval_days: values.followup_interval_days
           ? Number(values.followup_interval_days)
@@ -367,6 +373,20 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
                   <FormLabel>Telefonnummer</FormLabel>
                   <FormControl>
                     <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="linkedin_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>LinkedIn-URL</FormLabel>
+                  <FormControl>
+                    <Input type="url" placeholder="https://www.linkedin.com/in/..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

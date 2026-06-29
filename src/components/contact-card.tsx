@@ -4,7 +4,7 @@ import { Contact, CATEGORY_LABELS, STRENGTH_LABELS, getFullName } from '@/lib/co
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { History } from 'lucide-react'
+import { History, Linkedin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ContactCardProps {
@@ -35,6 +35,23 @@ export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: Contac
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
         <CardTitle className="truncate text-base">{getFullName(contact)}</CardTitle>
         <div className="flex shrink-0 gap-1">
+          {contact.linkedin_url && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="LinkedIn-Profil öffnen"
+              asChild
+            >
+              <a
+                href={contact.linkedin_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Linkedin className="size-4" />
+              </a>
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
