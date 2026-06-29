@@ -19,6 +19,7 @@ Der Nutzer selbst — Person mit großem, diversem Netzwerk über Business und P
 | P1 | Foto-Upload | Planned |
 | P1 | Netzwerk-Analytics (periodisch) | Deployed |
 | P1 | Monatlicher AI-Report per Mail | Planned (spec done) |
+| P1 | AI Chat Assistant (Sidebar-Popup) | Planned (spec done) |
 
 ## Success Metrics
 - Tägliche Nutzung
