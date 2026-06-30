@@ -157,6 +157,15 @@ Keine neuen Packages — das bereits installierte AI-Werkzeug unterstützt struk
 - Lint-Fix während Implementierung: `cv-profile.tsx` rief `setIsLoading(true)` redundant synchron im Mount-Effect auf (Initial-State ist bereits `true`) — neue `react-hooks/set-state-in-effect`-Regel hat das korrekt angemeckert, entfernt
 - Build (`npm run build`) und Lint (`npm run lint`) laufen fehlerfrei; `/profil/lebenslauf` erscheint korrekt in der Build-Routen-Tabelle
 
+## Backend Implementation Notes
+<!-- Added by /backend -->
+- Migration `supabase/migrations/0005_create_user_profile.sql`: Tabellen `user_profile` (Singleton, `user_id unique`), `user_education`, `user_employment`, alle Owner-only RLS (4 Policies je Tabelle, `auth.uid() = user_id`), Indizes auf `user_id`
+- Neuer Storage-Bucket `cv-uploads` (privat, `public = false`), 3 Storage-RLS-Policies (select/insert/delete) auf `storage.objects`, gescoped über `(storage.foldername(name))[1] = auth.uid()::text` — kein Update-Policy (Re-Upload erzeugt neuen Pfad, siehe Tech Design)
+- Migration live via Supabase MCP angewendet, danach `list_tables` + `get_advisors` (security) verifiziert: alle 3 Tabellen RLS-enabled, keine neuen Security-Findings (nur bereits bestehender, unabhängiger `auth_leaked_password_protection`-Hinweis)
+- Neue API-Route `src/app/api/cv-parse/route.ts`: gleiches Gerüst wie `/api/draft-message` (Auth-Check 401, zod-Body-Validierung), lädt PDF server-seitig aus `cv-uploads` herunter (RLS verweigert fremde Pfade bereits hier), base64-kodiert, `generateObject` (Vercel AI SDK, `ai@6.0.208` + `@ai-sdk/anthropic@3.0.62`, beide bereits installiert) mit Modell `claude-sonnet-4-6`, PDF als `file`-Content-Part (`mediaType: 'application/pdf'`), Zod-Schema deckungsgleich mit dem Frontend-`ParsedCv`-Typ; Fehler beim AI-Call → 502, fehlende/fremde Datei → 404
+- Keine Integration-Tests (Vitest) für diese Route geschrieben, da sie einen echten PDF-Upload + Claude-Call braucht (kein sinnvoller Mock ohne externe Abhängigkeit zu kapseln) — Abdeckung erfolgt über E2E in `/qa`
+- `npm run build` + `npm run lint` fehlerfrei; `/api/cv-parse` erscheint korrekt in der Build-Routen-Tabelle
+
 ## QA Test Results
 _To be added by /qa_
 
