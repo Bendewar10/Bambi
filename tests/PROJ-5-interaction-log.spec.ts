@@ -91,7 +91,8 @@ function uniqueName(label: string) {
 
 async function openHistory(page: Page, name: string) {
   const card = page.locator('.cursor-pointer', { hasText: name })
-  await card.getByRole('button', { name: 'Verlauf' }).click()
+  await card.getByRole('button', { name: 'Mehr Optionen' }).click()
+  await page.getByRole('menuitem', { name: 'Verlauf' }).click()
   await expect(page.getByText(`Verlauf: ${name}`)).toBeVisible()
 }
 

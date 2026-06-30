@@ -79,7 +79,7 @@ test.describe.serial('PROJ-4: Kontaktliste & Filter', () => {
 
   test('AC1: cards show name, category, strength, follow-up info', async ({ page }) => {
     await login(page)
-    const card = page.locator('text=QA4 Alpha Overdue').locator('..').locator('..')
+    const card = page.locator('.cursor-pointer', { hasText: 'QA4 Alpha Overdue' })
     await expect(card.getByText('Investor')).toBeVisible()
     await expect(card.getByText('Kern')).toBeVisible()
     await expect(card.getByText(/Nächstes Follow-up/)).toBeVisible()
@@ -87,7 +87,7 @@ test.describe.serial('PROJ-4: Kontaktliste & Filter', () => {
 
   test('AC2: cards sorted by next_followup_at ascending, null last', async ({ page }) => {
     await login(page)
-    const names = await page.locator('[class*="truncate"]').allTextContents()
+    const names = await page.locator('h3').allTextContents()
     const overdueIdx = names.indexOf('QA4 Alpha Overdue')
     const futureIdx = names.indexOf('QA4 Future Friend')
     const noneIdx = names.indexOf('QA4 NoFollowup Business')

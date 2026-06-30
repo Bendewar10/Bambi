@@ -24,7 +24,8 @@ async function deleteContact(page: Page, name: string) {
   const deleteResponse = page.waitForResponse(
     (res) => res.url().includes('/rest/v1/contacts') && res.request().method() === 'DELETE'
   )
-  await cardFor(page, name).getByRole('button', { name: 'Löschen' }).click()
+  await cardFor(page, name).getByRole('button', { name: 'Mehr Optionen' }).click()
+  await page.getByRole('menuitem', { name: 'Löschen' }).click()
   await page.getByRole('button', { name: 'Löschen' }).last().click()
   await deleteResponse
 }
@@ -142,7 +143,8 @@ test.describe.serial('PROJ-3: Kontakt anlegen & verwalten', () => {
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText(name)).toBeVisible()
 
-    await cardFor(page, name).getByRole('button', { name: 'Löschen' }).click()
+    await cardFor(page, name).getByRole('button', { name: 'Mehr Optionen' }).click()
+    await page.getByRole('menuitem', { name: 'Löschen' }).click()
     await expect(page.getByText('Kontakt löschen?')).toBeVisible()
     const deleteResponse = page.waitForResponse(
       (res) => res.url().includes('/rest/v1/contacts') && res.request().method() === 'DELETE'
