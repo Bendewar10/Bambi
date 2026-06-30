@@ -267,4 +267,9 @@ Keine neuen Packages — `select`, `command`, `tabs`, `alert-dialog`, `avatar`, 
 - Vollständige Regression danach: `npm test` 107/107 grün, `npx playwright test --project=chromium --workers=1` **128/128 grün** (gesamte Suite inkl. aller PROJ-2–PROJ-12-Specs, seriell zur Vermeidung von Cross-Spec-Races auf dem geteilten QA-Account), `npm run build` + `npm run lint` fehlerfrei
 
 ## Deployment
-_To be added by /deploy_
+
+- **Production URL:** https://bambi-w26q.vercel.app
+- **Deployed:** 2026-06-30
+- Pushed `main` (9f20d6a..7fcad4e) → Vercel auto-deploy, build `dpl_CeWMYhBszMZmtUVRjXBAp21bobaD`, Status Ready
+- DB-Migrationen `0003_create_projects_and_participants.sql` + `0004_interactions_project_ownership_check.sql` bereits vor Deploy live via Supabase MCP angewendet (kein separater Migrationsschritt nötig)
+- Smoke-Test: `/` → 307 (Middleware-Redirect, erwartet ohne Session), `/projects` → 200 nach Redirect-Follow (landet auf `/login`, erwartet ohne Session)
