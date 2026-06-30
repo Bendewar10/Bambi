@@ -1,6 +1,6 @@
 # PROJ-16: Eigenes Profil (CV) + CV-Upload mit KI-Parsing
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-06-30
 **Last Updated:** 2026-06-30
 
@@ -78,12 +78,71 @@ _Keine offenen Fragen — vollständig im Rahmen einer vorgelagerten Plan-Phase 
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| 3 neue Tabellen statt einer breiten Tabelle: `user_profile` (Singleton), `user_education`, `user_employment` (Child-Tables) | Bildung/Werdegang sind wiederholbar und datiert (mehrere Abschlüsse/Jobs mit Zeitraum) — analog zum bestehenden `project_participants`-neben-`projects`-Muster. Skills/Sprachen als `text[]`-Spalten auf der Singleton-Zeile statt eigener Tabellen, da unsortierte, undatierte einfache Listen ohne Pro-Eintrag-Metadaten | 2026-06-30 |
+| `user_profile.updated_at` bewusst mitgeführt | Spätere Folgefeatures (PROJ-17) brauchen ein verlässliches Änderungs-Signal, um zu erkennen, wann ein Profil-Abgleich nötig ist | 2026-06-30 |
+| Neuer privater Storage-Bucket `cv-uploads`, Pfad `{user_id}/{timestamp}-{filename}.pdf` | Erstes Storage-Feature im Repo (bisher ungenutzt) — `user_id` als oberstes Pfadsegment macht die Owner-Policy einfach (`storage.foldername(name)[1] = auth.uid()::text`), analog zum `auth.uid() = user_id`-Muster aller bestehenden Tabellen | 2026-06-30 |
+| Kein Storage-Update-Policy, Re-Upload erzeugt neuen Pfad statt Overwrite | Vermeidet Teil-Schreib-Fehlerfälle, hält den zuletzt referenzierten CV-Pfad eindeutig über `user_profile.cv_file_path` | 2026-06-30 |
+| Neue API-Route `/api/cv-parse`, gleiches Gerüst wie `/api/draft-message` (Auth-Check, zod-Body, try/catch um den AI-Call) | Konsistenz mit bestehenden server-seitigen AI-Routen dieses Repos, kein neues Muster nötig | 2026-06-30 |
+| `generateObject` (Vercel AI SDK) statt `generateText` für das CV-Parsing | Strukturierte JSON-Antwort mit Zod-Schema statt freiem Text — bereits installiertes Package, kein neues Dependency | 2026-06-30 |
+| Modell `claude-sonnet-4-6` für CV-Parsing (nicht Haiku) | Höhere Extraktions-Güte für ein einmaliges, wichtiges Parsing-Ergebnis gerechtfertigt — gleiches Modell, das dieses Repo bereits für seine "großen" AI-Aufgaben nutzt (Chat-Assistent), während Haiku für günstige/häufige Aufgaben reserviert bleibt (z. B. Nachrichtenvorschläge) | 2026-06-30 |
+| PDF wird vom Client zuerst in Storage hochgeladen, die API-Route bekommt nur den Storage-Pfad (nicht die rohen Bytes erneut) | Vermeidet doppelten Datei-Transfer; die Datei existiert als durables Artefakt unabhängig davon, ob das Parsing gelingt | 2026-06-30 |
+| Review-Dialog (`cv-review-dialog.tsx`) strukturell von `linkedin-import-dialog.tsx` (PROJ-10) abgeleitet | Bestehendes, bewährtes "Vorschau mit Checkbox pro Zeile, vor Bestätigung editierbar, Batch-Insert"-Muster wiederverwenden statt neu zu erfinden | 2026-06-30 |
+| Manuelle Eingabe-Dialoge strukturell von `project-form-dialog.tsx` abgeleitet (react-hook-form + zod) | Konsistentes Formular-Pattern im gesamten Repo | 2026-06-30 |
+| Neue Unterseite `/profil/lebenslauf` statt neuer Top-Level-Nav-Punkt | Bereits im Spec-Decision-Log festgehalten — kein 5. Nav-Punkt für einen Unteraspekt von "Profil" | 2026-06-30 |
+| Kein eigener API-Endpunkt für CRUD auf `user_education`/`user_employment` (außer dem Parsing) | Direkte Supabase-Client-Calls + RLS, analog zum etablierten Muster bei `projects`/`project_participants` (kein bestehendes API-Route-Pattern für diese Art Ressource in diesem Repo) | 2026-06-30 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Komponenten-Struktur
+
+```
+/profil (bestehend, PROJ-15, unverändert)
++-- "Mein Lebenslauf"-Card/Button (NEU, verlinkt auf Unterseite)
+
+/profil/lebenslauf (NEUE Unterseite)
++-- Empty State ("Noch kein Profil" + "CV hochladen"/"Manuell hinzufügen")
++-- Profil-Kopf (Headline, Skills, Sprachen als Tags)
++-- Bildung-Sektion
+|   +-- Liste der Bildungs-Einträge (Institution, Abschluss, Zeitraum)
+|   +-- "+ Ausbildung hinzufügen"-Button → Bildungs-Formular-Dialog
++-- Werdegang-Sektion
+|   +-- Liste der Werdegang-Einträge (Arbeitgeber, Rolle, Zeitraum)
+|   +-- "+ Berufserfahrung hinzufügen"-Button → Werdegang-Formular-Dialog
++-- "CV hochladen"-Button → Upload-Dialog
+    +-- Datei-Auswahl (PDF)
+    +-- Lade-Zustand während KI-Parsing läuft
+    +-- Review-Dialog: editierbare Vorschau (gruppiert, Checkbox pro Zeile) → Bestätigen → Speichern
+```
+
+### B) Datenmodell (Klartext)
+
+**Eigenes Profil** — eine Zeile pro Nutzer:
+- Kurzbeschreibung/Headline (optional)
+- Skills, Sprachen (jeweils eine einfache Liste)
+- Referenz auf zuletzt hochgeladenen Lebenslauf (Dateipfad + Zeitpunkt)
+
+**Bildungs-Eintrag** — mehrere pro Nutzer:
+- Institution (Pflicht), Abschluss, Fachrichtung, Stadt, Zeitraum (Start optional, Ende optional = "läuft noch")
+
+**Werdegang-Eintrag** — mehrere pro Nutzer:
+- Arbeitgeber (Pflicht), Rolle, Stadt, Zeitraum, kurze Beschreibung (optional)
+
+**Hochgeladene CVs:** PDF-Dateien liegen in einem privaten Datei-Speicher, nur für den jeweiligen Nutzer zugänglich, nicht öffentlich abrufbar.
+
+Storage: Supabase Postgres (3 neue Tabellen) + Supabase Storage (neuer privater Bucket), RLS analog bestehender Tabellen (`auth.uid() = user_id`).
+
+### C) Tech-Entscheidungen (warum)
+
+- **Drei Tabellen statt einer** — Bildung und Werdegang sind wiederholbare, datierte Einträge (mehrere Studienabschlüsse, mehrere Jobs), passt zum bestehenden Muster für "ein Haupt-Objekt + mehrere Unter-Einträge" wie bei Projekten/Beteiligten.
+- **CV-Upload mit KI-Parsing, aber immer mit Bestätigungs-Schritt** — die KI liest das PDF und schlägt Einträge vor, schreibt aber nichts automatisch — konsistent mit dem bereits etablierten "Vorschlagen statt automatisch Ausführen"-Prinzip der KI-Funktionen in diesem Tool.
+- **Eigene Unterseite statt Erweiterung der bestehenden Profil-Seite** — die bestehende Profil-Seite (Case-Historie) und das neue CV-Profil sind inhaltlich unterschiedliche Dinge; eine eigene Unterseite hält beides übersichtlich getrennt.
+- **Neuer Datei-Speicher-Bereich nur für CVs** — bisher speichert das Tool keine hochgeladenen Dateien; ein klar abgegrenzter, privater Bereich nur für Lebensläufe ist die einfachste sichere Lösung.
+
+### D) Dependencies
+Keine neuen Packages — das bereits installierte AI-Werkzeug unterstützt strukturierte Datenextraktion direkt, shadcn-Komponenten (Dialog, Checkbox, Input, Card) sind bereits installiert und im Projekt genutzt.
 
 ## QA Test Results
 _To be added by /qa_

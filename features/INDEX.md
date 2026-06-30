@@ -30,7 +30,7 @@
 | PROJ-13 | Rolloff-Wizard (AI-Bulk-Nachfass bei Projektende) | Roadmap | - | 2026-06-30 | PROJ-12, PROJ-6 |
 | PROJ-14 | City-Trip-Modus (Kontakte vor Ort + Batch-Draft) | Roadmap | - | 2026-06-30 | PROJ-12 |
 | PROJ-15 | Profil (Umbenennung Projekte → Profil + Karriere-Stats-Header) | Deployed | [Spec](PROJ-15-profil.md) | 2026-06-30 | PROJ-12, PROJ-3, PROJ-6 |
-| PROJ-16 | Eigenes Profil (CV) + CV-Upload mit KI-Parsing | Planned | [Spec](PROJ-16-eigenes-profil-cv.md) | 2026-06-30 | PROJ-3, PROJ-15 |
+| PROJ-16 | Eigenes Profil (CV) + CV-Upload mit KI-Parsing | Architected | [Spec](PROJ-16-eigenes-profil-cv.md) | 2026-06-30 | PROJ-3, PROJ-15 |
 | PROJ-17 | Gemeinsamkeiten-Feld bei Kontakten (KI-Matching Profil ↔ Kontakt) | Roadmap | - | 2026-06-30 | PROJ-16, PROJ-3, PROJ-11 |
 | PROJ-18 | Passives KI-Lernen aus Cases/Interaktionen (automatische Profil-Vorschläge) | Roadmap | - | 2026-06-30 | PROJ-16, PROJ-12, PROJ-5 |
 
