@@ -7,6 +7,7 @@ import { z } from 'zod'
 
 import { supabase } from '@/lib/supabase'
 import { CHANNEL_LABELS, Interaction, type Channel } from '@/lib/interactions'
+import { Project } from '@/lib/projects'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -34,6 +35,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+const NO_PROJECT = 'none'
+
 function today() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -47,6 +50,7 @@ const interactionSchema = z.object({
     error: 'Kanal ist erforderlich',
   }),
   note: z.string().trim().max(2000, 'Max. 2000 Zeichen').optional(),
+  project_id: z.string().optional(),
 })
 
 type InteractionFormValues = z.infer<typeof interactionSchema>
@@ -68,6 +72,7 @@ export function InteractionFormDialog({
 }: InteractionFormDialogProps) {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [projects, setProjects] = useState<Project[]>([])
 
   const form = useForm<InteractionFormValues>({
     resolver: zodResolver(interactionSchema),
@@ -75,6 +80,7 @@ export function InteractionFormDialog({
       occurred_at: today(),
       channel: undefined,
       note: '',
+      project_id: NO_PROJECT,
     },
   })
 
@@ -85,7 +91,12 @@ export function InteractionFormDialog({
         occurred_at: interaction?.occurred_at ?? today(),
         channel: (interaction?.channel as Channel) ?? undefined,
         note: interaction?.note ?? '',
+        project_id: interaction?.project_id ?? NO_PROJECT,
       })
+      supabase
+        .from('projects')
+        .select('*')
+        .then(({ data }) => setProjects(data ?? []))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, interaction])
@@ -99,6 +110,7 @@ export function InteractionFormDialog({
         occurred_at: values.occurred_at,
         channel: values.channel,
         note: values.note || null,
+        project_id: values.project_id && values.project_id !== NO_PROJECT ? values.project_id : null,
       }
 
       const { data: userData } = await supabase.auth.getUser()
@@ -179,6 +191,32 @@ export function InteractionFormDialog({
                       {Object.entries(CHANNEL_LABELS).map(([value, label]) => (
                         <SelectItem key={value} value={value}>
                           {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="project_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Projekt</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Kein Projekt" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={NO_PROJECT}>Kein Projekt</SelectItem>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.title}
                         </SelectItem>
                       ))}
                     </SelectContent>

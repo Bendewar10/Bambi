@@ -10,6 +10,7 @@ export const CHANNEL_LABELS: Record<Channel, string> = {
 export interface Interaction {
   id: string
   contact_id: string
+  project_id: string | null
   occurred_at: string
   channel: Channel
   note: string | null

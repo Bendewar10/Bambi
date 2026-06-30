@@ -162,6 +162,7 @@ Keine neuen Packages — `select`, `command`, `tabs`, `alert-dialog`, `avatar`, 
 - Beteiligten-Picker nutzt shadcn `Command` (Kontakt-Suche) + `Select` (Rolle, inkl. "Sonstige"-Freitext) in einem Dialog statt Popover-Combobox — einfacher im Detail-Seiten-Kontext
 - Alle Supabase-Calls (`projects`, `project_participants`) gehen von der in der Architektur festgelegten Tabellenstruktur aus — Tabellen/RLS existieren noch nicht, folgen in `/backend`
 - Build (`npm run build`) und Lint (`npm run lint`) laufen fehlerfrei; `/projects` liefert im Dev-Server korrekt 307-Redirect zu `/login` (Middleware greift), volle UI-Prüfung erst nach `/backend` möglich (Tabellen fehlen)
+- **Bugfix nach QA (BUG-1):** `project-list.tsx` Empty-State zeigte einen zweiten "Projekt anlegen"-Button zusätzlich zum Header-Button (doppelter Accessible-Name). Empty-State-Button entfernt, Hinweistext ergänzt ("Lege oben dein erstes Projekt an."), Header-Button bleibt einziger CTA.
 
 ## Backend Implementation Notes
 <!-- Added by /backend -->
@@ -175,6 +176,7 @@ Keine neuen Packages — `select`, `command`, `tabs`, `alert-dialog`, `avatar`, 
 - Fix während Backend-Phase: `project-participant-dialog.tsx` fehlte `user_id` im Insert-Payload (RLS-Pflichtfeld) — ergänzt
 - Repo-Migrationsordner war bereits vor PROJ-12 hinter dem Live-Schema (nur 2 von 14 Live-Migrationen committed) — neue Migration als Datei `0003` ergänzt, ohne die bestehende Lücke rückwirkend zu schließen
 - `npm run build` + `npm run lint` fehlerfrei; Live-Schema via Supabase MCP gegen Tech-Design verifiziert (Spalten/Typen stimmen exakt überein)
+- **Bugfix nach QA (BUG-2):** Migration `supabase/migrations/0004_interactions_project_ownership_check.sql` ergänzt `WITH CHECK` auf `interactions_insert_own`/`interactions_update_own`: `project_id` muss (falls gesetzt) einem Projekt des einfügenden/aktualisierenden Nutzers gehören — analog zum bestehenden Ownership-Check bei `project_participants_insert_own`. Live via Supabase MCP angewendet und verifiziert (`pg_policies`), keine neuen Security-Advisor-Findings.
 
 ## QA Test Results
 
@@ -253,10 +255,16 @@ Keine neuen Packages — `select`, `command`, `tabs`, `alert-dialog`, `avatar`, 
 
 ### Summary
 - **Acceptance Criteria:** 15/15 passed
-- **Bugs Found:** 3 total (0 critical, 0 high, 1 medium — Test-Suite-Regression außerhalb PROJ-12, 2 low)
-- **Security:** Kernschutz (RLS-Ownership auf `projects`/`project_participants`) hält; ein Low-Severity-Konsistenzgap bei `interactions.project_id` gefunden
+- **Bugs Found:** 3 total (0 critical, 0 high, 1 medium — Test-Suite-Regression außerhalb PROJ-12, 2 low) — **alle 3 behoben, siehe Re-Test unten**
+- **Security:** Kernschutz (RLS-Ownership auf `projects`/`project_participants`) hält; Konsistenzgap bei `interactions.project_id` geschlossen (BUG-2)
 - **Production Ready:** YES
-- **Recommendation:** Deploy. BUG-1/BUG-2 können nachgelagert behoben werden, BUG-3 separat als Test-Maintenance-Ticket für PROJ-3/4/5 nachverfolgen.
+- **Recommendation:** Deploy.
+
+### Re-Test nach Bugfixes (2026-06-30)
+- BUG-1 behoben: `project-list.tsx` Empty-State zeigt nur noch einen "Projekt anlegen"-Button (Header). Neuer E2E-Test `AC: empty project list shows a single "Projekt anlegen" CTA` ergänzt.
+- BUG-2 behoben: Migration `0004_interactions_project_ownership_check.sql` live angewendet, `interactions_insert_own`/`interactions_update_own` verifiziert via `pg_policies` (`with_check` enthält jetzt Projekt-Ownership-Check), keine neuen Security-Advisor-Findings.
+- BUG-3 behoben: `openHistory`/`deleteContact`-Helper in `tests/PROJ-5-interaction-log.spec.ts` und `tests/PROJ-3-contacts.spec.ts` öffnen jetzt zuerst das "Mehr Optionen"-Dropdown vor "Verlauf"/"Löschen"; `tests/PROJ-4-contacts-list.spec.ts` AC1 nutzt jetzt `.cursor-pointer`-Card-Locator statt brüchiger `..`-Traversal, AC2 nutzt `h3`-Locator statt veralteter `[class*="truncate"]`-Klasse (Klasse saß früher auf dem Namen, sitzt nach dem Redesign nur noch auf Job-Title/Employer-Zeile)
+- Vollständige Regression danach: `npm test` 107/107 grün, `npx playwright test --project=chromium --workers=1` **128/128 grün** (gesamte Suite inkl. aller PROJ-2–PROJ-12-Specs, seriell zur Vermeidung von Cross-Spec-Races auf dem geteilten QA-Account), `npm run build` + `npm run lint` fehlerfrei
 
 ## Deployment
 _To be added by /deploy_

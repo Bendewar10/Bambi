@@ -125,10 +125,16 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     await cleanup(token)
   })
 
+  test('AC: empty project list shows a single "Projekt anlegen" CTA (no duplicate button)', async ({ page }) => {
+    await login(page)
+    await expect(page.getByRole('button', { name: 'Projekt anlegen' })).toHaveCount(1)
+    await expect(page.getByText('Noch keine Projekte.')).toBeVisible()
+  })
+
   test('AC: create project with title only saves active status, other fields empty', async ({ page }) => {
     const title = uniqueName('TitleOnly')
     await login(page)
-    await page.getByRole('button', { name: 'Projekt anlegen' }).first().click()
+    await page.getByRole('button', { name: 'Projekt anlegen' }).click()
     await page.getByLabel('Titel').fill(title)
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(card(page, title)).toBeVisible()

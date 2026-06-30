@@ -1,10 +1,12 @@
 # Product Requirements Document
 
 ## Vision
-Personal Network OS — eine persönliche Beziehungspflege-App, kein klassisches CRM. Hilft dem Nutzer, alle Menschen im Leben (Business, Investoren, Community, Freunde, Bekannte) aktiv im Blick zu behalten: wann zuletzt Kontakt, was besprochen, wann nachfassen. LinkedIn ist zu formell und CV-fokussiert für diesen Zweck.
+Personal Network OS für **MBB-/Strategieberater** — eine persönliche Beziehungspflege-App, kein klassisches CRM. Hilft, das berufliche und private Netzwerk trotz Projekt-Taktung, Reise-Alltag und Zeitknappheit aktiv im Blick zu behalten: wann zuletzt Kontakt, was besprochen, wann nachfassen. Für Berater ist das Netzwerk Karriere- und Exit-Kapital — Cases rotieren, Client-Beziehungen schlafen nach Projektende ein, Alumni verteilen sich auf PE/Industrie/Startups. LinkedIn ist zu formell und CV-fokussiert für diesen Zweck.
 
 ## Target Users
-Der Nutzer selbst — Person mit großem, diversem Netzwerk über Business und Privatleben hinweg, die aktuell vergisst, Kontakte nachzufassen. Kernproblem: fehlendes systematisches Follow-up.
+**Primär:** MBB-/Top-Strategieberater (McKinsey, Bain, BCG & vergleichbar) — zeitarm, projektbasiert, reise-intensiv, exit-/alumni-orientiert. Kernproblem: fehlendes systematisches Follow-up bei extremer Zeitknappheit; Client-Kontakte verpuffen nach Projektende. Hoher Wert auf persönlichem Beziehungsaufbau, aber nur mit minimalem Zeitaufwand machbar.
+
+**Sekundär (Hintergrund):** Jede Person mit großem, diversem Netzwerk über Business und Privatleben hinweg, die Kontakte nachzufassen vergisst.
 
 ## Core Features (Roadmap)
 
@@ -20,6 +22,9 @@ Der Nutzer selbst — Person mit großem, diversem Netzwerk über Business und P
 | P1 | Netzwerk-Analytics (periodisch) | Deployed |
 | P1 | Monatlicher AI-Report per Mail | Planned (spec done) |
 | P1 | AI Chat Assistant (Sidebar-Popup) | Deployed |
+| P0 (MBB) | Projekte/Cases (Engagement-Container: Beteiligte + Projekt-Log) | Planned (spec done) |
+| P1 (MBB) | Rolloff-Wizard (AI-Bulk-Nachfass bei Projektende) | Roadmap |
+| P1 (MBB) | City-Trip-Modus (Kontakte vor Ort + Batch-Draft, basiert auf Projekt-Stadt+Zeitfenster) | Roadmap |
 
 ## Success Metrics
 - Tägliche Nutzung
@@ -35,7 +40,7 @@ Der Nutzer selbst — Person mit großem, diversem Netzwerk über Business und P
 ## Non-Goals
 - Keine LinkedIn/API-Synchronisation
 - Kein automatisches Scoring/Ranking einzelner Kontakte (Beziehungs-Tier & Wiedervorlage-Intervall werden manuell gesetzt, KI wird nur für Nachrichtenvorschläge und aggregierte Netzwerk-Analytics genutzt)
-- Kein Team-Feature
+- Kein Team-Feature — Projekte/Cases sind persönlich (single-user, RLS-geschützt), kein geteiltes Team-Projekt, keine Kollaboration
 - Kein E-Mail-Client
 - Kein Kalender-Sync (erst nach MVP) — ausgenommen einseitige Add-to-Calendar-Links (kein OAuth, kein Lesen bestehender Termine)
 - Keine native Mobile App
