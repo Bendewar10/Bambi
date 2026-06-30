@@ -1,6 +1,6 @@
 # PROJ-15: Profil (Umbenennung Projekte → Profil + Karriere-Stats-Header)
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-06-30
 **Last Updated:** 2026-06-30
 
@@ -69,12 +69,56 @@ _Keine offenen Fragen — vollständig im Rahmen einer vorgelagerten Plan-Phase 
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Routing-Verzeichnisse umbenennen statt Route-Alias/Rewrite | Next.js App-Router-Konvention; ein echter Verzeichnis-Move hält URL, Nav-Label und Code-Struktur konsistent statt einer zusätzlichen Rewrite-Regel | 2026-06-30 |
+| Neue eigenständige Komponente `profile-stats-header.tsx` statt Logik in `project-list.tsx` zu integrieren | Trennt Datenquelle (Kontakte/Beteiligte) von der bestehenden Case-Liste (Projekte/Beteiligte-Join); hält `project-list.tsx` fokussiert auf eine Aufgabe, einfacher unabhängig zu laden/testen | 2026-06-30 |
+| 3 unabhängige Supabase-Queries (count/select) statt einer kombinierten View/RPC | Kleine, Owner-skalierte Datenmengen (Solo-User); passt zum bestehenden Muster der App (keine eigenen API-Routes, direkte Supabase-Client-Calls überall, z. B. `project-list.tsx`, `project-detail.tsx`) | 2026-06-30 |
+| Client-seitiges Dedupe für "Beteiligte gesamt" (Set über `contact_id`) statt SQL `COUNT(DISTINCT ...)` via View/RPC | Keine neue DB-Funktion nötig für eine Solo-User-Datenmenge im niedrigen Hundert-Bereich; konsistent mit "keine neuen Packages/keine Backend-Änderung" | 2026-06-30 |
+| Keine Wiederverwendung von `computeOccasionSections` (aus `src/lib/occasions.ts`) für "Fällige Follow-ups" | Diese Funktion vermischt Geburtstage und Follow-ups in einem "Heute"-Bucket — würde die Stat verfälschen; stattdessen eigener, einfacher datums-only Filter auf `next_followup_at` | 2026-06-30 |
+| Kein Backend-Schritt (`/backend`) nötig | Reine lesende Queries auf bestehende, bereits RLS-geschützte Tabellen (`contacts`, `project_participants`); keine neuen Tabellen, Policies oder Migrationen | 2026-06-30 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Komponenten-Struktur
+
+```
+(app)-Layout (Nav)
++-- Nav-Punkt "Profil" (vorher "Projekte") → /profil
+
+/profil (umbenannte Route, vorher /projects)
++-- ProfileStatsHeader (NEU)
+|   +-- Stat-Kachel "Kontakte gesamt"
+|   +-- Stat-Kachel "Fällige Follow-ups"
+|   +-- Stat-Kachel "Beteiligte gesamt über alle Cases"
++-- Tabs: Aktiv | Beendet (unverändert aus PROJ-12)
+|   +-- Projekt-Karten-Liste (unverändert aus PROJ-12)
++-- Empty State (unverändert)
++-- Projekt-Anlegen-Dialog (unverändert)
+
+/profil/[id] (umbenannte Route, vorher /projects/[id])
++-- Unverändert aus PROJ-12: Header, Beteiligte-Sektion, Projekt-Log-Sektion, Lösch-Dialoge
+```
+
+### B) Datenmodell (Klartext)
+
+Keine neuen Daten-Entitäten. Die 3 Stats sind reine Aggregationen bestehender Daten:
+- **Kontakte gesamt:** Anzahl aller Kontakte des Nutzers
+- **Fällige Follow-ups:** Anzahl Kontakte, deren nächstes Follow-up-Datum heute oder in der Vergangenheit liegt
+- **Beteiligte gesamt über alle Cases:** Anzahl einzigartiger Kontakte, die irgendwann als Beteiligter einem Projekt des Nutzers zugeordnet wurden (Duplikate über mehrere Projekte hinweg zählen nur einmal)
+
+Storage: unverändert Supabase Postgres, bestehende RLS-Policies auf `contacts` und `project_participants` (kein neues Schema).
+
+### C) Tech-Entscheidungen (warum)
+
+- **Verzeichnis-Umbenennung statt Rewrite/Alias** — sauberste Next.js-App-Router-Lösung, URL und Code-Struktur bleiben deckungsgleich.
+- **Eigene Stats-Komponente statt Erweiterung der bestehenden Liste** — klare Verantwortungstrennung, unabhängiges Laden (ein langsamer Stats-Request blockiert nicht die Case-Liste und umgekehrt).
+- **Direkte Supabase-Queries statt Backend-Route** — konsistent mit dem bestehenden Muster der App (kein `/api/contacts`-Äquivalent existiert, alle CRUD-/Aggregations-Zugriffe laufen direkt über den Supabase-Client + RLS).
+- **Kein Redirect von alten URLs** — bewusste Produktentscheidung aus der Spec (Solo-User, Pre-Launch), technisch nicht erforderlich.
+
+### D) Dependencies
+Keine neuen Packages — alle benötigten UI-Bausteine (Card, Tabs, etc.) sind bereits installiert und im Projekt genutzt.
 
 ## QA Test Results
 _To be added by /qa_
