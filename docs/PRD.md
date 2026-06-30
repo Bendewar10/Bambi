@@ -25,7 +25,10 @@ Personal Network OS für **MBB-/Strategieberater** — eine persönliche Beziehu
 | P0 (MBB) | Projekte/Cases (Engagement-Container: Beteiligte + Projekt-Log) | Deployed |
 | P1 (MBB) | Rolloff-Wizard (AI-Bulk-Nachfass bei Projektende) | Roadmap |
 | P1 (MBB) | City-Trip-Modus (Kontakte vor Ort + Batch-Draft, basiert auf Projekt-Stadt+Zeitfenster) | Roadmap |
-| P1 (MBB) | Profil (Umbenennung Projekte → Profil + Karriere-Stats-Header) | Planned (spec done) |
+| P1 (MBB) | Profil (Umbenennung Projekte → Profil + Karriere-Stats-Header) | Deployed |
+| P1 (MBB) | Eigenes Profil (CV) + CV-Upload mit KI-Parsing | Planned (spec done) |
+| P1 (MBB) | Gemeinsamkeiten-Feld bei Kontakten (KI-Matching Profil ↔ Kontakt) | Roadmap |
+| P2 (MBB) | Passives KI-Lernen aus Cases/Interaktionen (automatische Profil-Vorschläge) | Roadmap |
 
 ## Success Metrics
 - Tägliche Nutzung
