@@ -29,7 +29,8 @@
 | PROJ-12 | Projekte/Cases (Engagement-Container: Beteiligte + Projekt-Log) | Deployed | [Spec](PROJ-12-projekte-cases.md) | 2026-06-30 | PROJ-3, PROJ-5 |
 | PROJ-13 | Rolloff-Wizard (AI-Bulk-Nachfass bei Projektende) | Roadmap | - | 2026-06-30 | PROJ-12, PROJ-6 |
 | PROJ-14 | City-Trip-Modus (Kontakte vor Ort + Batch-Draft) | Roadmap | - | 2026-06-30 | PROJ-12 |
+| PROJ-15 | Profil (Umbenennung Projekte → Profil + Karriere-Stats-Header) | Planned | [Spec](PROJ-15-profil.md) | 2026-06-30 | PROJ-12, PROJ-3, PROJ-6 |
 
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-15
+## Next Available ID: PROJ-16

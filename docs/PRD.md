@@ -22,9 +22,10 @@ Personal Network OS für **MBB-/Strategieberater** — eine persönliche Beziehu
 | P1 | Netzwerk-Analytics (periodisch) | Deployed |
 | P1 | Monatlicher AI-Report per Mail | Planned (spec done) |
 | P1 | AI Chat Assistant (Sidebar-Popup) | Deployed |
-| P0 (MBB) | Projekte/Cases (Engagement-Container: Beteiligte + Projekt-Log) | Planned (spec done) |
+| P0 (MBB) | Projekte/Cases (Engagement-Container: Beteiligte + Projekt-Log) | Deployed |
 | P1 (MBB) | Rolloff-Wizard (AI-Bulk-Nachfass bei Projektende) | Roadmap |
 | P1 (MBB) | City-Trip-Modus (Kontakte vor Ort + Batch-Draft, basiert auf Projekt-Stadt+Zeitfenster) | Roadmap |
+| P1 (MBB) | Profil (Umbenennung Projekte → Profil + Karriere-Stats-Header) | Planned (spec done) |
 
 ## Success Metrics
 - Tägliche Nutzung
