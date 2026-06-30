@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProjectCard, type ProjectCardParticipant } from '@/components/project-card'
 import { ProjectFormDialog } from '@/components/project-form-dialog'
+import { ProfileStatsHeader } from '@/components/profile-stats-header'
 
 interface ProjectRow extends Project {
   project_participants: ProjectCardParticipant[]
@@ -59,6 +60,8 @@ export function ProjectList() {
 
   return (
     <div className="w-full max-w-6xl space-y-4">
+      <ProfileStatsHeader />
+
       <div className="flex items-center justify-between gap-2">
         <Tabs value={tab} onValueChange={(value) => setTab(value as 'active' | 'done')}>
           <TabsList>

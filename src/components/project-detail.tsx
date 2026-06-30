@@ -109,7 +109,7 @@ export function ProjectDetail({ projectId }: ProjectDetailProps) {
   async function confirmDelete() {
     if (!project) return
     await supabase.from('projects').delete().eq('id', project.id)
-    router.push('/projects')
+    router.push('/profil')
   }
 
   async function confirmRemoveParticipant() {

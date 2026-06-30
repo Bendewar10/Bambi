@@ -1,6 +1,6 @@
 # PROJ-15: Profil (Umbenennung Projekte → Profil + Karriere-Stats-Header)
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-06-30
 **Last Updated:** 2026-06-30
 
@@ -119,6 +119,19 @@ Storage: unverändert Supabase Postgres, bestehende RLS-Policies auf `contacts` 
 
 ### D) Dependencies
 Keine neuen Packages — alle benötigten UI-Bausteine (Card, Tabs, etc.) sind bereits installiert und im Projekt genutzt.
+
+## Frontend Implementation Notes
+<!-- Added by /frontend -->
+- Routen umbenannt via `git mv`: `src/app/(app)/projects` → `src/app/(app)/profil` (Inhalt von `page.tsx`/`[id]/page.tsx` unverändert)
+- `src/app/(app)/layout.tsx`: Nav-Eintrag `{ href: '/projects', label: 'Projekte' }` → `{ href: '/profil', label: 'Profil' }`
+- `src/components/project-card.tsx`: Link-Ziel `/projects/${project.id}` → `/profil/${project.id}`
+- `src/components/project-detail.tsx`: `confirmDelete()` navigiert jetzt zu `/profil` statt `/projects`
+- Neue Datei `src/components/profile-stats-header.tsx`: 3 parallele Supabase-Queries (`Promise.all`) für Kontakte gesamt (`count: 'exact', head: true`), fällige Follow-ups (`next_followup_at <= heute`, datums-only), Beteiligte gesamt (Client-Dedupe via `Set` über `contact_id` aus `project_participants`). Zeigt `–` pro Kachel während die jeweilige Query lädt, kein irreführendes `0`
+- `src/components/project-list.tsx`: `<ProfileStatsHeader />` oberhalb der Tabs eingebunden
+- Komponenten-/Lib-Dateinamen unverändert (`project-list.tsx`, `project-card.tsx`, `project-detail.tsx`, `src/lib/projects.ts`) — wie in der Spec entschieden
+- `tests/PROJ-12-projekte-cases.spec.ts`: alle Routen-Strings `/projects` → `/profil` aktualisiert (REST-API-Pfade `${SUPABASE_URL}/rest/v1/projects` bewusst unverändert gelassen — Tabellenname, kein UI-Pfad)
+- `npm run build` + `npm run lint` fehlerfrei; `/profil` und `/profil/[id]` erscheinen korrekt in der Build-Routen-Tabelle
+- Kein Backend-Schritt nötig — reine Lese-Queries auf bestehende RLS-geschützte Tabellen (`contacts`, `project_participants`)
 
 ## QA Test Results
 _To be added by /qa_

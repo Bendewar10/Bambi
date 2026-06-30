@@ -29,7 +29,7 @@ export function ProjectCard({ project, participants }: ProjectCardProps) {
   const dateRange = formatDateRange(project.start_date, project.end_date)
 
   return (
-    <Link href={`/projects/${project.id}`}>
+    <Link href={`/profil/${project.id}`}>
       <Card className="cursor-pointer rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md">
         <CardHeader className="space-y-1 p-4">
           <h3 className="line-clamp-2 text-base font-semibold leading-tight">{project.title}</h3>

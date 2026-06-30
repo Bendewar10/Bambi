@@ -97,7 +97,7 @@ async function login(page: Page) {
   await page.getByLabel('Passwort').fill(PASSWORD)
   await page.getByRole('button', { name: 'Login' }).click()
   await expect(page).toHaveURL('http://localhost:3000/dashboard')
-  await page.goto('/projects')
+  await page.goto('/profil')
   await expect(async () => {
     expect(await page.getByText('Lädt...').count()).toBe(0)
   }).toPass({ timeout: 10000 })
@@ -140,7 +140,7 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     await expect(card(page, title)).toBeVisible()
 
     await card(page, title).click()
-    await expect(page).toHaveURL(/\/projects\/.+/)
+    await expect(page).toHaveURL(/\/profil\/.+/)
     await expect(page.getByText('Aktiv')).toBeVisible()
   })
 
@@ -185,11 +185,11 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     const title = uniqueName('MarkDone')
     const projectId = await seedProject(token, userId, title)
     await login(page)
-    await page.goto(`/projects/${projectId}`)
+    await page.goto(`/profil/${projectId}`)
     await page.getByRole('button', { name: 'Als beendet markieren' }).click()
     await expect(page.getByText('Beendet', { exact: true })).toBeVisible()
 
-    await page.goto('/projects')
+    await page.goto('/profil')
     await page.getByRole('tab', { name: 'Aktiv' }).click()
     await expect(card(page, title)).toHaveCount(0)
     await page.getByRole('tab', { name: 'Beendet' }).click()
@@ -203,7 +203,7 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     await seedContact(token, userId, contactName)
 
     await login(page)
-    await page.goto(`/projects/${projectId}`)
+    await page.goto(`/profil/${projectId}`)
     await page.getByRole('button', { name: 'Beteiligten hinzufügen' }).click()
     await page.getByPlaceholder('Kontakt suchen...').fill(contactName)
     await page.getByText(contactName).click()
@@ -222,7 +222,7 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     await seedContact(token, userId, contactName)
 
     await login(page)
-    await page.goto(`/projects/${projectId}`)
+    await page.goto(`/profil/${projectId}`)
     await page.getByRole('button', { name: 'Beteiligten hinzufügen' }).click()
     await page.getByPlaceholder('Kontakt suchen...').fill(contactName)
     await page.getByText(contactName).click()
@@ -255,7 +255,7 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     })
 
     await login(page)
-    await page.goto(`/projects/${projectId}`)
+    await page.goto(`/profil/${projectId}`)
     await expect(page.getByText(contactName)).toBeVisible()
     await page.getByRole('button', { name: 'Beteiligten hinzufügen' }).click()
     await page.getByPlaceholder('Kontakt suchen...').fill(contactName)
@@ -283,7 +283,7 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     })
 
     await login(page)
-    await page.goto(`/projects/${projectId}`)
+    await page.goto(`/profil/${projectId}`)
     await expect(page.getByText(contactName)).toBeVisible()
     await page.getByRole('button', { name: 'Beteiligten entfernen' }).click()
     await expect(page.getByText('Beteiligten entfernen?')).toBeVisible()
@@ -298,7 +298,7 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     const projectTitle = uniqueName('EmptyLog')
     const projectId = await seedProject(token, userId, projectTitle)
     await login(page)
-    await page.goto(`/projects/${projectId}`)
+    await page.goto(`/profil/${projectId}`)
     await expect(page.getByText('Noch keine verknüpften Momente.')).toBeVisible()
   })
 
@@ -323,7 +323,7 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     await page.getByRole('button', { name: 'Speichern' }).click()
     await insertResponse
 
-    await page.goto(`/projects/${projectId}`)
+    await page.goto(`/profil/${projectId}`)
     await expect(page.getByText('Call')).toBeVisible()
     await expect(page.getByText(contactName)).toBeVisible()
     await expect(page.getByText('Noch keine verknüpften Momente.')).toHaveCount(0)
@@ -336,7 +336,7 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     const title = uniqueName('DeleteConfirm')
     const projectId = await seedProject(token, userId, title)
     await login(page)
-    await page.goto(`/projects/${projectId}`)
+    await page.goto(`/profil/${projectId}`)
     await page.getByRole('button', { name: 'Löschen' }).click()
     await expect(page.getByText('Projekt löschen?')).toBeVisible()
   })
@@ -370,10 +370,10 @@ test.describe.serial('PROJ-12: Projekte/Cases', () => {
     })
 
     await login(page)
-    await page.goto(`/projects/${projectId}`)
+    await page.goto(`/profil/${projectId}`)
     await page.getByRole('button', { name: 'Löschen' }).click()
     await page.getByRole('button', { name: 'Löschen' }).last().click()
-    await expect(page).toHaveURL('http://localhost:3000/projects')
+    await expect(page).toHaveURL('http://localhost:3000/profil')
 
     const participants = await restGet(token, `project_participants?project_id=eq.${projectId}`)
     expect(participants).toHaveLength(0)
