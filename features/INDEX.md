@@ -26,7 +26,10 @@
 | PROJ-9 | Monatlicher AI-Report per Mail | Deployed | [Spec](PROJ-9-monatlicher-ai-report.md) | 2026-06-23 | PROJ-1, PROJ-5, PROJ-8 |
 | PROJ-10 | LinkedIn-CSV-Import | Deployed | [Spec](PROJ-10-linkedin-csv-import.md) | 2026-06-24 | PROJ-3 |
 | PROJ-11 | AI Chat Assistant (Sidebar-Popup) | Deployed | [Spec](PROJ-11-ai-chat-assistant.md) | 2026-06-29 | PROJ-3, PROJ-5 |
+| PROJ-12 | Projekte/Cases (Engagement-Container: Beteiligte + Projekt-Log) | Approved | [Spec](PROJ-12-projekte-cases.md) | 2026-06-30 | PROJ-3, PROJ-5 |
+| PROJ-13 | Rolloff-Wizard (AI-Bulk-Nachfass bei Projektende) | Roadmap | - | 2026-06-30 | PROJ-12, PROJ-6 |
+| PROJ-14 | City-Trip-Modus (Kontakte vor Ort + Batch-Draft) | Roadmap | - | 2026-06-30 | PROJ-12 |
 
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-12
+## Next Available ID: PROJ-15
