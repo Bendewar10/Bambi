@@ -1,6 +1,6 @@
 # PROJ-16: Eigenes Profil (CV) + CV-Upload mit KI-Parsing
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-06-30
 **Last Updated:** 2026-06-30
 
@@ -238,11 +238,18 @@ Keine neuen Packages — das bereits installierte AI-Werkzeug unterstützt struk
 - `npm run build` + `npm run lint` fehlerfrei
 
 ### Summary
-- **Acceptance Criteria:** 13/14 vollständig PASS, 1 (Speichern nach CV-Upload) durch BUG-1 blockiert
-- **Bugs Found:** 2 total (0 critical, 1 high, 0 medium, 1 low)
+- **Acceptance Criteria:** 13/14 vollständig PASS, 1 (Speichern nach CV-Upload) zunächst durch BUG-1 blockiert — **nach Fix erneut getestet, jetzt PASS**
+- **Bugs Found:** 2 total (0 critical, 1 high, 0 medium, 1 low) — **beide behoben, siehe Re-Test**
 - **Security:** RLS + Storage-Policies halten, kein Cross-User-Zugriff, kein XSS-Vektor
-- **Production Ready:** NO
-- **Recommendation:** BUG-1 vor Deploy fixen (Backend: Datums-Normalisierung im CV-Parsing-Prompt bzw. vor dem Insert) — danach erneut `/qa` laufen lassen. BUG-2 kann nachgelagert behoben werden.
+- **Production Ready:** YES
+- **Recommendation:** Deploy.
+
+### Re-Test nach Bugfixes (2026-06-30)
+- **BUG-1 behoben:** `src/app/api/cv-parse/route.ts` — Prompt weist Claude jetzt explizit an, Daten immer als `YYYY-MM-DD` zu liefern (Jahr-only → `YYYY-01-01`, unbekannt → `null`). Zusätzlich serverseitiges Sicherheitsnetz: neues `isoDateOrNull`-Zod-`.transform()` auf `start_date`/`end_date` in `educationSchema`/`employmentSchema`, das jeden Wert, der nicht exakt dem `YYYY-MM-DD`-Format entspricht, automatisch zu `null` normalisiert, statt den rohen KI-String ungeprüft an die DB weiterzureichen (Defense-in-Depth — auch falls das Modell die Format-Anweisung in der Praxis verletzt, kann kein ungültiges Datum mehr in die Tabelle gelangen).
+- **BUG-2 behoben:** `src/components/cv-profile.tsx` Empty-State zeigt jetzt zwei getrennte Buttons "+ Ausbildung hinzufügen" und "+ Berufserfahrung hinzufügen" statt eines einzelnen mehrdeutigen "Manuell hinzufügen"-Buttons, der nur das Bildungs-Formular öffnete. `EmploymentFormDialog` wird jetzt auch im Empty-State-Branch gerendert.
+- E2E-Test `tests/PROJ-16-eigenes-profil-cv.spec.ts` AC "uploading a CV parses it and shows an editable review before saving" lief zunächst bewusst mit `test.fail()` zur Dokumentation von BUG-1, nach dem Fix entfernt — Test läuft jetzt regulär grün (kein `test.fail()` mehr nötig, bestätigt den Fix end-to-end mit echtem Claude-PDF-Parsing-Call)
+- Button-Selektoren in den übrigen Education-Tests von "Manuell hinzufügen" auf "+ Ausbildung hinzufügen" aktualisiert (Label-Änderung durch BUG-2-Fix)
+- Vollständige Regression danach: `npm test` 113/113 grün, `npx playwright test tests/PROJ-16-eigenes-profil-cv.spec.ts --project=chromium --workers=1` **12/12 grün** (alle reguläre Tests, kein `test.fail()` mehr), volle Suite (`--project=chromium --workers=1`, 149 Tests über PROJ-2–PROJ-16) — 1 vereinzelter AI-Flake in PROJ-11 (isoliert beim ersten Retry erneut fehlgeschlagen, beim zweiten Retry grün — bestätigt KI-Antwortvarianz, keine Regression durch PROJ-16; PROJ-16-Code rührt `chat-server.ts`/Kontakt-Erstellung nicht an), `npm run build` + `npm run lint` fehlerfrei
 
 ## Deployment
 _To be added by /deploy_

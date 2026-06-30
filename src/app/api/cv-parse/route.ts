@@ -8,21 +8,30 @@ const requestSchema = z.object({
   storagePath: z.string().min(1),
 })
 
+// Postgres `date` columns reject partial dates like "2014" — Claude is asked
+// for full YYYY-MM-DD, but this transform is a server-side safety net that
+// nulls out anything that isn't, instead of letting one bad date break the
+// whole batch insert on the client.
+const isoDateOrNull = z
+  .string()
+  .nullable()
+  .transform((value) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null))
+
 const educationSchema = z.object({
   institution: z.string(),
   degree: z.string().nullable(),
   field_of_study: z.string().nullable(),
   city: z.string().nullable(),
-  start_date: z.string().nullable(),
-  end_date: z.string().nullable(),
+  start_date: isoDateOrNull,
+  end_date: isoDateOrNull,
 })
 
 const employmentSchema = z.object({
   employer: z.string(),
   job_title: z.string().nullable(),
   city: z.string().nullable(),
-  start_date: z.string().nullable(),
-  end_date: z.string().nullable(),
+  start_date: isoDateOrNull,
+  end_date: isoDateOrNull,
   description: z.string().nullable(),
 })
 
@@ -64,7 +73,7 @@ export async function POST(request: Request) {
           content: [
             {
               type: 'text',
-              text: 'Extrahiere die strukturierten Lebenslauf-Daten aus diesem PDF auf Deutsch: Kurzbeschreibung/Headline, Ausbildung (Institution, Abschluss, Fachrichtung, Stadt, Zeitraum), Berufserfahrung (Arbeitgeber, Rolle, Stadt, Zeitraum, kurze Beschreibung), Skills und Sprachen. Daten, Felder ohne Information als null, Listen ohne erkennbare Einträge als leeres Array.',
+              text: 'Extrahiere die strukturierten Lebenslauf-Daten aus diesem PDF auf Deutsch: Kurzbeschreibung/Headline, Ausbildung (Institution, Abschluss, Fachrichtung, Stadt, Zeitraum), Berufserfahrung (Arbeitgeber, Rolle, Stadt, Zeitraum, kurze Beschreibung), Skills und Sprachen. Felder ohne Information als null, Listen ohne erkennbare Einträge als leeres Array. Wichtig für start_date/end_date: IMMER im Format YYYY-MM-DD, nie nur eine Jahreszahl oder Jahr-Monat. Wenn das CV nur ein Jahr nennt (z. B. "2014"), nutze den 1. Januar dieses Jahres (also "2014-01-01"). Wenn gar kein Datum erkennbar ist, gib null zurück — niemals einen unvollständigen String.',
             },
             { type: 'file', data: base64Pdf, mediaType: 'application/pdf' },
           ],

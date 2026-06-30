@@ -82,10 +82,13 @@ export function CvProfile() {
           <p className="text-sm text-muted-foreground">
             Noch kein Profil angelegt. Lade deinen Lebenslauf hoch oder trage Stationen manuell ein.
           </p>
-          <div className="flex justify-center gap-2">
+          <div className="flex flex-wrap justify-center gap-2">
             <Button onClick={() => setUploadDialogOpen(true)}>CV hochladen</Button>
             <Button variant="outline" onClick={() => setEducationDialogOpen(true)}>
-              Manuell hinzufügen
+              + Ausbildung hinzufügen
+            </Button>
+            <Button variant="outline" onClick={() => setEmploymentDialogOpen(true)}>
+              + Berufserfahrung hinzufügen
             </Button>
           </div>
         </div>
@@ -96,6 +99,12 @@ export function CvProfile() {
           onOpenChange={setEducationDialogOpen}
           entry={null}
           onSaved={loadEducation}
+        />
+        <EmploymentFormDialog
+          open={employmentDialogOpen}
+          onOpenChange={setEmploymentDialogOpen}
+          entry={null}
+          onSaved={loadEmployment}
         />
       </div>
     )

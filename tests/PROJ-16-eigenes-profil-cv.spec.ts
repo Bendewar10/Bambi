@@ -107,13 +107,14 @@ test.describe.serial('PROJ-16: Eigenes Profil (CV)', () => {
     await gotoLebenslauf(page)
     await expect(page.getByText('Noch kein Profil angelegt.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'CV hochladen' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Manuell hinzufügen' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '+ Ausbildung hinzufügen' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '+ Berufserfahrung hinzufügen' })).toBeVisible()
   })
 
   test('AC: empty institution shows validation error, entry not created', async ({ page }) => {
     await login(page)
     await gotoLebenslauf(page)
-    await page.getByRole('button', { name: 'Manuell hinzufügen' }).click()
+    await page.getByRole('button', { name: '+ Ausbildung hinzufügen' }).click()
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText('Institution ist erforderlich')).toBeVisible()
   })
@@ -121,7 +122,7 @@ test.describe.serial('PROJ-16: Eigenes Profil (CV)', () => {
   test('AC: manual education entry is saved and listed', async ({ page }) => {
     await login(page)
     await gotoLebenslauf(page)
-    await page.getByRole('button', { name: 'Manuell hinzufügen' }).click()
+    await page.getByRole('button', { name: '+ Ausbildung hinzufügen' }).click()
     await page.getByLabel('Institution').fill('RWTH Aachen')
     await page.getByLabel('Abschluss').fill('M.Sc. Maschinenbau')
     await page.getByRole('button', { name: 'Speichern' }).click()
@@ -132,7 +133,7 @@ test.describe.serial('PROJ-16: Eigenes Profil (CV)', () => {
   test('AC: end date before start date shows validation error (education)', async ({ page }) => {
     await login(page)
     await gotoLebenslauf(page)
-    await page.getByRole('button', { name: 'Manuell hinzufügen' }).click()
+    await page.getByRole('button', { name: '+ Ausbildung hinzufügen' }).click()
     await page.getByLabel('Institution').fill('RWTH Aachen')
     await page.getByLabel('Startdatum').fill('2020-01-01')
     await page.getByLabel('Enddatum').fill('2019-01-01')
@@ -143,7 +144,7 @@ test.describe.serial('PROJ-16: Eigenes Profil (CV)', () => {
   test('AC: editing an education entry persists new values', async ({ page }) => {
     await login(page)
     await gotoLebenslauf(page)
-    await page.getByRole('button', { name: 'Manuell hinzufügen' }).click()
+    await page.getByRole('button', { name: '+ Ausbildung hinzufügen' }).click()
     await page.getByLabel('Institution').fill('RWTH Aachen')
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText('RWTH Aachen')).toBeVisible()
@@ -212,14 +213,6 @@ test.describe.serial('PROJ-16: Eigenes Profil (CV)', () => {
   })
 
   test('AC: uploading a CV parses it and shows an editable review before saving', async ({ page }) => {
-    // BUG-1 (High, see QA results): Claude commonly returns year-only dates
-    // (e.g. "2014") for CVs that don't list a full day/month. Postgres `date`
-    // columns reject that ('2014'::date errors), so the batch insert in
-    // cv-review-dialog.tsx's handleConfirm throws and "Speichern
-    // fehlgeschlagen" is shown for entries that parse perfectly otherwise.
-    // Marked as expected-to-fail until the date normalization fix lands.
-    test.fail()
-
     await login(page)
     await gotoLebenslauf(page)
     await page.getByRole('button', { name: 'CV hochladen' }).click()
