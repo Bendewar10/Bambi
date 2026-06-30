@@ -181,4 +181,9 @@ Keine neuen Packages — alle benötigten UI-Bausteine (Card, Tabs, etc.) sind b
 - **Recommendation:** Deploy.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Production URL:** https://bambi-w26q.vercel.app
+- **Deployed:** 2026-06-30
+- Pushed `main` (53a38a8..14a23e3) → Vercel auto-deploy, build `dpl_EtjoAYkCtty2NBkXnvcJCSVmy1xE`, Status Ready
+- Keine DB-Migration nötig (reine Lese-Queries auf bestehenden Tabellen)
+- Smoke-Test: `/profil` → 307 zu `/login` (Middleware-Redirect, erwartet ohne Session). `/projects` → ebenfalls 307 zu `/login`, NICHT weil die alte Route noch existiert, sondern weil die Middleware jeden nicht-eingeloggten Request auf `/login` umleitet, bevor Next.js Routing prüft, ob der Pfad existiert (verifiziert: ein frei erfundener Pfad `/totally-fake-route-xyz` zeigt identisches Verhalten). Kein Redirect-Bug, wie in der Spec entschieden.
