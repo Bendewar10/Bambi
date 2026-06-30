@@ -1,6 +1,6 @@
 # PROJ-15: Profil (Umbenennung Projekte → Profil + Karriere-Stats-Header)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-06-30
 **Last Updated:** 2026-06-30
 
@@ -134,7 +134,51 @@ Keine neuen Packages — alle benötigten UI-Bausteine (Card, Tabs, etc.) sind b
 - Kein Backend-Schritt nötig — reine Lese-Queries auf bestehende RLS-geschützte Tabellen (`contacts`, `project_participants`)
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-06-30
+**App URL:** http://localhost:3000 (npm run dev)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+1. Nav-Punkt "Profil" statt "Projekte", verlinkt auf `/profil` — PASS
+2. `/profil` zeigt bestehende Case-Liste (Tabs, Karten-Grid, "Projekt anlegen") wie bisher unter PROJ-12 — PASS
+3. Projekt-Detailseite erreichbar unter `/profil/[id]`, zeigt Beteiligte + Projekt-Log — PASS
+4. Projekt-Löschung navigiert zurück zu `/profil` (nicht `/projects`) — PASS (Teil der PROJ-12-Regressionssuite, jetzt auf neuer Route)
+5. "Kontakte gesamt" zeigt korrekte Gesamtzahl N — PASS
+6. "Kontakte gesamt" zeigt `0` bei keinen Kontakten, kein Fehler — PASS (Zero-State-Test)
+7. Kontakt mit `next_followup_at` heute/Vergangenheit wird in "Fällige Follow-ups" mitgezählt — PASS
+8. Kontakt mit `next_followup_at` Zukunft/`null` wird NICHT mitgezählt — PASS
+9. Derselbe Kontakt als Beteiligter in mehreren Projekten zählt in "Beteiligte gesamt" nur einmal — PASS (Dedupe-Test)
+10. "Beteiligte gesamt über alle Cases" zeigt `0` bei keinen Projekten/Beteiligten — PASS (Zero-State-Test)
+11. Stats-Kacheln zeigen Platzhalter (`–`) statt `0` während des Ladens — PASS (Code-Review: `value === null ? '–' : value`, Ladezustand vor Resolve der `Promise.all` sichtbar)
+12. Stats sind RLS-geschützt, keine Cross-User-Daten — PASS (anon-Rolle ohne gültigen User-Token sieht 0 Zeilen, eigener Stat zeigt korrekt 1)
+
+### Edge Cases Status
+- Stats laden unabhängig von der Case-Liste (kein gegenseitiges Blockieren) — PASS (Code-Review: `ProfileStatsHeader` hat eigenen `useEffect`/State, kein Coupling zu `loadProjects()`)
+- Sehr großes Netzwerk (Performance) — nicht separat lasttestbar im Rahmen dieser QA-Runde, aber Queries nutzen `count: 'exact', head: true` (kein Row-Transfer) bzw. schlanke Single-Column-Selects — für Solo-User-Datenmengen unkritisch
+- Alte `/projects`-URL nach Rename — führt zu Next.js-404 (kein Redirect, wie in Spec entschieden) — PASS (verifiziert: Route existiert nicht mehr im Build-Output)
+
+### Security Audit Results
+- [x] Authorization (RLS): Stats-Queries laufen über bestehende Owner-only-Policies auf `contacts`/`project_participants`, kein neuer Policy-Bedarf, anon-Rolle sieht 0 Zeilen
+- [x] Keine neuen Eingabefelder/Formulare in diesem Feature → kein neuer XSS-/Injection-Vektor (Stats sind reine Zahlen, kein dynamisches HTML)
+- [x] Keine neuen Secrets/Env-Variablen eingeführt
+
+### Regression Testing
+- `tests/PROJ-12-projekte-cases.spec.ts` (15 Tests, jetzt auf `/profil`-Routen) — alle PASS
+- Volle Suite seriell (`npx playwright test --project=chromium --workers=1`, 137 Tests über alle PROJ-2–PROJ-15-Specs) — 136 PASS, 1 vereinzelter Flake (PROJ-8, Login-Timeout), isoliert erneut grün — kein durch PROJ-15 verursachter Regressionsfehler
+- `npm test` (Vitest) — 107/107 PASS (keine neuen Unit-Tests nötig, `profile-stats-header.tsx` ist reine Präsentations-/Datenladekomponente ohne extrahierte Pure-Logic)
+
+### Automated Tests
+- E2E (Playwright): `tests/PROJ-15-profil.spec.ts` — 9 Tests, alle grün auf Chromium und Mobile Safari (375px)
+- `npm run build` + `npm run lint` fehlerfrei; `/profil` + `/profil/[id]` korrekt in Build-Routen-Tabelle, `/projects` nicht mehr vorhanden
+
+### Summary
+- **Acceptance Criteria:** 12/12 passed
+- **Bugs Found:** 0
+- **Security:** RLS-Schutz hält, kein neuer Angriffsvektor
+- **Production Ready:** YES
+- **Recommendation:** Deploy.
 
 ## Deployment
 _To be added by /deploy_
