@@ -252,4 +252,10 @@ Keine neuen Packages — das bereits installierte AI-Werkzeug unterstützt struk
 - Vollständige Regression danach: `npm test` 113/113 grün, `npx playwright test tests/PROJ-16-eigenes-profil-cv.spec.ts --project=chromium --workers=1` **12/12 grün** (alle reguläre Tests, kein `test.fail()` mehr), volle Suite (`--project=chromium --workers=1`, 149 Tests über PROJ-2–PROJ-16) — 1 vereinzelter AI-Flake in PROJ-11 (isoliert beim ersten Retry erneut fehlgeschlagen, beim zweiten Retry grün — bestätigt KI-Antwortvarianz, keine Regression durch PROJ-16; PROJ-16-Code rührt `chat-server.ts`/Kontakt-Erstellung nicht an), `npm run build` + `npm run lint` fehlerfrei
 
 ## Deployment
-_To be added by /deploy_
+
+- **Production URL:** https://bambi-w26q.vercel.app
+- **Deployed:** 2026-06-30
+- Pushed `main` (09bf6cc..c7565d2) → Vercel auto-deploy, build `dpl_EEavazGmpDrvgDEoYmdJ6M1myzHx`, Status Ready
+- DB-Migration `0005_create_user_profile.sql` (Tabellen + `cv-uploads`-Storage-Bucket) bereits vor Deploy live via Supabase MCP angewendet, kein separater Migrationsschritt nötig
+- Keine neuen Env-Variablen nötig — `/api/cv-parse` nutzt das bereits in Produktion gesetzte `ANTHROPIC_API_KEY` (gleiche Variable wie `/api/chat`, `/api/draft-message`, `/api/network-insights`)
+- Smoke-Test: `/profil/lebenslauf` → 307 (Middleware-Redirect zu `/login`, erwartet ohne Session), `/api/cv-parse` → 307 (gleiches Middleware-Verhalten, kein Routen-spezifisches Problem, konsistent mit PROJ-15-Präzedenzfall)
