@@ -1,6 +1,6 @@
 # PROJ-16: Eigenes Profil (CV) + CV-Upload mit KI-Parsing
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-06-30
 **Last Updated:** 2026-06-30
 
@@ -143,6 +143,19 @@ Storage: Supabase Postgres (3 neue Tabellen) + Supabase Storage (neuer privater 
 
 ### D) Dependencies
 Keine neuen Packages — das bereits installierte AI-Werkzeug unterstützt strukturierte Datenextraktion direkt, shadcn-Komponenten (Dialog, Checkbox, Input, Card) sind bereits installiert und im Projekt genutzt.
+
+## Frontend Implementation Notes
+<!-- Added by /frontend -->
+- Neue Dateien: `src/lib/user-profile.ts` (Typen `UserProfile`/`EducationEntry`/`EmploymentEntry`, `formatEntryDateRange` als Re-Export von `formatDateRange` aus `lib/projects.ts` statt Duplikat, `sortByStartDateDesc`-Helper)
+- Neue Route `src/app/(app)/profil/lebenslauf/page.tsx` → rendert `CvProfile`
+- `src/components/cv-profile.tsx`: Haupt-Seite, lädt `user_profile`/`user_education`/`user_employment` parallel, Empty-State wenn nichts vorhanden, sonst Headline+Skills+Sprachen-Badges, Bildung-/Werdegang-Sektionen mit Edit (Klick auf Zeile) und Delete (Icon, keine Bestätigung — geringes Risiko, manuell editierbar)
+- `src/components/education-form-dialog.tsx`, `employment-form-dialog.tsx`: strukturell identisch zu `project-form-dialog.tsx` (react-hook-form + zod, Enddatum-≥-Startdatum-Validierung)
+- `src/components/cv-upload-dialog.tsx`: PDF-Validierung (Typ, max 10 MB) client-seitig, Upload zu Storage-Bucket `cv-uploads` unter `{user_id}/{timestamp}-{filename}`, POST an `/api/cv-parse` (kein manueller Auth-Header nötig — Session läuft über Cookies, gleiches Muster wie bestehende `/api/draft-message`-Aufrufe), bei Fehler Hinweis auf manuelle Eingabe als Fallback
+- `src/components/cv-review-dialog.tsx`: adaptiert von `linkedin-import-dialog.tsx` — gruppierte Vorschau (Ausbildung/Werdegang/Skills/Sprachen), Checkbox pro Zeile, Skills/Sprachen als entfernbare Badges, Bestätigen schreibt nur ausgewählte Zeilen + upserted `user_profile` (`onConflict: 'user_id'`), Abbrechen speichert nichts
+- `src/components/project-list.tsx`: neue "Mein Lebenslauf"-Card verlinkt auf `/profil/lebenslauf`, unterhalb des Stats-Headers aus PROJ-15
+- Tabellen (`user_profile`, `user_education`, `user_employment`), Storage-Bucket `cv-uploads` und `/api/cv-parse` existieren noch nicht — Supabase-Calls gehen vom in der Architektur festgelegten Schema aus, folgen in `/backend` (gleiches Vorgehen wie bei PROJ-12)
+- Lint-Fix während Implementierung: `cv-profile.tsx` rief `setIsLoading(true)` redundant synchron im Mount-Effect auf (Initial-State ist bereits `true`) — neue `react-hooks/set-state-in-effect`-Regel hat das korrekt angemeckert, entfernt
+- Build (`npm run build`) und Lint (`npm run lint`) laufen fehlerfrei; `/profil/lebenslauf` erscheint korrekt in der Build-Routen-Tabelle
 
 ## QA Test Results
 _To be added by /qa_

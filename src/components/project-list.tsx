@@ -1,13 +1,16 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Project } from '@/lib/projects'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProjectCard, type ProjectCardParticipant } from '@/components/project-card'
 import { ProjectFormDialog } from '@/components/project-form-dialog'
 import { ProfileStatsHeader } from '@/components/profile-stats-header'
+import { FileText } from 'lucide-react'
 
 interface ProjectRow extends Project {
   project_participants: ProjectCardParticipant[]
@@ -61,6 +64,18 @@ export function ProjectList() {
   return (
     <div className="w-full max-w-6xl space-y-4">
       <ProfileStatsHeader />
+
+      <Link href="/profil/lebenslauf">
+        <Card className="cursor-pointer transition-colors hover:bg-accent">
+          <CardContent className="flex items-center gap-3 p-4">
+            <FileText className="size-5 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Mein Lebenslauf</p>
+              <p className="text-xs text-muted-foreground">Bildung, Werdegang, Skills & Sprachen verwalten</p>
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
 
       <div className="flex items-center justify-between gap-2">
         <Tabs value={tab} onValueChange={(value) => setTab(value as 'active' | 'done')}>
