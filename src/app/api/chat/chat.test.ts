@@ -13,6 +13,7 @@ const {
   pendingLimitMock,
   conversationFetchMock,
   conversationInsertMock,
+  userProfileMaybeSingleMock,
 } = vi.hoisted(() => ({
   getUserMock: vi.fn(),
   historyLimitMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
   pendingLimitMock: vi.fn(),
   conversationFetchMock: vi.fn(),
   conversationInsertMock: vi.fn(),
+  userProfileMaybeSingleMock: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase-server', () => ({
@@ -41,6 +43,11 @@ vi.mock('@/lib/supabase-server', () => ({
           update: () => ({ eq: () => Promise.resolve({ error: null }) }),
         }
       }
+      if (table === 'user_profile') {
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: userProfileMaybeSingleMock }) }),
+        }
+      }
       return {
         select: () => ({ eq: () => ({ eq: () => ({ order: () => ({ limit: pendingLimitMock }) }) }) }),
       }
@@ -59,6 +66,7 @@ describe('POST /api/chat', () => {
     vi.clearAllMocks()
     historyLimitMock.mockResolvedValue({ data: [] })
     pendingLimitMock.mockResolvedValue({ data: [] })
+    userProfileMaybeSingleMock.mockResolvedValue({ data: null })
     conversationInsertMock.mockImplementation((row) =>
       Promise.resolve({ data: { id: 'conv-new', ...row }, error: null })
     )

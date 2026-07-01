@@ -12,9 +12,15 @@ import {
 function makeContact(overrides: Partial<Contact>): Contact {
   return {
     id: 'id',
-    name: 'Test',
+    first_name: 'Test',
+    last_name: null,
     category: null,
     strength: null,
+    employer: null,
+    job_title: null,
+    email: null,
+    linkedin_url: null,
+    photo_url: null,
     context: null,
     notes: null,
     city: null,
@@ -32,6 +38,7 @@ function makeInteraction(overrides: Partial<Interaction>): Interaction {
   return {
     id: 'id',
     contact_id: 'contact-id',
+    project_id: null,
     occurred_at: '2026-06-01',
     channel: 'call',
     note: null,
@@ -48,12 +55,12 @@ describe('computeCategoryDistribution', () => {
 
   it('counts multiple categories separately', () => {
     const result = computeCategoryDistribution([
-      makeContact({ category: 'business' }),
-      makeContact({ category: 'business' }),
-      makeContact({ category: 'friend' }),
+      makeContact({ category: 'colleague' }),
+      makeContact({ category: 'colleague' }),
+      makeContact({ category: 'alumni' }),
     ])
-    expect(result).toContainEqual({ key: 'business', label: 'Business', count: 2 })
-    expect(result).toContainEqual({ key: 'friend', label: 'Freund', count: 1 })
+    expect(result).toContainEqual({ key: 'colleague', label: 'Kollege', count: 2 })
+    expect(result).toContainEqual({ key: 'alumni', label: 'Alumni', count: 1 })
   })
 })
 
@@ -65,7 +72,7 @@ describe('computeStrengthDistribution', () => {
 
   it('labels numeric strength values', () => {
     const result = computeStrengthDistribution([makeContact({ strength: 1 })])
-    expect(result).toEqual([{ key: '1', label: 'Kern', count: 1 }])
+    expect(result).toEqual([{ key: '1', label: 'Stark', count: 1 }])
   })
 })
 

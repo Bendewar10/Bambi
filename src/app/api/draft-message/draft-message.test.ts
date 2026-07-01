@@ -3,13 +3,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const { generateTextMock } = vi.hoisted(() => ({ generateTextMock: vi.fn() }))
 vi.mock('ai', () => ({ generateText: generateTextMock }))
 
-const { getUserMock, contactSingleMock, interactionsBuilderMock, styleNotesBuilderMock } =
-  vi.hoisted(() => ({
-    getUserMock: vi.fn(),
-    contactSingleMock: vi.fn(),
-    interactionsBuilderMock: vi.fn(),
-    styleNotesBuilderMock: vi.fn(),
-  }))
+const {
+  getUserMock,
+  contactSingleMock,
+  interactionsBuilderMock,
+  styleNotesBuilderMock,
+  userProfileMaybeSingleMock,
+} = vi.hoisted(() => ({
+  getUserMock: vi.fn(),
+  contactSingleMock: vi.fn(),
+  interactionsBuilderMock: vi.fn(),
+  styleNotesBuilderMock: vi.fn(),
+  userProfileMaybeSingleMock: vi.fn(),
+}))
 
 vi.mock('@/lib/supabase-server', () => ({
   createSupabaseServerClient: async () => ({
@@ -20,6 +26,15 @@ vi.mock('@/lib/supabase-server', () => ({
           select: () => ({
             eq: () => ({
               single: contactSingleMock,
+            }),
+          }),
+        }
+      }
+      if (table === 'user_profile') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: userProfileMaybeSingleMock,
             }),
           }),
         }
@@ -56,6 +71,7 @@ describe('POST /api/draft-message', () => {
     vi.clearAllMocks()
     interactionsBuilderMock.mockResolvedValue({ data: [] })
     styleNotesBuilderMock.mockResolvedValue({ data: [] })
+    userProfileMaybeSingleMock.mockResolvedValue({ data: null })
   })
 
   it('returns 401 when not authenticated', async () => {

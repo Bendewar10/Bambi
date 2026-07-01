@@ -6,9 +6,15 @@ import { buildReportMetrics, isLastSundayOfMonth, previousMonthStartDate } from 
 function contact(overrides: Partial<Contact>): Contact {
   return {
     id: 'c',
-    name: 'Test',
+    first_name: 'Test',
+    last_name: null,
     category: null,
     strength: null,
+    employer: null,
+    job_title: null,
+    email: null,
+    linkedin_url: null,
+    photo_url: null,
     context: null,
     notes: null,
     city: null,
@@ -26,6 +32,7 @@ function interaction(overrides: Partial<Interaction>): Interaction {
   return {
     id: 'i',
     contact_id: 'c',
+    project_id: null,
     occurred_at: '2026-06-05',
     channel: 'call',
     note: null,
@@ -63,7 +70,7 @@ describe('buildReportMetrics', () => {
 
   it('computes monthly counts, delta and overdue core', () => {
     const contacts = [
-      contact({ id: 'c1', created_at: '2026-06-10T00:00:00+00:00', strength: 1, category: 'business', next_followup_at: '2026-06-20T00:00:00+00:00' }),
+      contact({ id: 'c1', created_at: '2026-06-10T00:00:00+00:00', strength: 1, category: 'colleague', next_followup_at: '2026-06-20T00:00:00+00:00' }),
       contact({ id: 'c2', created_at: '2026-04-01T00:00:00+00:00', strength: 2, next_followup_at: null }),
     ]
     const interactions = [
