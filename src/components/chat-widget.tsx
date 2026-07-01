@@ -66,6 +66,7 @@ export function ChatWidget() {
   const [lastFailedContent, setLastFailedContent] = useState<string | null>(null)
   const [isDeletingConversation, setIsDeletingConversation] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null)
   const scrollAnchorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -205,6 +206,19 @@ export function ChatWidget() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     void sendMessage(input)
+  }
+
+  async function deleteMessage(messageId: string) {
+    setDeletingMessageId(messageId)
+    try {
+      const res = await fetch(`/api/chat/messages/${messageId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('request failed')
+      setMessages((prev) => prev.filter((m) => m.id !== messageId))
+    } catch {
+      setSendError('Nachricht konnte nicht gelöscht werden.')
+    } finally {
+      setDeletingMessageId(null)
+    }
   }
 
   async function deleteActiveConversation() {
@@ -368,7 +382,7 @@ export function ChatWidget() {
                         initial="hidden"
                         animate="visible"
                         className={cn(
-                          'flex gap-3',
+                          'group flex gap-3',
                           message.role === 'user' ? 'flex-row-reverse self-end' : ''
                         )}
                       >
@@ -389,9 +403,26 @@ export function ChatWidget() {
                           >
                             <p className="whitespace-pre-wrap">{message.content}</p>
                           </div>
-                          <span className="px-1 text-[10px] text-muted-foreground">
-                            {formatTime(message.created_at)}
-                          </span>
+                          <div
+                            className={cn(
+                              'flex items-center gap-1 px-1',
+                              message.role === 'user' ? 'flex-row-reverse' : ''
+                            )}
+                          >
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatTime(message.created_at)}
+                            </span>
+                            {!message.id.startsWith('temp-') && (
+                              <button
+                                aria-label="Nachricht löschen"
+                                disabled={deletingMessageId === message.id}
+                                onClick={() => deleteMessage(message.id)}
+                                className="opacity-0 transition-opacity group-hover:opacity-100 disabled:cursor-not-allowed"
+                              >
+                                <Trash2 className="size-3 text-muted-foreground hover:text-destructive" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </motion.div>
                     ))}
