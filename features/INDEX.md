@@ -33,7 +33,7 @@
 | PROJ-16 | Eigenes Profil (CV) + CV-Upload mit KI-Parsing | Deployed | [Spec](PROJ-16-eigenes-profil-cv.md) | 2026-06-30 | PROJ-3, PROJ-15 |
 | PROJ-17 | Gemeinsamkeiten-Feld bei Kontakten (KI-Matching Profil ↔ Kontakt) | Approved | [Spec](PROJ-17-gemeinsamkeiten-feld.md) | 2026-06-30 | PROJ-16, PROJ-3, PROJ-11 |
 | PROJ-18 | Passives KI-Lernen aus Cases/Interaktionen (automatische Profil-Vorschläge) | Roadmap | - | 2026-06-30 | PROJ-16, PROJ-12, PROJ-5 |
-| PROJ-19 | Konnektoren-Hub (OAuth Integration Settings) | Planned | [Spec](PROJ-19-konnektoren-hub.md) | 2026-07-01 | PROJ-1, PROJ-2 |
+| PROJ-19 | Konnektoren-Hub (OAuth Integration Settings) | Architected | [Spec](PROJ-19-konnektoren-hub.md) | 2026-07-01 | PROJ-1, PROJ-2 |
 
 <!-- Add features above this line -->
 

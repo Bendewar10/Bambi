@@ -94,7 +94,131 @@
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Komponenten-Struktur
+
+```
+src/app/(app)/einstellungen/konnektoren/page.tsx  ← neue Seite
+  └── KonnektorenPage
+      ├── PageHeader (bestehend) — "Konnektoren"
+      └── ConnectorGrid (2-Spalten, responsive 1-Spalte mobile)
+          ├── ConnectorCard [Google — verbunden]
+          │   ├── Google-Logo + Name + "calendar.readonly, gmail.readonly"
+          │   ├── StatusBadge "Verbunden" (grün)
+          │   ├── Verbundene Email + "Seit [Datum]"
+          │   └── TrennenButton → AlertDialog (bestehend) zur Bestätigung
+          ├── ConnectorCard [Google — nicht verbunden]
+          │   ├── Google-Logo + Name + Scope-Beschreibung
+          │   └── VerbindenButton → GET /api/connectors/google
+          └── ConnectorCard [Outlook — coming soon]
+              ├── Outlook-Logo + Name (ausgegraut)
+              ├── Badge "Coming Soon"
+              └── Button disabled
+
+src/components/connector-card.tsx  ← neue Komponente
+  Props: connector (aus Registry), tokenStatus (verbunden/nicht/abgelaufen)
+
+src/lib/connectors/registry.ts  ← Connector-Registry (statisches Config-Objekt)
+  Eintrag pro Konnektor: id, name, logo, scopes, status ('available'|'coming_soon')
+  Neuer Konnektor = 1 Zeile im Registry-Objekt, fertig.
+```
+
+### API Routes (neu)
+
+```
+src/app/api/connectors/
+  google/
+    route.ts           ← GET: Baut Google OAuth URL, setzt State-Cookie, redirect
+    callback/
+      route.ts         ← GET: Validiert State, tauscht Code → Tokens, UPSERT in DB, redirect
+  disconnect/
+    route.ts           ← POST: Löscht Token aus DB + ruft Google Revoke auf
+  status/
+    route.ts           ← GET: Gibt verbundene Konnektoren des Users zurück (ohne Tokens)
+```
+
+### OAuth-Flow (Schritt für Schritt)
+
+```
+1. User klickt "Verbinden"
+   → Browser: GET /api/connectors/google
+
+2. Server generiert zufälligen State-String
+   → Speichert State in httpOnly Cookie (15 min TTL, SameSite=Lax)
+   → Baut Google OAuth URL: accounts.google.com/o/oauth2/v2/auth
+     ?client_id=...&redirect_uri=.../callback&scope=calendar.readonly+gmail.readonly
+     &access_type=offline&prompt=consent&state=[random]
+   → HTTP 302 Redirect zu Google
+
+3. User bestätigt Consent bei Google
+   → Google: GET /api/connectors/google/callback?code=...&state=...
+
+4. Server validiert: state im Cookie == state in URL-Param (CSRF-Schutz)
+   → Bei Mismatch: 400, redirect zu /einstellungen/konnektoren?error=csrf
+
+5. Server POST zu Google Token Endpoint (fetch, kein SDK)
+   → Erhält: access_token, refresh_token, expires_in, email (aus id_token)
+
+6. Server UPSERT in connector_tokens (verschlüsselt)
+   → HTTP 302 Redirect zu /einstellungen/konnektoren?connected=google
+
+7. Page liest ?connected=google → Toast "Google erfolgreich verbunden"
+   → Card zeigt neue Email + Datum
+```
+
+### Datenmodell
+
+**Tabelle: `connector_tokens`**
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| id | uuid PK | Auto-generated |
+| user_id | uuid FK → auth.users | ON DELETE CASCADE |
+| provider | text | 'google', 'outlook', etc. |
+| account_email | text | Verbundene Email-Adresse (Klartext — kein Geheimnis) |
+| access_token | text | pgcrypto-verschlüsselt |
+| refresh_token | text | pgcrypto-verschlüsselt |
+| expires_at | timestamptz | Ablaufzeit des Access Tokens |
+| scopes | text[] | Gewährte Scopes |
+| status | text | 'active' \| 'expired' |
+| connected_at | timestamptz | Verbindungsdatum (default now()) |
+| UNIQUE | (user_id, provider) | Ein Eintrag pro Provider pro User |
+
+**RLS Policies:**
+- SELECT: `user_id = auth.uid()`
+- INSERT: `user_id = auth.uid()`
+- UPDATE: `user_id = auth.uid()`
+- DELETE: `user_id = auth.uid()`
+
+**Verschlüsselung:** pgcrypto Extension (`pgp_sym_encrypt / pgp_sym_decrypt`)
+- Encryption Key in Supabase Vault als Secret gespeichert, nicht im Code
+- Nur Server-Side API Routes ent-/verschlüsseln — Tokens verlassen nie den Server
+
+### Sidebar-Anpassung
+
+`src/components/app-sidebar.tsx` (bestehend) — neuer Nav-Eintrag:
+- "Einstellungen" mit Settings-Icon → `/einstellungen/konnektoren`
+- Zeigt grünen Dot wenn mindestens ein Konnektor `status='active'` hat
+- Dot-Status: einmalig beim Mount von `/api/connectors/status` laden
+
+### Neue Pakete
+
+Keine neuen npm-Pakete nötig. Google OAuth läuft über Standard-HTTP (`fetch`). pgcrypto ist in Supabase standardmäßig verfügbar (Extension aktivieren via Migration).
+
+### Extensibilität — neuer Konnektor hinzufügen
+
+1. Eintrag in `src/lib/connectors/registry.ts` (Name, Logo, Scopes, Status)
+2. API Route `src/app/api/connectors/[provider]/route.ts` + `callback/route.ts`
+3. Fertig — DB-Schema braucht keine Änderung (provider-Spalte ist flexibel)
+
+### Technical Decisions (Architecture)
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| httpOnly Cookie für OAuth State (CSRF-Token) | Stateless API Routes — kein Server-Memory. Cookie ist einfacher als kurzlebige DB-Zeile, httpOnly verhindert JS-Zugriff. | 2026-07-01 |
+| pgcrypto statt Supabase Vault | Vault ist Beta, pgcrypto ist stabil und in Supabase standardmäßig verfügbar. Für MVP ausreichend. | 2026-07-01 |
+| Kein googleapis npm-Paket | Nur Standard-HTTP-Endpoints von Google — fetch reicht. Weniger Dependency-Overhead. | 2026-07-01 |
+| Status-API Route für Sidebar-Dot | Sidebar ist Client Component, braucht leichtgewichtigen Endpoint ohne Tokens im Response (nur provider + status). | 2026-07-01 |
+| UPSERT statt INSERT für Token-Speicherung | UNIQUE (user_id, provider) verhindert Duplikate. Zweites Verbinden überschreibt sauber. | 2026-07-01 |
 
 ## QA Test Results
 _To be added by /qa_
