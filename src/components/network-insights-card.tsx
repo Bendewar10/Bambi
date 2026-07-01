@@ -39,7 +39,7 @@ export function NetworkInsightsCard({ payload }: NetworkInsightsCardProps) {
   }
 
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="text-base">Insights</CardTitle>
       </CardHeader>

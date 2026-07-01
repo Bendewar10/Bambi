@@ -37,6 +37,10 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --violet: 263 70% 58%;
+    --violet-foreground: 263 100% 98%;
+    --violet-muted: 263 50% 96%;
+    --violet-border: 263 40% 82%;
   }
 
   .dark {
@@ -72,6 +76,9 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --violet: 263 70% 25%;
+    --violet-muted: 263 50% 18%;
+    --violet-border: 263 40% 30%;
   }
 }
 

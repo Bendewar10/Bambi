@@ -21,6 +21,7 @@ import { OverdueCounterCard } from '@/components/overdue-counter-card'
 import { InteractionsTrendChart } from '@/components/interactions-trend-chart'
 import { ChannelDistributionChart } from '@/components/channel-distribution-chart'
 import { NetworkInsightsCard } from '@/components/network-insights-card'
+import { PageHeader } from '@/components/page-header'
 
 export default function AnalyticsPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -65,9 +66,22 @@ export default function AnalyticsPage() {
     channelDistribution,
   }
 
+  const periodTabs = (
+    <Tabs value={String(period)} onValueChange={(value) => setPeriod(Number(value) as AnalyticsPeriod)}>
+      <TabsList>
+        {ANALYTICS_PERIODS.map((option) => (
+          <TabsTrigger key={option.value} value={String(option.value)}>
+            {option.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  )
+
   if (contacts.length === 0 && !isLoading) {
     return (
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-5xl space-y-6">
+        <PageHeader title="Analytics" action={periodTabs} />
         <p className="text-sm text-muted-foreground">
           Noch keine Kontakte vorhanden — sobald du Kontakte und Kontaktmomente erfasst hast, siehst du hier
           Auswertungen zu deinem Netzwerk.
@@ -77,19 +91,8 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="w-full max-w-4xl space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-lg font-semibold">Netzwerk-Analytics</h1>
-        <Tabs value={String(period)} onValueChange={(value) => setPeriod(Number(value) as AnalyticsPeriod)}>
-          <TabsList>
-            {ANALYTICS_PERIODS.map((option) => (
-              <TabsTrigger key={option.value} value={String(option.value)}>
-                {option.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
+    <div className="w-full max-w-5xl space-y-6">
+      <PageHeader title="Analytics" action={periodTabs} />
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <DistributionChartCard title="Kategorien" data={categoryDistribution} />

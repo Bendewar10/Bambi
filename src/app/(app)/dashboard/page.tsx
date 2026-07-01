@@ -9,6 +9,7 @@ import { OccasionCard } from '@/components/occasion-card'
 import { ImportEventCard } from '@/components/import-event-card'
 import { InteractionFormDialog } from '@/components/interaction-form-dialog'
 import { ContactFormDialog } from '@/components/contact-form-dialog'
+import { PageHeader } from '@/components/page-header'
 
 export default function DashboardPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -71,7 +72,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="w-full max-w-4xl space-y-8">
+    <div className="w-full max-w-5xl space-y-8">
+      <PageHeader title="Dashboard" description="Fällige Follow-ups und aktuelle Anlässe" />
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Lädt...</p>
       ) : !hasAnyOccasion ? (

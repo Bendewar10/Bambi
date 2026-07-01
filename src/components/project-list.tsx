@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProjectCard, type ProjectCardParticipant } from '@/components/project-card'
 import { ProjectFormDialog } from '@/components/project-form-dialog'
 import { ProfileStatsHeader } from '@/components/profile-stats-header'
+import { PageHeader } from '@/components/page-header'
 import { FileText } from 'lucide-react'
 
 interface ProjectRow extends Project {
@@ -63,6 +64,10 @@ export function ProjectList() {
 
   return (
     <div className="w-full max-w-6xl space-y-4">
+      <PageHeader
+        title="Profil"
+        action={<Button onClick={() => setFormOpen(true)}>Projekt anlegen</Button>}
+      />
       <ProfileStatsHeader />
 
       <Link href="/profil/lebenslauf">
@@ -77,15 +82,12 @@ export function ProjectList() {
         </Card>
       </Link>
 
-      <div className="flex items-center justify-between gap-2">
-        <Tabs value={tab} onValueChange={(value) => setTab(value as 'active' | 'done')}>
-          <TabsList>
-            <TabsTrigger value="active">Aktiv</TabsTrigger>
-            <TabsTrigger value="done">Beendet</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <Button onClick={() => setFormOpen(true)}>Projekt anlegen</Button>
-      </div>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as 'active' | 'done')}>
+        <TabsList>
+          <TabsTrigger value="active">Aktiv</TabsTrigger>
+          <TabsTrigger value="done">Beendet</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {tab === 'active' ? renderList(activeProjects) : renderList(doneProjects)}
 

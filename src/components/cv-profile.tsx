@@ -15,6 +15,7 @@ import { Trash2 } from 'lucide-react'
 import { EducationFormDialog } from '@/components/education-form-dialog'
 import { EmploymentFormDialog } from '@/components/employment-form-dialog'
 import { CvUploadDialog } from '@/components/cv-upload-dialog'
+import { PageHeader } from '@/components/page-header'
 
 export function CvProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -76,14 +77,16 @@ export function CvProfile() {
 
   if (!hasAnyData) {
     return (
-      <div className="w-full max-w-4xl space-y-4">
-        <h1 className="text-xl font-semibold">Mein Lebenslauf</h1>
+      <div className="w-full max-w-5xl space-y-4">
+        <PageHeader
+          title="Lebenslauf"
+          action={<Button onClick={() => setUploadDialogOpen(true)}>CV hochladen</Button>}
+        />
         <div className="space-y-3 py-8 text-center">
           <p className="text-sm text-muted-foreground">
             Noch kein Profil angelegt. Lade deinen Lebenslauf hoch oder trage Stationen manuell ein.
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            <Button onClick={() => setUploadDialogOpen(true)}>CV hochladen</Button>
             <Button variant="outline" onClick={() => setEducationDialogOpen(true)}>
               + Ausbildung hinzufügen
             </Button>
@@ -111,14 +114,12 @@ export function CvProfile() {
   }
 
   return (
-    <div className="w-full max-w-4xl space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold">Mein Lebenslauf</h1>
-          {profile?.headline && <p className="text-sm text-muted-foreground">{profile.headline}</p>}
-        </div>
-        <Button onClick={() => setUploadDialogOpen(true)}>CV hochladen</Button>
-      </div>
+    <div className="w-full max-w-5xl space-y-6">
+      <PageHeader
+        title="Lebenslauf"
+        description={profile?.headline ?? undefined}
+        action={<Button onClick={() => setUploadDialogOpen(true)}>CV hochladen</Button>}
+      />
 
       {(profile?.skills.length || profile?.languages.length) ? (
         <div className="space-y-2">

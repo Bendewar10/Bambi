@@ -19,7 +19,7 @@ interface DistributionChartCardProps {
 
 export function DistributionChartCard({ title, data }: DistributionChartCardProps) {
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="text-base">{title}</CardTitle>
       </CardHeader>

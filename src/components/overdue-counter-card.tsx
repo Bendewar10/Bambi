@@ -6,7 +6,7 @@ interface OverdueCounterCardProps {
 
 export function OverdueCounterCard({ count }: OverdueCounterCardProps) {
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="text-base">Aktuell überfällig</CardTitle>
       </CardHeader>

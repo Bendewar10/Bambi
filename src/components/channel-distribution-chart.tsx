@@ -18,7 +18,7 @@ interface ChannelDistributionChartProps {
 
 export function ChannelDistributionChart({ data }: ChannelDistributionChartProps) {
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="text-base">Kontaktmomente nach Kanal</CardTitle>
       </CardHeader>

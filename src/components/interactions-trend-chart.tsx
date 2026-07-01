@@ -18,7 +18,7 @@ interface InteractionsTrendChartProps {
 
 export function InteractionsTrendChart({ data }: InteractionsTrendChartProps) {
   return (
-    <Card>
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="text-base">Kontaktmomente über Zeit</CardTitle>
       </CardHeader>

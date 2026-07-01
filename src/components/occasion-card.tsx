@@ -69,7 +69,7 @@ export function OccasionCard({ occasion, onLogInteraction, onOpenCard }: Occasio
   }
 
   return (
-    <Card>
+    <Card className="rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md">
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
         <CardTitle className="truncate text-base">{getFullName(contact)}</CardTitle>
         <div className="flex shrink-0 gap-1">

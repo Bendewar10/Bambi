@@ -26,6 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { PageHeader } from '@/components/page-header'
 
 const ALL = 'all'
 
@@ -98,6 +99,17 @@ export function ContactList() {
 
   return (
     <div className="w-full max-w-6xl space-y-4">
+      <PageHeader
+        title="Kontakte"
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              LinkedIn importieren
+            </Button>
+            <Button onClick={openCreate}>Kontakt hinzufügen</Button>
+          </div>
+        }
+      />
       <div className="flex flex-wrap items-end gap-2">
         <Input
           placeholder="Name suchen..."
@@ -137,12 +149,6 @@ export function ContactList() {
             ))}
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={() => setImportOpen(true)} className="ml-auto">
-          LinkedIn importieren
-        </Button>
-        <Button onClick={openCreate}>
-          Kontakt hinzufügen
-        </Button>
       </div>
 
       {isLoading ? (
