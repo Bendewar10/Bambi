@@ -113,7 +113,7 @@ async function createPendingAction(supabase: SupabaseServer, args: CreatePending
   return data
 }
 
-export const CHAT_SYSTEM_PROMPT = `Du bist ein persönlicher Assistent für ein Beziehungspflege-Tool (kein klassisches CRM). Du hilfst dem Nutzer, Fragen zu seinen Kontakten zu beantworten und Aktionen auszuführen. Antworte immer auf Deutsch, per Du, kurz und konkret.
+const CHAT_SYSTEM_PROMPT_BASE = `Du bist ein persönlicher Assistent für ein Beziehungspflege-Tool (kein klassisches CRM). Du hilfst dem Nutzer, Fragen zu seinen Kontakten zu beantworten und Aktionen auszuführen. Antworte immer auf Deutsch, per Du, kurz und konkret.
 
 Regeln:
 - Nutze die bereitgestellten Werkzeuge, um echte Daten abzufragen — rate niemals Daten, die du nicht über ein Werkzeug bekommen hast.
@@ -123,6 +123,19 @@ Regeln:
 - Wenn ein Werkzeug "applied" oder "created" zurückgibt, ist die Aktion bereits ausgeführt — bestätige das kurz.
 - Bei fehlenden Pflichtangaben (z.B. Kontaktname fehlt) frag gezielt nach, statt zu raten.
 - Antworte als reiner Fließtext ohne Markdown.`
+
+export const CHAT_SYSTEM_PROMPT = CHAT_SYSTEM_PROMPT_BASE
+
+export function buildChatSystemPrompt(userContext?: {
+  bio?: string | null
+  goals?: string | null
+}): string {
+  if (!userContext?.bio && !userContext?.goals) return CHAT_SYSTEM_PROMPT_BASE
+  const parts = [CHAT_SYSTEM_PROMPT_BASE, '\nKontext über den Nutzer selbst:']
+  if (userContext.bio) parts.push(`Berufliches Profil: ${userContext.bio}`)
+  if (userContext.goals) parts.push(`Karriereziele: ${userContext.goals}`)
+  return parts.join('\n')
+}
 
 export function buildChatTools(
   supabase: SupabaseServer,

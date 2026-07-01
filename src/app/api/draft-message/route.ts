@@ -25,11 +25,18 @@ export async function POST(request: Request) {
   }
   const { contactId, occasionType } = parsed.data
 
-  const { data: contact } = await supabase
-    .from('contacts')
-    .select('first_name, last_name, notes, context, employer, job_title, city, category, strength')
-    .eq('id', contactId)
-    .single()
+  const [{ data: contact }, { data: userProfile }] = await Promise.all([
+    supabase
+      .from('contacts')
+      .select('first_name, last_name, notes, context, employer, job_title, city, category, strength')
+      .eq('id', contactId)
+      .single(),
+    supabase
+      .from('user_profile')
+      .select('bio, goals_text')
+      .eq('user_id', userData.user.id)
+      .maybeSingle(),
+  ])
 
   if (!contact) {
     return NextResponse.json({ error: 'Kontakt nicht gefunden.' }, { status: 404 })
@@ -60,6 +67,14 @@ export async function POST(request: Request) {
     .map((i) => i.note)
     .filter((note): note is string => Boolean(note))
 
+  const userContextParts: string[] = []
+  if (userProfile?.bio) userContextParts.push(`Profil des Absenders: ${userProfile.bio}`)
+  if (userProfile?.goals_text) userContextParts.push(`Karriereziele des Absenders: ${userProfile.goals_text}`)
+  const userContextInstruction =
+    userContextParts.length > 0
+      ? ` Nutze bei Bedarf diesen Kontext über den Absender: ${userContextParts.join('. ')}.`
+      : ''
+
   const MIN_STYLE_NOTE_LENGTH = 20
   const { data: styleRows } = await supabase
     .from('interactions')
@@ -82,18 +97,18 @@ export async function POST(request: Request) {
     occasionType === 'birthday'
       ? `Schreib eine sehr kurze, herzliche Geburtstagsnachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.first_name}. ${
           profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''
-        }${styleInstruction}`
+        }${styleInstruction}${userContextInstruction}`
       : occasionType === 'Jobwechsel' || occasionType === 'Beförderung'
         ? `Schreib eine sehr kurze, herzliche Glückwunsch-Nachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.first_name} zu ${
             occasionType === 'Jobwechsel' ? 'seinem/ihrem neuen Job' : 'seiner/ihrer Beförderung'
-          }. ${profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''}${styleInstruction}`
+          }. ${profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''}${styleInstruction}${userContextInstruction}`
         : `Schreib eine sehr kurze, lockere Nachricht (1-2 Sätze, auf Deutsch, per Du), um sich bei ${contact.first_name} zu melden. ${
             profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''
           }${
             recentNotes.length > 0
               ? ` Letzte Notizen über frühere Kontakte: ${recentNotes.join(' / ')}.`
               : ''
-          } Knüpf wenn möglich an Kontext und Notizen an.${styleInstruction}`
+          } Knüpf wenn möglich an Kontext und Notizen an.${styleInstruction}${userContextInstruction}`
 
   try {
     const { text } = await generateText({

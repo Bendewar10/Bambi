@@ -3,7 +3,7 @@ import { generateText, stepCountIs } from 'ai'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { buildChatTools, CHAT_SYSTEM_PROMPT } from '@/lib/chat-server'
+import { buildChatTools, buildChatSystemPrompt } from '@/lib/chat-server'
 import { CONVERSATION_TITLE_MAX_LENGTH } from '@/lib/chat'
 
 const requestSchema = z.object({
@@ -67,12 +67,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Nachricht konnte nicht gespeichert werden.' }, { status: 500 })
   }
 
+  const { data: userProfile } = await supabase
+    .from('user_profile')
+    .select('bio, goals_text')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  const systemPrompt = buildChatSystemPrompt({
+    bio: userProfile?.bio,
+    goals: userProfile?.goals_text,
+  })
+
   const tools = buildChatTools(supabase, userId, conversationId, userMessage.id)
 
   try {
     const { text } = await generateText({
       model: anthropic('claude-sonnet-4-6'),
-      system: CHAT_SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: [...(history ?? []).reverse(), { role: 'user' as const, content }],
       tools,
       stopWhen: stepCountIs(5),

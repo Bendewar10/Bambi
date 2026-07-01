@@ -11,20 +11,27 @@ import {
 } from '@/lib/user-profile'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Trash2 } from 'lucide-react'
 import { EducationFormDialog } from '@/components/education-form-dialog'
 import { EmploymentFormDialog } from '@/components/employment-form-dialog'
 import { CvUploadDialog } from '@/components/cv-upload-dialog'
+import { GoalsChatDialog } from '@/components/goals-chat-dialog'
 import { PageHeader } from '@/components/page-header'
+
+const GOALS_STALE_MS = 90 * 24 * 60 * 60 * 1000
 
 export function CvProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [education, setEducation] = useState<EducationEntry[]>([])
   const [employment, setEmployment] = useState<EmploymentEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isBioLoading, setIsBioLoading] = useState(false)
+  const [bioError, setBioError] = useState<string | null>(null)
   const [educationDialogOpen, setEducationDialogOpen] = useState(false)
   const [employmentDialogOpen, setEmploymentDialogOpen] = useState(false)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [goalsChatOpen, setGoalsChatOpen] = useState(false)
   const [editingEducation, setEditingEducation] = useState<EducationEntry | null>(null)
   const [editingEmployment, setEditingEmployment] = useState<EmploymentEntry | null>(null)
 
@@ -59,6 +66,30 @@ export function CvProfile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  async function generateBio() {
+    setIsBioLoading(true)
+    setBioError(null)
+    try {
+      const res = await fetch('/api/generate-bio', { method: 'POST' })
+      if (!res.ok) {
+        setBioError('Bio konnte nicht generiert werden.')
+        return
+      }
+      const { bio } = (await res.json()) as { bio: string | null }
+      if (bio) {
+        setProfile((prev) =>
+          prev
+            ? { ...prev, bio, bio_updated_at: new Date().toISOString() }
+            : null
+        )
+      }
+    } catch {
+      setBioError('Verbindung fehlgeschlagen.')
+    } finally {
+      setIsBioLoading(false)
+    }
+  }
+
   async function deleteEducation(id: string) {
     await supabase.from('user_education').delete().eq('id', id)
     loadEducation()
@@ -74,6 +105,11 @@ export function CvProfile() {
   const hasAnyData = !!profile || education.length > 0 || employment.length > 0
   const sortedEducation = sortByStartDateDesc(education)
   const sortedEmployment = sortByStartDateDesc(employment)
+
+  const goalsAreStale =
+    profile?.goals_updated_at
+      ? Date.now() - new Date(profile.goals_updated_at).getTime() > GOALS_STALE_MS
+      : false
 
   if (!hasAnyData) {
     return (
@@ -96,7 +132,7 @@ export function CvProfile() {
           </div>
         </div>
 
-        <CvUploadDialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen} onSaved={loadAll} />
+        <CvUploadDialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen} onSaved={() => loadAll().then(() => generateBio())} />
         <EducationFormDialog
           open={educationDialogOpen}
           onOpenChange={setEducationDialogOpen}
@@ -120,6 +156,78 @@ export function CvProfile() {
         description={profile?.headline ?? undefined}
         action={<Button onClick={() => setUploadDialogOpen(true)}>CV hochladen</Button>}
       />
+
+      {/* Bio section */}
+      <div className="space-y-2">
+        {profile?.bio ? (
+          <div className="rounded-md border p-3 space-y-2">
+            <p className="text-sm text-muted-foreground">{profile.bio}</p>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+              onClick={generateBio}
+              disabled={isBioLoading}
+            >
+              {isBioLoading ? 'Generiere…' : 'Bio neu generieren'}
+            </Button>
+          </div>
+        ) : (
+          <Button variant="outline" size="sm" onClick={generateBio} disabled={isBioLoading}>
+            {isBioLoading ? 'Generiere…' : 'Kurz-Bio generieren'}
+          </Button>
+        )}
+        {bioError && (
+          <Alert variant="destructive" className="py-2">
+            <AlertDescription className="text-xs">{bioError}</AlertDescription>
+          </Alert>
+        )}
+      </div>
+
+      {/* Goals section */}
+      <div className="space-y-2">
+        {goalsAreStale && (
+          <Alert className="py-2">
+            <AlertDescription className="text-xs">
+              Deine Ziele sind älter als 90 Tage — noch aktuell?{' '}
+              <button
+                className="underline"
+                onClick={() => setGoalsChatOpen(true)}
+              >
+                Jetzt aktualisieren
+              </button>
+            </AlertDescription>
+          </Alert>
+        )}
+        {profile?.goals_text ? (
+          <div className="rounded-md border p-3 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Karriereziele</p>
+            <p className="text-sm">{profile.goals_text}</p>
+            {profile.goals_updated_at && (
+              <p className="text-xs text-muted-foreground">
+                Zuletzt aktualisiert:{' '}
+                {new Date(profile.goals_updated_at).toLocaleDateString('de-DE', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                })}
+              </p>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setGoalsChatOpen(true)}
+            >
+              Ziele aktualisieren
+            </Button>
+          </div>
+        ) : (
+          <Button variant="outline" size="sm" onClick={() => setGoalsChatOpen(true)}>
+            Karriereziele festlegen
+          </Button>
+        )}
+      </div>
 
       {(profile?.skills.length || profile?.languages.length) ? (
         <div className="space-y-2">
@@ -248,7 +356,11 @@ export function CvProfile() {
         )}
       </div>
 
-      <CvUploadDialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen} onSaved={loadAll} />
+      <CvUploadDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        onSaved={() => loadAll().then(() => generateBio())}
+      />
       <EducationFormDialog
         open={educationDialogOpen}
         onOpenChange={setEducationDialogOpen}
@@ -260,6 +372,17 @@ export function CvProfile() {
         onOpenChange={setEmploymentDialogOpen}
         entry={editingEmployment}
         onSaved={loadEmployment}
+      />
+      <GoalsChatDialog
+        open={goalsChatOpen}
+        onOpenChange={setGoalsChatOpen}
+        onSaved={(goalsText) => {
+          setProfile((prev) =>
+            prev
+              ? { ...prev, goals_text: goalsText, goals_updated_at: new Date().toISOString() }
+              : null
+          )
+        }}
       />
     </div>
   )

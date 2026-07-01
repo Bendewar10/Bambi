@@ -5,6 +5,10 @@ export interface UserProfile {
   languages: string[]
   cv_file_path: string | null
   cv_uploaded_at: string | null
+  bio: string | null
+  bio_updated_at: string | null
+  goals_text: string | null
+  goals_updated_at: string | null
   created_at: string
   updated_at: string
 }
