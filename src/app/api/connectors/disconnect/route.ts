@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { decrypt } from '@/lib/connectors/encryption'
 
 const schema = z.object({
-  provider: z.enum(['google', 'outlook']),
+  provider: z.enum(['google', 'microsoft-365', 'linkedin', 'whatsapp', 'apple-calendar']),
 })
 
 export async function POST(request: NextRequest) {

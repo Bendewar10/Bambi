@@ -7,8 +7,6 @@ export interface ConnectorDefinition {
   description: string
   scopes: string[]
   availability: ConnectorAvailability
-  color: string
-  initial: string
 }
 
 export interface ConnectorTokenStatus {
@@ -25,16 +23,33 @@ export const CONNECTOR_REGISTRY: ConnectorDefinition[] = [
     description: 'Google Calendar & Gmail — Kalender-Events und E-Mails lesen',
     scopes: ['calendar.readonly', 'gmail.readonly'],
     availability: 'available',
-    color: '#4285F4',
-    initial: 'G',
   },
   {
-    id: 'outlook',
-    name: 'Microsoft Outlook',
-    description: 'Kalender & E-Mails (Office 365)',
-    scopes: ['Calendars.Read', 'Mail.Read'],
+    id: 'microsoft-365',
+    name: 'Microsoft 365',
+    description: 'Outlook-Kalender, E-Mails und Teams-Nachrichten (Office 365)',
+    scopes: ['Calendars.Read', 'Mail.Read', 'Chat.Read'],
     availability: 'coming_soon',
-    color: '#0078D4',
-    initial: 'O',
+  },
+  {
+    id: 'linkedin',
+    name: 'LinkedIn',
+    description: 'Berufsprofil anreichern und gemeinsame Verbindungen erkennen',
+    scopes: ['r_liteprofile', 'r_network'],
+    availability: 'coming_soon',
+  },
+  {
+    id: 'whatsapp',
+    name: 'WhatsApp',
+    description: 'Kontakte schnell per Deep-Link anschreiben',
+    scopes: ['deep_link'],
+    availability: 'coming_soon',
+  },
+  {
+    id: 'apple-calendar',
+    name: 'Apple Kalender',
+    description: 'iCloud-Kalender für iPhone-Nutzer synchronisieren (CalDAV)',
+    scopes: ['caldav.readonly'],
+    availability: 'coming_soon',
   },
 ]

@@ -55,7 +55,7 @@ export default function KonnektorenPage() {
   }
 
   return (
-    <div className="w-full max-w-3xl space-y-6">
+    <div className="w-full max-w-5xl space-y-6">
       <Suspense>
         <SearchParamsHandler />
       </Suspense>
@@ -66,12 +66,16 @@ export default function KonnektorenPage() {
       />
 
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-44 rounded-xl" />
+          <Skeleton className="h-44 rounded-xl" />
+          <Skeleton className="h-44 rounded-xl" />
+          <Skeleton className="h-44 rounded-xl" />
           <Skeleton className="h-44 rounded-xl" />
           <Skeleton className="h-44 rounded-xl" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CONNECTOR_REGISTRY.map((connector) => {
             const status = tokenStatuses.find((s) => s.provider === connector.id) ?? null
             return (

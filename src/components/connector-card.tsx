@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import type { ConnectorDefinition, ConnectorTokenStatus } from '@/lib/connectors/registry'
+import { ConnectorLogo } from '@/lib/connectors/logos'
 
 interface ConnectorCardProps {
   connector: ConnectorDefinition
@@ -57,11 +58,8 @@ export function ConnectorCard({ connector, tokenStatus, onDisconnected }: Connec
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-              style={{ backgroundColor: connector.color }}
-            >
-              {connector.initial}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-white shadow-sm dark:bg-zinc-900">
+              <ConnectorLogo id={connector.id} />
             </div>
             <div>
               <CardTitle className="text-base">{connector.name}</CardTitle>
