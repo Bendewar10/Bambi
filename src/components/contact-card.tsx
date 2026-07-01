@@ -75,6 +75,18 @@ export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: Contac
             </Button>
           )}
 
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Verlauf anzeigen"
+            onClick={(e) => {
+              e.stopPropagation()
+              onShowHistory()
+            }}
+          >
+            <History className="size-4" />
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -87,15 +99,6 @@ export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: Contac
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onShowHistory()
-                }}
-              >
-                <History className="size-4" />
-                Verlauf
-              </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onClick={(e) => {
