@@ -200,8 +200,17 @@ export function LinkedInImportDialog({
         if (error) throw error
       }
 
+      // Foto-Enrichment (PROJ-20): fehlende Profilfotos im Hintergrund nachladen.
+      // Fire-and-forget — Import-Erfolg hängt nicht am Foto-Laden.
+      const hasPhotoCandidates =
+        contactsToInsert.some((c) => c.linkedin_url) || includedChanges.length > 0
+      if (hasPhotoCandidates) {
+        fetch('/api/enrich-photos', { method: 'POST' }).catch(() => {})
+      }
+
       setSuccessMessage(
-        `${contactsToInsert.length} neu, ${includedChanges.length} aktualisiert, ${counts?.unchangedCount ?? 0} unverändert, ${counts?.skippedCount ?? 0} übersprungen.`
+        `${contactsToInsert.length} neu, ${includedChanges.length} aktualisiert, ${counts?.unchangedCount ?? 0} unverändert, ${counts?.skippedCount ?? 0} übersprungen.` +
+          (hasPhotoCandidates ? ' Fehlende Profilfotos werden im Hintergrund geladen.' : '')
       )
       setNewContactRows(null)
       setChangeRows(null)

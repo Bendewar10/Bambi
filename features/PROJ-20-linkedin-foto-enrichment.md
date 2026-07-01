@@ -190,6 +190,17 @@ Frontend
 ### Umgebungsvariablen
 - **`APIFY_TOKEN`** (Server-only, neu) — in `.env.local.example` dokumentieren und in Vercel hinterlegen. Muss vom Nutzer im Apify-Konto erstellt werden.
 
+## Implementation Notes
+
+### Frontend (2026-07-01)
+- **Neue Komponente** [photo-lightbox.tsx](../src/components/photo-lightbox.tsx): shadcn-Dialog zeigt Foto vergrößert (max 80vh, object-contain), a11y-Titel sr-only.
+- [contact-card.tsx](../src/components/contact-card.tsx): Avatar bei vorhandenem `photo_url` klickbar (`cursor-zoom-in`) → Lightbox; `stopPropagation` verhindert Öffnen des Bearbeiten-Dialogs. Ohne Foto: Initialen, Klick öffnet wie bisher den Kontakt.
+- [contact-form-dialog.tsx](../src/components/contact-form-dialog.tsx): großer Avatar (h-20) unter dem Titel beim Bearbeiten; Klick auf Foto → Lightbox.
+- [linkedin-import-dialog.tsx](../src/components/linkedin-import-dialog.tsx): nach erfolgreichem Import fire-and-forget `POST /api/enrich-photos` (Route folgt im Backend-Schritt) + Hinweis „Fehlende Profilfotos werden im Hintergrund geladen", wenn Kontakte mit LinkedIn-URL betroffen sind.
+- Foto-Anzeige auf Karten (Avatar) bereits zuvor umgesetzt (Commit `2ebbd5b`).
+
+**Offen für /backend:** Route `POST /api/enrich-photos` (enriched fotolose Kontakte des Nutzers), Monats-Cron-Route, Migration `contacts.photo_attempted_at`, Enrichment-Dienst (Apify-Bulk → Download → Storage → `photo_url`).
+
 ## QA Test Results
 _To be added by /qa_
 

@@ -11,9 +11,13 @@ import {
   CATEGORY_LABELS,
   STRENGTH_LABELS,
   STRENGTH_DEFAULT_INTERVAL_DAYS,
+  getFullName,
   type Category,
   type Strength,
 } from '@/lib/contacts'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { PhotoLightbox } from '@/components/photo-lightbox'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -83,6 +87,7 @@ interface ContactFormDialogProps {
 export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: ContactFormDialogProps) {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const [commonalities, setCommonalities] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState<string | null>(null)
@@ -228,6 +233,31 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
         <DialogHeader>
           <DialogTitle>{contact ? 'Kontakt bearbeiten' : 'Kontakt hinzufügen'}</DialogTitle>
         </DialogHeader>
+
+        {contact && (
+          <div className="flex justify-center">
+            <Avatar
+              className={cn('h-20 w-20', contact.photo_url && 'cursor-zoom-in')}
+              onClick={contact.photo_url ? () => setLightboxOpen(true) : undefined}
+            >
+              {contact.photo_url && (
+                <AvatarImage src={contact.photo_url} alt={getFullName(contact)} />
+              )}
+              <AvatarFallback className="bg-primary/10 text-lg font-medium text-primary">
+                {((contact.first_name?.[0] ?? '') + (contact.last_name?.[0] ?? '')).toUpperCase() || '?'}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+        )}
+
+        {contact && (
+          <PhotoLightbox
+            src={contact.photo_url}
+            alt={getFullName(contact)}
+            open={lightboxOpen}
+            onOpenChange={setLightboxOpen}
+          />
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

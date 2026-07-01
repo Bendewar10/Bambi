@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { PhotoLightbox } from '@/components/photo-lightbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { History, Linkedin, MoreVertical, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
 
 interface ContactCardProps {
   contact: Contact
@@ -33,11 +35,13 @@ function getInitials(contact: Contact) {
 }
 
 export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: ContactCardProps) {
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const isOverdue = contact.next_followup_at
     ? new Date(contact.next_followup_at) < new Date()
     : false
 
   return (
+    <>
     <Card
       onClick={onEdit}
       className={cn(
@@ -46,7 +50,17 @@ export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: Contac
       )}
     >
       <CardHeader className="flex flex-row items-start gap-3 space-y-0 p-4">
-        <Avatar className="h-10 w-10 shrink-0">
+        <Avatar
+          className={cn('h-10 w-10 shrink-0', contact.photo_url && 'cursor-zoom-in')}
+          onClick={
+            contact.photo_url
+              ? (e) => {
+                  e.stopPropagation()
+                  setLightboxOpen(true)
+                }
+              : undefined
+          }
+        >
           {contact.photo_url && <AvatarImage src={contact.photo_url} alt={getFullName(contact)} />}
           <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
             {getInitials(contact)}
@@ -139,5 +153,12 @@ export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: Contac
         )}
       </CardContent>
     </Card>
+    <PhotoLightbox
+      src={contact.photo_url}
+      alt={getFullName(contact)}
+      open={lightboxOpen}
+      onOpenChange={setLightboxOpen}
+    />
+    </>
   )
 }
