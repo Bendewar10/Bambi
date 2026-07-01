@@ -71,18 +71,30 @@ export default function DashboardPage() {
     loadEvents()
   }
 
+  const totalDue = todaySection.length
+  const totalUpcoming = upcomingSection.length
+  const totalEvents = eventGroups.length
+
   return (
     <div className="w-full max-w-5xl space-y-8">
       <PageHeader title="Dashboard" description="Fällige Follow-ups und aktuelle Anlässe" />
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Lädt...</p>
-      ) : !hasAnyOccasion ? (
-        <p className="text-sm text-muted-foreground">Alles im Blick — aktuell nichts Fälliges.</p>
+      ) : !hasAnyOccasion && totalEvents === 0 ? (
+        <div className="rounded-xl border border-dashed p-8 text-center">
+          <p className="text-base font-medium">Alles im Blick</p>
+          <p className="mt-1 text-sm text-muted-foreground">Aktuell keine fälligen Follow-ups oder Anlässe.</p>
+        </div>
       ) : (
         <>
           {todaySection.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Heute & überfällig</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold">Heute & überfällig</h2>
+                <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                  {totalDue}
+                </span>
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {todaySection.map((occasion) => (
                   <OccasionCard
@@ -98,7 +110,12 @@ export default function DashboardPage() {
 
           {upcomingSection.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Nächste 14 Tage</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold">Nächste 14 Tage</h2>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  {totalUpcoming}
+                </span>
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {upcomingSection.map((occasion) => (
                   <OccasionCard
@@ -116,7 +133,12 @@ export default function DashboardPage() {
 
       {eventGroups.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Kürzlich erkannt</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold">Kürzlich erkannt</h2>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              {totalEvents}
+            </span>
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {eventGroups.map((group) => (
               <ImportEventCard

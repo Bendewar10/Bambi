@@ -1,16 +1,23 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ContactOccasion } from '@/lib/occasions'
 import { buildCalendarLink } from '@/lib/external-links'
-import { getFullName } from '@/lib/contacts'
+import { Contact, getFullName } from '@/lib/contacts'
+import { Calendar, Check, Sparkles } from 'lucide-react'
 
 const BADGE_LABELS = {
   followup: 'Follow-up',
   birthday: 'Geburtstag',
+} as const
+
+const BADGE_STYLES = {
+  followup: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300',
+  birthday: 'border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-800 dark:bg-pink-950 dark:text-pink-300',
 } as const
 
 interface OccasionCardProps {
@@ -22,6 +29,12 @@ interface OccasionCardProps {
 function formatDate(value: string | null) {
   if (!value) return null
   return new Date(value).toLocaleDateString('de-DE')
+}
+
+function getInitials(contact: Contact) {
+  const first = contact.first_name?.[0] ?? ''
+  const last = contact.last_name?.[0] ?? ''
+  return (first + last).toUpperCase() || '?'
 }
 
 export function OccasionCard({ occasion, onLogInteraction, onOpenCard }: OccasionCardProps) {
@@ -70,50 +83,74 @@ export function OccasionCard({ occasion, onLogInteraction, onOpenCard }: Occasio
 
   return (
     <Card className="rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md">
-      <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
-        <CardTitle className="truncate text-base">{getFullName(contact)}</CardTitle>
-        <div className="flex shrink-0 gap-1">
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0 p-4">
+        <Avatar className="h-10 w-10 shrink-0 cursor-pointer" onClick={onOpenCard}>
+          <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
+            {getInitials(contact)}
+          </AvatarFallback>
+        </Avatar>
+
+        <div className="min-w-0 flex-1">
+          <h3
+            className="line-clamp-1 cursor-pointer text-base font-semibold leading-tight hover:underline"
+            onClick={onOpenCard}
+          >
+            {getFullName(contact)}
+          </h3>
+          {contact.job_title || contact.employer ? (
+            <p className="truncate text-sm text-muted-foreground">
+              {[contact.job_title, contact.employer].filter(Boolean).join(' · ')}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-1">
           {badges.map((badge) => (
-            <Badge key={badge} variant="secondary">
+            <Badge key={badge} variant="outline" className={BADGE_STYLES[badge]}>
               {BADGE_LABELS[badge]}
             </Badge>
           ))}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+
+      <CardContent className="space-y-3 p-4 pt-0 text-sm">
         {badges.includes('birthday') && birthdayDate && (
           <p className="text-muted-foreground">Geburtstag: {formatDate(birthdayDate)}</p>
         )}
+        {badges.includes('followup') && followupDate && (
+          <p className="text-muted-foreground">Follow-up: {formatDate(followupDate)}</p>
+        )}
 
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={onOpenCard}>
-            Karte öffnen
-          </Button>
-          <Button size="sm" onClick={onLogInteraction}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={onLogInteraction} className="gap-1.5">
+            <Check className="size-3.5" />
             Kontaktiert
           </Button>
-          <Button size="sm" variant="outline" onClick={handleGenerateDraft} disabled={isGenerating}>
+          <Button size="sm" variant="outline" onClick={handleGenerateDraft} disabled={isGenerating} className="gap-1.5">
+            <Sparkles className="size-3.5" />
             {isGenerating ? 'Generiere...' : 'Vorschlag'}
           </Button>
           {badges.includes('followup') && followupDate && (
-            <Button size="sm" variant="ghost" asChild>
+            <Button size="sm" variant="ghost" asChild className="gap-1.5">
               <a
                 href={buildCalendarLink(`Follow-up: ${getFullName(contact)}`, followupDate)}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Zum Kalender (Follow-up)
+                <Calendar className="size-3.5" />
+                Kalender
               </a>
             </Button>
           )}
           {badges.includes('birthday') && birthdayDate && (
-            <Button size="sm" variant="ghost" asChild>
+            <Button size="sm" variant="ghost" asChild className="gap-1.5">
               <a
                 href={buildCalendarLink(`Geburtstag: ${getFullName(contact)}`, birthdayDate)}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Zum Kalender (Geburtstag)
+                <Calendar className="size-3.5" />
+                Kalender
               </a>
             </Button>
           )}
@@ -122,10 +159,10 @@ export function OccasionCard({ occasion, onLogInteraction, onOpenCard }: Occasio
         {draftError && <p className="text-destructive">{draftError}</p>}
 
         {draftText && (
-          <div className="space-y-2 rounded-md border p-2">
+          <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
             <p className="text-muted-foreground">{draftText}</p>
-            <Button size="sm" onClick={handleCopyDraft}>
-              {copied ? 'Kopiert!' : 'Kopieren'}
+            <Button size="sm" variant="outline" onClick={handleCopyDraft} className="gap-1.5">
+              {copied ? <><Check className="size-3.5" />Kopiert!</> : 'Kopieren'}
             </Button>
             {copyError && <p className="text-destructive">{copyError}</p>}
           </div>
