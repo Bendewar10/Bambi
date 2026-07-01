@@ -3,6 +3,7 @@
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/app-sidebar'
 import { ChatWidget } from '@/components/chat-widget'
+import { Toaster } from '@/components/ui/sonner'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,6 +17,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
           <ChatWidget />
         </div>
+        <Toaster />
       </SidebarInset>
     </SidebarProvider>
   )

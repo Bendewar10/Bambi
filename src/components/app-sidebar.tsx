@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart2, Briefcase, LayoutDashboard, LogOut, Users } from 'lucide-react'
+import { BarChart2, Briefcase, LayoutDashboard, LogOut, Settings, Users } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
   Sidebar,
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { href: '/contacts', label: 'Kontakte', icon: Users },
   { href: '/profil', label: 'Profil', icon: Briefcase },
   { href: '/analytics', label: 'Analytics', icon: BarChart2 },
+  { href: '/einstellungen/konnektoren', label: 'Konnektoren', icon: Settings },
 ]
 
 export function AppSidebar() {
