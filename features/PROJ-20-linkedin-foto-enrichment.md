@@ -88,7 +88,10 @@ Kontakte bekommen automatisch ihr LinkedIn-Profilbild, ohne manuelle Pflege. Fü
 ## Open Questions
 - [ ] Mechanik des Hintergrund-Enrichments (z.B. entkoppelte Server-Verarbeitung, Batchgröße, Rate-Limiting gegenüber Apify) — Detail für `/architecture`.
 - [ ] Soll dem Nutzer irgendwo ein Fortschritt/Status („X von Y Fotos geladen") angezeigt werden, oder reicht stiller Hintergrundlauf? (aktuell: nur kurzer Hinweis nach Import)
-- [ ] Genauer Tag/Zeitpunkt des Monats-Cron (mit PROJ-9-Report bündeln?).
+- [ ] Genauer Tag/Zeitpunkt des Monats-Cron (mit PROJ-9-Report bündeln?). → Design-Vorschlag: eigene Cron-Route, monatlich.
+- [ ] `APIFY_TOKEN` muss vom Nutzer im Apify-Konto erstellt und in Vercel + `.env.local` hinterlegt werden (Voraussetzung für `/backend`).
+- [ ] Ab wann gilt ein Foto-Versuch als „alt genug" für erneuten Cron-Versuch (z.B. > 3 Monate)? — Feinjustierung in `/backend`.
+- [ ] Verhalten bei sehr großem Erstimport, der eine Ausführung zeitlich nicht schafft: Rest via Monats-Cron akzeptabel, oder gezielte Nach-Anstöße? — Feinjustierung in `/backend`.
 
 ## Decision Log
 
@@ -106,13 +109,86 @@ Kontakte bekommen automatisch ihr LinkedIn-Profilbild, ohne manuelle Pflege. Fü
 | Public Storage-Bucket statt privat+signiert | Einfacher; unratbarer UUID-Pfad; Fotos sind ohnehin public auf LinkedIn; akzeptables Risiko für Solo-CRM | 2026-07-01 |
 
 ### Technical Decisions
-_To be added by /architecture_
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Server-seitiger Enrichment-Dienst, von CSV-Import-Route und Cron-Route geteilt | Eine Logik; Apify-Token & Storage-Schreibrechte gehören auf den Server | 2026-07-01 |
+| Apify über REST/`fetch` statt `apify-client`-Package | Vermeidet neue Abhängigkeit; Aufruf ist simpel | 2026-07-01 |
+| Bulk-Scrape: mehrere LinkedIn-URLs pro Apify-Lauf (Bündel ~50) | Schneller und günstiger als ein Lauf pro Kontakt | 2026-07-01 |
+| Neue Spalte `contacts.photo_attempted_at` | Monats-Cron soll fotolose Kontakte nicht endlos jeden Monat neu scrapen (Kostenbremse) | 2026-07-01 |
+| Import stößt Enrichment fire-and-forget an; Rest via Monats-Cron | Große Erstimporte blockieren UI nicht; selbstheilend | 2026-07-01 |
+| Lightbox via bestehendem shadcn-Dialog, kein neues Package | Schlanke Abhängigkeiten | 2026-07-01 |
+| Eigene Cron-Route statt Einbau in Monatsreport-Cron | Trennung der Zuständigkeiten; eigene Fehlerbehandlung/Logs | 2026-07-01 |
+| Storage-Pfad `{user_id}/{contact_id}.jpg` | Eindeutig pro Kontakt, überschreibt bei Re-Fetch sauber, unratbar | 2026-07-01 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Ein server-seitiger **Enrichment-Dienst** holt Profilbilder über Apify, lädt sie herunter, legt sie im public Storage-Bucket ab und setzt bei den betroffenen Kontakten nur `photo_url`. Zwei Auslöser teilen sich denselben Dienst: der CSV-Import (nur die gerade importierten Kontakte) und ein monatlicher Cron (gesamter Bestand ohne Foto). Die Anzeige/Lightbox ist reine Frontend-Arbeit auf bestehenden Kontakt-Karten.
+
+### Backend nötig?
+Ja. Der Apify-Aufruf braucht einen geheimen Token und der Bild-Download/Upload muss server-seitig laufen (Client darf weder Token noch fremde Storage-Schreibrechte haben).
+
+### Ablauf (Enrichment-Dienst)
+```
+Auslöser (CSV-Import ODER Monats-Cron)
+   |
+   v
+Kandidaten bestimmen: eigene Kontakte mit LinkedIn-URL UND ohne Foto
+   |
+   v
+URLs in Bündel aufteilen (z.B. 50 pro Apify-Lauf)  <- Bulk, spart Zeit & Geld
+   |
+   v
+Pro Bündel: Apify harvestapi-Actor aufrufen -> Profilbild-URLs zurück
+   |
+   v
+Pro Treffer: Bild herunterladen -> in Bucket 'contact-photos' ablegen
+   |
+   v
+photo_url setzen -- NUR wenn noch leer (idempotent), kein anderes Feld
+```
+
+### Komponenten-Struktur
+```
+Server
++-- Enrichment-Dienst (geteilte Logik: Kandidaten -> Apify-Bulk -> Download -> Upload -> photo_url)
++-- API-Route "Fotos anreichern" (eingeloggt)   <- vom CSV-Import aufgerufen, mit Liste der Kontakt-IDs
++-- Cron-Route "Fotos anreichern (monatlich)"   <- Secret-geschützt, über alle Nutzer, ganzer Bestand
+
+Frontend
++-- LinkedIn-Import-Dialog (bestehend)
+|   +-- nach Bestätigen: Enrichment fire-and-forget anstoßen + Hinweis "Fotos werden geladen"
++-- Kontakt-Karte (Liste)   -> Avatar zeigt Foto, Klick öffnet Lightbox
++-- Kontakt-Detail/Formular -> Avatar zeigt Foto, Klick öffnet Lightbox
++-- Foto-Lightbox (großes Bild, schließbar)   <- neue kleine Komponente auf shadcn-Dialog
++-- Dashboard-Karte (bestehend) -> zeigt Foto nur an (keine Lightbox)
+```
+
+### Datenmodell (Klartext)
+- **`contacts.photo_url`** (existiert bereits): dauerhafte public URL des im Bucket abgelegten Bildes. Leer = Fallback auf Initialen.
+- **`contacts.photo_attempted_at`** (neu, optional, Zeitstempel): wann zuletzt ein Foto-Versuch lief. Verhindert, dass der Monats-Cron denselben fotolosen Kontakt (z.B. Profil ganz ohne Bild) jeden Monat erneut scraped → Kostenbremse. Kontakte werden nur (erneut) versucht, wenn nie versucht oder Versuch lange her.
+- **Storage:** public Bucket `contact-photos` (existiert), Pfad `{user_id}/{contact_id}.jpg`. Nichts anderes ändert sich am Datenmodell.
+
+### Externe Integration
+- **Apify** `harvestapi/linkedin-profile-scraper`, aufgerufen über Apify-REST-API mit einem **Apify-API-Token** (Server-Env `APIFY_TOKEN`). Modus „Profile details no email" (~$4 / 1000 Profile). Bulk: mehrere URLs pro Lauf.
+- Hinweis: Der Apify-MCP-Zugang (OAuth) gilt nur für die Entwicklungs-Assistenz, nicht für die laufende App — die App braucht einen eigenen Token.
+
+### Tech-Entscheidungen (warum)
+- **Geteilter Enrichment-Dienst für beide Auslöser:** eine Logik, kein Duplikat; CSV übergibt Kontakt-IDs, Cron bestimmt Kandidaten selbst.
+- **Bulk-Scrape (mehrere URLs pro Apify-Lauf):** deutlich schneller und günstiger als ein Lauf pro Kontakt.
+- **Async / fire-and-forget beim Import:** großer Erstimport (400+) darf die UI nicht blockieren; Rest, der eine Ausführung nicht schafft, wird vom Monats-Cron nachgeholt.
+- **`photo_attempted_at` als Kostenbremse:** ohne Marker würde der Cron monatlich alle fotolosen Kontakte erneut scrapen (auch die ohne LinkedIn-Bild).
+- **Kein neues Package nötig:** Apify über `fetch` (REST), Lightbox über vorhandenen shadcn-Dialog, Upload über vorhandenen Supabase-Client. Hält die Abhängigkeiten schlank.
+- **Wiederverwendung der bestehenden Cron-Infrastruktur** (Secret-Auth, Admin-Client, Fehler pro Nutzer isoliert) wie beim Monatsreport.
+
+### Dependencies (Packages)
+- Keine neuen Packages erforderlich (Apify per REST/`fetch`, Lightbox per shadcn-Dialog).
+
+### Umgebungsvariablen
+- **`APIFY_TOKEN`** (Server-only, neu) — in `.env.local.example` dokumentieren und in Vercel hinterlegen. Muss vom Nutzer im Apify-Konto erstellt werden.
 
 ## QA Test Results
 _To be added by /qa_
