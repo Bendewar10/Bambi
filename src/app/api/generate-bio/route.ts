@@ -61,7 +61,7 @@ export async function POST() {
 
   try {
     const { text } = await generateText({
-      model: anthropic('claude-haiku-4-5-20251001'),
+      model: anthropic('claude-sonnet-4-6'),
       prompt: `Erstelle eine prägnante berufliche Kurzbeschreibung (2-3 Sätze, auf Deutsch, in der dritten Person oder als neutraler Steckbrief) basierend auf diesen Profildaten:\n\n${context}\n\nDie Beschreibung soll für einen KI-Assistenten als Kontext dienen, der dem Nutzer bei der Netzwerkpflege hilft. Fokus auf aktuelle Rolle, Background und Expertise. Kein Marketing-Sprech.`,
       maxOutputTokens: 150,
     })

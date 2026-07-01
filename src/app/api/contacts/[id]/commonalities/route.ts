@@ -100,7 +100,7 @@ Identifiziere konkrete Gemeinsamkeiten: gleiche Arbeitgeber, Branchen, Städte, 
 
   try {
     const { text } = await generateText({
-      model: anthropic('claude-haiku-4-5-20251001'),
+      model: anthropic('claude-sonnet-4-6'),
       prompt,
       maxOutputTokens: 200,
     })

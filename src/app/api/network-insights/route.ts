@@ -72,7 +72,7 @@ Schreib auf Deutsch, per Du, 2-4 Sätze, die sich konkret auf diese Zahlen bezie
 
   try {
     const { text } = await generateText({
-      model: anthropic('claude-haiku-4-5-20251001'),
+      model: anthropic('claude-sonnet-4-6'),
       prompt,
       maxOutputTokens: 220,
     })
