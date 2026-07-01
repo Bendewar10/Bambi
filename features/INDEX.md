@@ -34,7 +34,7 @@
 | PROJ-17 | Gemeinsamkeiten-Feld bei Kontakten (KI-Matching Profil ↔ Kontakt) | Approved | [Spec](PROJ-17-gemeinsamkeiten-feld.md) | 2026-06-30 | PROJ-16, PROJ-3, PROJ-11 |
 | PROJ-18 | Passives KI-Lernen aus Cases/Interaktionen (automatische Profil-Vorschläge) | Roadmap | - | 2026-06-30 | PROJ-16, PROJ-12, PROJ-5 |
 | PROJ-19 | Konnektoren-Hub (OAuth Integration Settings) | Deployed | [Spec](PROJ-19-konnektoren-hub.md) | 2026-07-01 | PROJ-1, PROJ-2 |
-| PROJ-20 | LinkedIn Foto-Enrichment (auto Profilbild-Scraping via Apify: CSV-Import + Monats-Cron) | In Progress | [Spec](PROJ-20-linkedin-foto-enrichment.md) | 2026-07-01 | PROJ-10, PROJ-3, PROJ-1 |
+| PROJ-20 | LinkedIn Foto-Enrichment (auto Profilbild-Scraping via Apify: CSV-Import + Monats-Cron) | Approved | [Spec](PROJ-20-linkedin-foto-enrichment.md) | 2026-07-01 | PROJ-10, PROJ-3, PROJ-1 |
 
 <!-- Add features above this line -->
 

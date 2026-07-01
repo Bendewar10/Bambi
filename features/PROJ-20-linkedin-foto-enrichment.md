@@ -209,7 +209,54 @@ Frontend
 - **End-to-End verifiziert** mit echtem Kontakt (Lennart Heinacher): Scrape → Identifier-Match → Download → Bucket → `photo_url` → public URL HTTP 200 (87 KB jpeg).
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-07-01
+**App URL:** http://localhost:3000 (+ Live-Apify/Storage/DB)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+- [x] **AC1** URL & kein Foto → gefundenes Bild im Storage, nur `photo_url` gesetzt — verifiziert end-to-end (Lennart Heinacher: Scrape → Upload → `photo_url`, public URL HTTP 200).
+- [x] **AC2** Vorhandenes Foto wird nicht überschrieben — geguardeter Update (`.is('photo_url', null)`) betraf 0 Zeilen bei gesetztem Foto (DB-Test, `got_clobbered=false`).
+- [x] **AC3** Nur `photo_url`/`photo_attempted_at` geändert, andere Felder unverändert — Lennarts `employer`/`job_title`/`name`/`linkedin_url` nach Enrichment intakt.
+- [x] **AC4** Import nicht durch Foto-Laden blockiert + Hinweis — Frontend ruft `/api/enrich-photos` fire-and-forget (nicht awaited), Erfolgstext ergänzt „Fehlende Profilfotos werden im Hintergrund geladen".
+- [x] **AC5** Monats-Cron reichert an — Cron-Route teilt `enrichUserPhotos` (end-to-end bewiesen), 1.-des-Monats-Gate + Secret-Auth verifiziert per Code/Review.
+- [x] **AC6** Kein URL → übersprungen — Kandidaten-Query filtert `linkedin_url is not null`; kein Scrape-Aufruf.
+- [x] **AC7** Kein Bild gefunden → `photo_url` bleibt leer, Initialen — Logik setzt bei fehlendem Treffer nur `photo_attempted_at`; Frontend-Fallback (E2E AC9).
+- [x] **AC8** Klick auf Foto → Lightbox (Kontaktliste + Detail) — E2E grün (Lightbox-Dialog mit Bild öffnet).
+- [x] **AC9** Kein Foto → Initialen — E2E grün (kein `<img>` im Karten-Avatar).
+- [x] **AC10** RLS auf `contacts`; Fotos public unter UUID-Pfad — RLS aktiv; Route scoped auf Session-`user_id`.
+
+### Edge Cases Status
+- [x] Scrape/Batch fehlgeschlagen → `photo_attempted_at` gesetzt (Cooldown), Rest läuft weiter, Import bricht nie.
+- [x] Kein/privates Bild → kein Foto, Fallback Initialen.
+- [x] Idempotenz bei parallelen Läufen → Guard `.is('photo_url', null)`.
+- [x] Rückmapping robust (queries→`originalQuery.query`, urls→`.url`, plus `publicIdentifier`) — Unit-getestet + live bestätigt.
+- [x] Großer Bestand → Cap `MAX_PER_RUN=100`/Lauf, Rest via Cron.
+
+### Security Audit Results
+- [x] Authentifizierung: `/api/enrich-photos` ohne Login → 401.
+- [x] Autorisierung: Route reichert nur `session.user.id` an — kein Input, keine Fremd-Kontakte adressierbar.
+- [x] Cron: `CRON_SECRET`-Bearer erzwungen (401 sonst).
+- [x] Secrets: `APIFY_TOKEN` server-only (kein `NEXT_PUBLIC_`), nicht im Client-Bundle.
+- [x] RLS auf `contacts` aktiv; Service-Role nur serverseitig, per `user_id` gescoped.
+- [~] Storage public: Fremd-Fotos per URL öffentlich erreichbar (unratbarer UUID-Pfad, kein Listing) — bewusste Produkt-Entscheidung (siehe Decision Log).
+
+### Bugs Found
+Keine PROJ-20-Bugs.
+
+**Vorbestehend (nicht PROJ-20, nicht durch diese Änderung verursacht):** 13 fehlschlagende Unit-Tests in `chat.test.ts`, `draft-message.test.ts`, `analytics.test.ts` — identisch auf Commit `6841368` (vor dieser Session) reproduziert. Ursache: veraltete Supabase-Mocks (`maybeSingle`) bzw. Fixtures aus früheren Features. Empfehlung: separates Cleanup-Ticket.
+
+#### Beobachtung (Low): Kein Rate-Limit auf `/api/enrich-photos`
+- **Severity:** Low
+- Wiederholtes/paralleles Auslösen könnte vor dem Setzen von `photo_attempted_at` doppelt scrapen (Kosten). Durch Cooldown stark begrenzt; Solo-App. Priority: Nice to have.
+
+### Summary
+- **Acceptance Criteria:** 10/10 passed
+- **Bugs Found:** 0 PROJ-20 (0 critical, 0 high, 0 medium, 1 low Beobachtung). Zusätzlich 13 vorbestehende, feature-fremde Test-Failures.
+- **Security:** Pass (public-Bucket ist dokumentierte Entscheidung)
+- **Production Ready:** YES
+- **Recommendation:** Deploy. Vorbestehende Test-Failures separat aufräumen.
 
 ## Deployment
 _To be added by /deploy_
