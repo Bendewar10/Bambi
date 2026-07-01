@@ -51,6 +51,8 @@
       "mcp__supabase__search_docs",
       "mcp__supabase__get_organization",
       "mcp__supabase__get_cost",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__apply_migration",
       "Read(**/.env*)",
       "Edit(**/.env*)"
     ]

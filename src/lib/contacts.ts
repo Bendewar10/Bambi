@@ -39,6 +39,7 @@ export interface Contact {
   followup_interval_days: number | null
   last_contacted_at: string | null
   next_followup_at: string | null
+  commonalities?: string | null
   created_at: string
 }
 

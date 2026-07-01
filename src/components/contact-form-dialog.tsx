@@ -40,6 +40,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Sparkles } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
 
 function today() {
   return new Date().toISOString().slice(0, 10)
@@ -81,6 +83,9 @@ interface ContactFormDialogProps {
 export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: ContactFormDialogProps) {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [commonalities, setCommonalities] = useState<string | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null)
 
   const form = useForm<ContactFormValues>({
     resolver: zodResolver(contactSchema),
@@ -105,6 +110,8 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
   useEffect(() => {
     if (open) {
       setSubmitError(null)
+      setCommonalities(contact?.commonalities ?? null)
+      setAnalyzeError(null)
       form.reset({
         first_name: contact?.first_name ?? '',
         last_name: contact?.last_name ?? '',
@@ -132,6 +139,26 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
     if (!form.formState.dirtyFields.followup_interval_days) {
       const days = STRENGTH_DEFAULT_INTERVAL_DAYS[Number(value) as Strength]
       form.setValue('followup_interval_days', String(days))
+    }
+  }
+
+  async function analyzeCommonalities() {
+    if (!contact?.id) return
+    setIsAnalyzing(true)
+    setAnalyzeError(null)
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}/commonalities`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) {
+        setAnalyzeError(json.error ?? 'Analyse fehlgeschlagen.')
+      } else {
+        setCommonalities(json.commonalities)
+        onSaved()
+      }
+    } catch {
+      setAnalyzeError('Verbindung fehlgeschlagen. Bitte erneut versuchen.')
+    } finally {
+      setIsAnalyzing(false)
     }
   }
 
@@ -420,6 +447,48 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
                 </FormItem>
               )}
             />
+
+            {contact && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="flex items-center gap-1.5 text-sm font-medium">
+                      <Sparkles className="size-4 text-violet-500" />
+                      Gemeinsamkeiten
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isAnalyzing}
+                      onClick={analyzeCommonalities}
+                    >
+                      {isAnalyzing
+                        ? 'Analysiere...'
+                        : commonalities
+                          ? 'Neu analysieren'
+                          : 'KI-Analyse starten'}
+                    </Button>
+                  </div>
+                  {analyzeError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{analyzeError}</AlertDescription>
+                    </Alert>
+                  )}
+                  {commonalities && !analyzeError && (
+                    <p className="whitespace-pre-line rounded-md bg-violet-50 p-3 text-sm text-violet-900 dark:bg-violet-950 dark:text-violet-100">
+                      {commonalities}
+                    </p>
+                  )}
+                  {!commonalities && !analyzeError && !isAnalyzing && (
+                    <p className="text-xs text-muted-foreground">
+                      KI vergleicht dein CV mit dem Kontaktprofil und findet Anknüpfungspunkte.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

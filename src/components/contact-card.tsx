@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { History, Linkedin, MoreVertical, Trash2 } from 'lucide-react'
+import { History, Linkedin, MoreVertical, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ContactCardProps {
@@ -118,6 +118,12 @@ export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: Contac
         <div className="flex flex-wrap gap-1">
           {contact.category && <Badge variant="secondary">{CATEGORY_LABELS[contact.category]}</Badge>}
           {contact.strength && <Badge variant="outline">{STRENGTH_LABELS[contact.strength]}</Badge>}
+          {contact.commonalities && (
+            <Badge variant="outline" className="gap-1 border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300">
+              <Sparkles className="size-3" />
+              Gemeinsamkeiten
+            </Badge>
+          )}
         </div>
         {contact.last_contacted_at && (
           <p className="text-muted-foreground">
