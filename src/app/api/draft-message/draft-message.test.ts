@@ -179,4 +179,46 @@ describe('POST /api/draft-message', () => {
     const promptArg = generateTextMock.mock.calls[0][0].prompt as string
     expect(promptArg).not.toContain('selben Schreibstil')
   })
+
+  it('includes the tone instruction in the prompt when tone is provided', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    contactSingleMock.mockResolvedValue({ data: { first_name: 'Anna', notes: null, context: null } })
+    generateTextMock.mockResolvedValue({ text: 'Hi Anna, long time no talk!' })
+
+    const res = await POST(
+      makeRequest({
+        contactId: '550e8400-e29b-41d4-a716-446655440000',
+        occasionType: 'followup',
+        tone: 'lockerer, auf Englisch',
+      })
+    )
+    expect(res.status).toBe(200)
+    const promptArg = generateTextMock.mock.calls[0][0].prompt as string
+    expect(promptArg).toContain('lockerer, auf Englisch')
+  })
+
+  it('treats a whitespace-only tone like no tone at all', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    contactSingleMock.mockResolvedValue({ data: { first_name: 'Anna', notes: null, context: null } })
+    generateTextMock.mockResolvedValue({ text: 'Hey Anna!' })
+
+    const res = await POST(
+      makeRequest({ contactId: '550e8400-e29b-41d4-a716-446655440000', occasionType: 'followup', tone: '   ' })
+    )
+    expect(res.status).toBe(200)
+    const promptArg = generateTextMock.mock.calls[0][0].prompt as string
+    expect(promptArg).not.toContain('Zusätzliche Anweisung zum Ton')
+  })
+
+  it('returns 400 when tone exceeds the max length', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u1' } } })
+    const res = await POST(
+      makeRequest({
+        contactId: '550e8400-e29b-41d4-a716-446655440000',
+        occasionType: 'followup',
+        tone: 'a'.repeat(201),
+      })
+    )
+    expect(res.status).toBe(400)
+  })
 })

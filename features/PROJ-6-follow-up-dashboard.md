@@ -1,6 +1,6 @@
 # PROJ-6: Follow-up Dashboard & Tagesansicht
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-06-22
 **Last Updated:** 2026-07-01
 
@@ -358,8 +358,14 @@ Voraussichtlich keine neuen — falls die `Textarea`-Komponente von shadcn/ui no
 - `src/components/occasion-card.tsx` + `src/components/import-event-card.tsx` (identische Änderung in beiden, konsistent mit bestehender bewusster Duplikation dieser beiden Karten): read-only `<p>{draftText}</p>` ersetzt durch editierbares `Textarea` (`value={draftText}`, `onChange` aktualisiert lokalen State direkt); neue Zeile mit `Input` (Ton-Freitext, Placeholder "Ton anpassen, z.B. lockerer / auf Englisch / kürzer") + "Neu generieren"-Button (ruft dieselbe `handleGenerateDraft`-Funktion wie der ursprüngliche "Vorschlag"-Button); "Kopieren" unverändert, liest weiterhin `draftText` aus dem State — da der Textarea-`onChange` diesen State direkt aktualisiert, kopiert der Button automatisch den editierten Stand
 - `handleGenerateDraft` sendet jetzt zusätzlich `tone: tone.trim() || undefined` im Request-Body — bei leerem Ton-Feld wird `undefined` gesendet (Backend behandelt das wie "kein Ton", siehe noch offene Route-Erweiterung)
 - Ein einziger `tone`-State pro Karte, kein getrennter State für "erste Generierung" vs. "Regenerierung" — beide Buttons ("Vorschlag" initial, "Neu generieren" danach) rufen dieselbe Funktion auf, Ton ist beim ersten Klick naturgemäß leer
-- **Noch offen für `/backend`:** `/api/draft-message`-Route validiert `tone` aktuell nicht (Zod-Schema kennt das Feld noch nicht) — Frontend sendet es bereits, Route ignoriert es bis zur Backend-Erweiterung (kein Fehler, da Zod unbekannte Felder standardmäßig durchlässt, aber der Ton fließt noch nicht in den Prompt ein)
 - `npm run lint` + `npm run build` laufen fehlerfrei durch
+
+## Backend Implementation Notes (Refine 2026-07-01, Ton-Parameter)
+- `src/app/api/draft-message/route.ts`: Zod-Schema um `tone: z.string().trim().max(200).optional()` erweitert — Trim entfernt Whitespace, leerer String nach Trim wird wie "kein Ton" behandelt (kein `undefined`-Zwang nötig, da die Prompt-Injektion ohnehin nur bei truthy-Wert greift), 200-Zeichen-Obergrenze verhindert überlange Prompt-Anhänge
+- Neue Variable `toneInstruction` (analog zu `styleInstruction`/`userContextInstruction`) — an alle vier Prompt-Zweige (`birthday`, `Jobwechsel`/`Beförderung`, Standard-Follow-up) angehängt, gleiches Konkatenations-Muster
+- Kein neuer Datenzugriff, keine neue Tabelle — reine Prompt-Erweiterung, bestehende Session-/RLS-Prüfung unverändert
+- `src/app/api/draft-message/draft-message.test.ts`: 3 neue Tests — Ton erscheint im Prompt, Whitespace-only-Ton wird wie "kein Ton" behandelt (kein `toneInstruction`-Fragment im Prompt), Ton >200 Zeichen → 400
+- `npm test`: 165/165 grün (3 neu) · `npm run lint` + `npm run build` fehlerfrei
 
 ## QA Test Results
 

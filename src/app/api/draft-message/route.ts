@@ -8,6 +8,7 @@ import { CATEGORY_LABELS, STRENGTH_LABELS, type Category, type Strength } from '
 const requestSchema = z.object({
   contactId: z.string().uuid(),
   occasionType: z.enum(['followup', 'birthday', 'Jobwechsel', 'Beförderung']),
+  tone: z.string().trim().max(200).optional(),
 })
 
 const MAX_DRAFT_LENGTH = 300
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Ungültige Anfrage.' }, { status: 400 })
   }
-  const { contactId, occasionType } = parsed.data
+  const { contactId, occasionType, tone } = parsed.data
 
   const [{ data: contact }, { data: userProfile }] = await Promise.all([
     supabase
@@ -93,22 +94,24 @@ export async function POST(request: Request) {
       ? ` Schreib im selben Schreibstil wie diese eigenen früheren Notizen: ${styleExamples.join(' / ')}.`
       : ''
 
+  const toneInstruction = tone ? ` Zusätzliche Anweisung zum Ton/Stil dieser Nachricht: ${tone}.` : ''
+
   const prompt =
     occasionType === 'birthday'
       ? `Schreib eine sehr kurze, herzliche Geburtstagsnachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.first_name}. ${
           profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''
-        }${styleInstruction}${userContextInstruction}`
+        }${styleInstruction}${userContextInstruction}${toneInstruction}`
       : occasionType === 'Jobwechsel' || occasionType === 'Beförderung'
         ? `Schreib eine sehr kurze, herzliche Glückwunsch-Nachricht (1-2 Sätze, auf Deutsch, per Du) an ${contact.first_name} zu ${
             occasionType === 'Jobwechsel' ? 'seinem/ihrem neuen Job' : 'seiner/ihrer Beförderung'
-          }. ${profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''}${styleInstruction}${userContextInstruction}`
+          }. ${profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''}${styleInstruction}${userContextInstruction}${toneInstruction}`
         : `Schreib eine sehr kurze, lockere Nachricht (1-2 Sätze, auf Deutsch, per Du), um sich bei ${contact.first_name} zu melden. ${
             profileDetails ? `Kontext zur Person: ${profileDetails}.` : ''
           }${
             recentNotes.length > 0
               ? ` Letzte Notizen über frühere Kontakte: ${recentNotes.join(' / ')}.`
               : ''
-          } Knüpf wenn möglich an Kontext und Notizen an.${styleInstruction}${userContextInstruction}`
+          } Knüpf wenn möglich an Kontext und Notizen an.${styleInstruction}${userContextInstruction}${toneInstruction}`
 
   try {
     const { text } = await generateText({
