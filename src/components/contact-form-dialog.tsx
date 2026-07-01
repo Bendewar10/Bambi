@@ -304,9 +304,9 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="none">Keine</SelectItem>
-                      {Object.entries(STRENGTH_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
+                      {([3, 2, 1] as const).map((v) => (
+                        <SelectItem key={v} value={String(v)}>
+                          {STRENGTH_LABELS[v]}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -11,7 +11,7 @@ export const CATEGORY_LABELS: Record<Category, string> = {
 }
 
 export const STRENGTH_LABELS: Record<Strength, string> = {
-  1: 'Kern',
+  1: 'Stark',
   2: 'Mittel',
   3: 'Locker',
 }
