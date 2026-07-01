@@ -199,7 +199,14 @@ Frontend
 - [linkedin-import-dialog.tsx](../src/components/linkedin-import-dialog.tsx): nach erfolgreichem Import fire-and-forget `POST /api/enrich-photos` (Route folgt im Backend-Schritt) + Hinweis „Fehlende Profilfotos werden im Hintergrund geladen", wenn Kontakte mit LinkedIn-URL betroffen sind.
 - Foto-Anzeige auf Karten (Avatar) bereits zuvor umgesetzt (Commit `2ebbd5b`).
 
-**Offen für /backend:** Route `POST /api/enrich-photos` (enriched fotolose Kontakte des Nutzers), Monats-Cron-Route, Migration `contacts.photo_attempted_at`, Enrichment-Dienst (Apify-Bulk → Download → Storage → `photo_url`).
+### Backend (2026-07-01)
+- **Migration:** `contacts.photo_attempted_at timestamptz` + Partial-Index `idx_contacts_photo_enrichment (user_id) where linkedin_url is not null and photo_url is null`.
+- **Enrichment-Dienst** [photo-enrichment.ts](../src/lib/photo-enrichment.ts): Kandidaten (URL & kein Foto & Cooldown), Bulk-Scrape via Apify `run-sync-get-dataset-items` (Bündel 50, max 100/Lauf), Bild-Download → Upload Bucket `contact-photos` (`{user_id}/{contact_id}.jpg`, upsert) → `photo_url` **nur wenn leer** (`.is('photo_url', null)`), `photo_attempted_at` immer gesetzt (auch bei „kein Foto"/Fehler → Cooldown 90 Tage).
+- **Rückmapping robust:** LinkedIn-REST liefert Rückreferenz je nach Input-Feld unterschiedlich (`originalQuery.query` bei `queries`, `.url` bei `urls`); Lookup matcht über normalisierte URL + `publicIdentifier`-Fallback.
+- **Route** [POST /api/enrich-photos](../src/app/api/enrich-photos/route.ts): eingeloggter Nutzer, `maxDuration=300`, 401/503/502-Handling. Behebt den fire-and-forget-404 aus dem Frontend-Schritt.
+- **Cron** [GET /api/cron/enrich-photos](../src/app/api/cron/enrich-photos/route.ts): `CRON_SECRET`-Bearer, täglicher Schedule mit internem 1.-des-Monats-Gate (`?force=1` zum Test), iteriert alle Nutzer, Fehler pro Nutzer isoliert. `vercel.json`-Cron `0 4 * * *` ergänzt.
+- **Tests:** [photo-enrichment.test.ts](../src/lib/photo-enrichment.test.ts) (Pure-Logik: chunk/cooldown/extract/normalize/lookup) + [enrich-photos.test.ts](../src/app/api/enrich-photos/enrich-photos.test.ts) (401/503/200/502). 23 grün.
+- **End-to-End verifiziert** mit echtem Kontakt (Lennart Heinacher): Scrape → Identifier-Match → Download → Bucket → `photo_url` → public URL HTTP 200 (87 KB jpeg).
 
 ## QA Test Results
 _To be added by /qa_
