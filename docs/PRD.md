@@ -29,6 +29,7 @@ Personal Network OS für **MBB-/Strategieberater** — eine persönliche Beziehu
 | P1 (MBB) | Eigenes Profil (CV) + CV-Upload mit KI-Parsing | Deployed |
 | P1 (MBB) | Gemeinsamkeiten-Feld bei Kontakten (KI-Matching Profil ↔ Kontakt) | Roadmap |
 | P2 (MBB) | Passives KI-Lernen aus Cases/Interaktionen (automatische Profil-Vorschläge) | Roadmap |
+| P1 | Konnektoren-Hub (OAuth Integration Settings — Google Calendar + Gmail) | Planned (spec done) |
 
 ## Success Metrics
 - Tägliche Nutzung
