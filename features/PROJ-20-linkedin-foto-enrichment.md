@@ -85,6 +85,9 @@ Kontakte bekommen automatisch ihr LinkedIn-Profilbild, ohne manuelle Pflege. Fü
 - Import darf durch Enrichment nicht spürbar langsamer werden (async/entkoppelt).
 - Idempotenz: Enrichment nur bei leerem `photo_url`.
 
+## Known Limitations
+- **Apify Free-Plan = max 10 Actor-Runs.** Beim Backfill-Versuch (2026-07-01) aufgebraucht → Scrapes liefern dann `error: "Free users are limited to 10 runs..."` statt Foto. Feature (Import-Trigger + Cron + Backfill) benötigt einen **Paid/Pay-as-you-go Apify-Plan**, um über 10 Runs hinaus zu skalieren. Code ist korrekt; nur Kontingent fehlt. Fehlgeschlagene Läufe setzen `photo_attempted_at` — bei einem solchen Ausfall zurücksetzen mit: `update contacts set photo_attempted_at = null where photo_url is null`.
+
 ## Open Questions
 - [ ] Mechanik des Hintergrund-Enrichments (z.B. entkoppelte Server-Verarbeitung, Batchgröße, Rate-Limiting gegenüber Apify) — Detail für `/architecture`.
 - [ ] Soll dem Nutzer irgendwo ein Fortschritt/Status („X von Y Fotos geladen") angezeigt werden, oder reicht stiller Hintergrundlauf? (aktuell: nur kurzer Hinweis nach Import)
