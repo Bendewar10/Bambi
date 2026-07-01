@@ -50,8 +50,8 @@ function today() {
 const contactSchema = z.object({
   first_name: z.string().trim().min(1, 'Vorname ist erforderlich').max(100, 'Max. 100 Zeichen'),
   last_name: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
-  category: z.enum(['business', 'investor', 'community', 'friend', 'acquaintance']).optional(),
-  strength: z.enum(['1', '2', '3']).optional(),
+  category: z.enum(['business', 'investor', 'community', 'friend', 'acquaintance', 'random']).optional(),
+  strength: z.enum(['none', '1', '2', '3']).optional(),
   employer: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
   job_title: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
   email: z
@@ -135,6 +135,13 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
   }, [open, contact])
 
   function handleStrengthChange(value: string) {
+    if (value === 'none') {
+      form.setValue('strength', 'none')
+      if (!form.formState.dirtyFields.followup_interval_days) {
+        form.setValue('followup_interval_days', '')
+      }
+      return
+    }
     form.setValue('strength', value as '1' | '2' | '3')
     if (!form.formState.dirtyFields.followup_interval_days) {
       const days = STRENGTH_DEFAULT_INTERVAL_DAYS[Number(value) as Strength]
@@ -171,7 +178,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
         first_name: values.first_name,
         last_name: values.last_name || null,
         category: values.category ?? null,
-        strength: values.strength ? Number(values.strength) : null,
+        strength: values.strength && values.strength !== 'none' ? Number(values.strength) : null,
         employer: values.employer || null,
         job_title: values.job_title || null,
         email: values.email || null,
@@ -296,6 +303,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="none">Keine</SelectItem>
                       {Object.entries(STRENGTH_LABELS).map(([value, label]) => (
                         <SelectItem key={value} value={value}>
                           {label}

@@ -1,12 +1,13 @@
-export type Category = 'business' | 'investor' | 'community' | 'friend' | 'acquaintance'
+export type Category = 'business' | 'investor' | 'community' | 'friend' | 'acquaintance' | 'random'
 export type Strength = 1 | 2 | 3
 
 export const CATEGORY_LABELS: Record<Category, string> = {
-  business: 'Business',
+  business: 'Work',
   investor: 'Investor',
   community: 'Community',
   friend: 'Freund',
   acquaintance: 'Bekannter',
+  random: 'Random',
 }
 
 export const STRENGTH_LABELS: Record<Strength, string> = {
