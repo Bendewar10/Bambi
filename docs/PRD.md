@@ -27,7 +27,7 @@ Personal Network OS für **MBB-/Strategieberater** — eine persönliche Beziehu
 | P1 (MBB) | City-Trip-Modus (Kontakte vor Ort + Batch-Draft, basiert auf Projekt-Stadt+Zeitfenster) | Roadmap |
 | P1 (MBB) | Profil (Umbenennung Projekte → Profil + Karriere-Stats-Header) | Deployed |
 | P1 (MBB) | Eigenes Profil (CV) + CV-Upload mit KI-Parsing | Deployed |
-| P1 (MBB) | Gemeinsamkeiten-Feld bei Kontakten (KI-Matching Profil ↔ Kontakt) | Roadmap |
+| P1 (MBB) | Gemeinsamkeiten-Feld bei Kontakten (KI-Matching Profil ↔ Kontakt) | Deployed |
 | P2 (MBB) | Passives KI-Lernen aus Cases/Interaktionen (automatische Profil-Vorschläge) | Roadmap |
 | P1 | Konnektoren-Hub (OAuth Integration Settings — Google Calendar + Gmail) | Planned (spec done) |
 | P1 | LinkedIn Foto-Enrichment (auto Profilbild-Scraping via Apify: CSV-Import + Monats-Cron) | Deployed |

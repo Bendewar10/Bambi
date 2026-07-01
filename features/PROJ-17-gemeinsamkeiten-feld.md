@@ -79,3 +79,7 @@ KI vergleicht das eigene Profil (CV: Stationen, Ausbildung, Skills) mit dem Kont
 
 ## Deployed
 2026-07-01
+
+- **Production URL:** https://bambi-w26q.vercel.app
+- **Deploy-Commit:** `fead78c` · **Tag:** `v1.17.0-PROJ-17`
+- Code seit erstem Deploy live; Endpoint `/api/contacts/[id]/commonalities` in Prod erreichbar. INDEX-Status am 2026-07-01 auf „Deployed" korrigiert (war fälschlich „Approved").
