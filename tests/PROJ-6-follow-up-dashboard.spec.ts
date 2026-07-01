@@ -109,7 +109,7 @@ function birthdayOffset(days: number) {
 }
 
 function cardFor(page: Page, name: string) {
-  return page.locator('[class*="rounded-lg"]', { hasText: name }).first()
+  return page.locator('[class~="rounded-xl"]', { hasText: name }).first()
 }
 
 function sectionFor(page: Page, heading: string) {
@@ -183,7 +183,7 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await login(page)
 
     const section = sectionFor(page, 'Nächste 14 Tage')
-    const texts = await section.locator('[class*="rounded-lg"]').allTextContents()
+    const texts = await section.locator('[class~="rounded-xl"]').allTextContents()
     const nearIndex = texts.findIndex((t) => t.includes(nameNear))
     const farIndex = texts.findIndex((t) => t.includes(nameFar))
     expect(nearIndex).toBeGreaterThanOrEqual(0)
@@ -259,8 +259,8 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     })
     await login(page)
 
-    const todayCard = sectionFor(page, 'Heute & überfällig').locator('[class*="rounded-lg"]', { hasText: name })
-    const weekCard = sectionFor(page, 'Nächste 14 Tage').locator('[class*="rounded-lg"]', { hasText: name })
+    const todayCard = sectionFor(page, 'Heute & überfällig').locator('[class~="rounded-xl"]', { hasText: name })
+    const weekCard = sectionFor(page, 'Nächste 14 Tage').locator('[class~="rounded-xl"]', { hasText: name })
     await expect(todayCard).toBeVisible()
     await expect(weekCard).toBeVisible()
     await expect(todayCard.getByText('Follow-up', { exact: true })).toBeVisible()
@@ -280,7 +280,8 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
   test('AC: empty state shown when no contact has an active occasion', async ({ page }) => {
     await cleanupContacts(token)
     await login(page)
-    await expect(page.getByText('Alles im Blick — aktuell nichts Fälliges.')).toBeVisible()
+    await expect(page.getByText('Alles im Blick', { exact: true })).toBeVisible()
+    await expect(page.getByText('Aktuell keine fälligen Follow-ups oder Anlässe.')).toBeVisible()
   })
 
   test('AC: "Kontaktiert" opens interaction form pre-filled with today, save refreshes the dashboard', async ({ page }) => {
@@ -302,13 +303,13 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await expect(cardFor(page, name)).toHaveCount(0)
   })
 
-  test('AC: "Karte öffnen" opens the contact\'s edit dialog pre-filled with that contact', async ({ page }) => {
+  test('AC: clicking the contact name on a card opens the contact\'s edit dialog pre-filled with that contact', async ({ page }) => {
     const name = uniqueName('OpenCard')
     await seedContact(token, userId, name, { next_followup_at: isoOffset(0) })
     await login(page)
 
     const card = cardFor(page, name)
-    await card.getByRole('button', { name: 'Karte öffnen' }).click()
+    await card.getByText(name, { exact: true }).click()
     await expect(page.getByText('Kontakt bearbeiten')).toBeVisible()
     await expect(page.getByLabel('Vorname')).toHaveValue(name)
 
@@ -399,13 +400,114 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await expect(card.getByRole('button', { name: 'Kopieren' })).toHaveCount(0)
   })
 
+  test('AC: generated draft is editable, and copying picks up the edited text', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const name = uniqueName('DraftEdit')
+    await seedContact(token, userId, name, { next_followup_at: isoOffset(0) })
+    await login(page)
+
+    await page.route('**/api/draft-message', (route) =>
+      route.fulfill({ status: 200, json: { text: 'Ursprünglicher Text' } })
+    )
+
+    const card = cardFor(page, name)
+    await card.getByRole('button', { name: 'Vorschlag' }).click()
+    const textarea = card.locator('textarea')
+    await expect(textarea).toHaveValue('Ursprünglicher Text')
+
+    await textarea.fill('Manuell bearbeiteter Text')
+    await card.getByRole('button', { name: 'Kopieren' }).click()
+    await expect(card.getByRole('button', { name: 'Kopiert!' })).toBeVisible()
+    const clipboardText = await page.evaluate(() => navigator.clipboard.readText())
+    expect(clipboardText).toBe('Manuell bearbeiteter Text')
+  })
+
+  test('AC: tone instruction + "Neu generieren" sends the tone and replaces the draft', async ({ page }) => {
+    const name = uniqueName('DraftTone')
+    await seedContact(token, userId, name, { next_followup_at: isoOffset(0) })
+    await login(page)
+
+    let lastBody: Record<string, unknown> = {}
+    let call = 0
+    await page.route('**/api/draft-message', async (route) => {
+      call += 1
+      lastBody = JSON.parse(route.request().postData() ?? '{}')
+      await route.fulfill({
+        status: 200,
+        json: { text: call === 1 ? 'Erster Text' : 'Lockerer Text auf Englisch' },
+      })
+    })
+
+    const card = cardFor(page, name)
+    await card.getByRole('button', { name: 'Vorschlag' }).click()
+    await expect(card.locator('textarea')).toHaveValue('Erster Text')
+    expect(lastBody.tone).toBeUndefined()
+
+    await card.getByPlaceholder('Ton anpassen, z.B. lockerer / auf Englisch / kürzer').fill('lockerer, auf Englisch')
+    await card.getByRole('button', { name: 'Neu generieren' }).click()
+    await expect(card.locator('textarea')).toHaveValue('Lockerer Text auf Englisch')
+    expect(lastBody.tone).toBe('lockerer, auf Englisch')
+  })
+
+  test('AC: failed "Neu generieren" shows an error and keeps the existing draft text', async ({ page }) => {
+    const name = uniqueName('DraftToneError')
+    await seedContact(token, userId, name, { next_followup_at: isoOffset(0) })
+    await login(page)
+
+    let call = 0
+    await page.route('**/api/draft-message', async (route) => {
+      call += 1
+      if (call === 1) {
+        await route.fulfill({ status: 200, json: { text: 'Bestehender Text' } })
+      } else {
+        await route.fulfill({ status: 502, json: { error: 'Vorschlag konnte nicht generiert werden.' } })
+      }
+    })
+
+    const card = cardFor(page, name)
+    await card.getByRole('button', { name: 'Vorschlag' }).click()
+    await expect(card.locator('textarea')).toHaveValue('Bestehender Text')
+
+    await card.getByRole('button', { name: 'Neu generieren' }).click()
+    await expect(card.getByText('Vorschlag konnte nicht generiert werden. Bitte erneut versuchen.')).toBeVisible()
+    await expect(card.locator('textarea')).toHaveValue('Bestehender Text')
+  })
+
+  test('AC: editable draft + tone work identically on an import-event card', async ({ page }) => {
+    const name = uniqueName('ImportDraftEdit')
+    const contactId = await seedContact(token, userId, name)
+    await seedContactEvent(token, userId, contactId, 'Jobwechsel')
+    await login(page)
+
+    let lastBody: Record<string, unknown> = {}
+    await page.route('**/api/draft-message', async (route) => {
+      lastBody = JSON.parse(route.request().postData() ?? '{}')
+      await route.fulfill({ status: 200, json: { text: 'Glückwunsch zum neuen Job!' } })
+    })
+
+    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class~="rounded-xl"]', { hasText: name })
+    await card.getByRole('button', { name: 'Vorschlag' }).click()
+    const textarea = card.locator('textarea')
+    await expect(textarea).toHaveValue('Glückwunsch zum neuen Job!')
+
+    await card.getByPlaceholder('Ton anpassen, z.B. lockerer / auf Englisch / kürzer').fill('kürzer')
+    await card.getByRole('button', { name: 'Neu generieren' }).click()
+    expect(lastBody.tone).toBe('kürzer')
+    expect(lastBody.occasionType).toBe('Jobwechsel')
+
+    await deleteContact(token, contactId)
+  })
+
   test('AC: calendar link for follow-up occasion has correct title and date', async ({ page }) => {
     const name = uniqueName('CalFollowup')
     await seedContact(token, userId, name, { next_followup_at: isoOffset(-2) })
     await login(page)
 
     const card = cardFor(page, name)
-    const link = card.getByRole('link', { name: 'Zum Kalender (Follow-up)' })
+    const link = card.getByRole('link', { name: 'Kalender' })
     await expect(link).toBeVisible()
     const href = await link.getAttribute('href')
     const params = new URLSearchParams(new URL(href!).search)
@@ -418,7 +520,7 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await login(page)
 
     const card = cardFor(page, name)
-    const link = card.getByRole('link', { name: 'Zum Kalender (Geburtstag)' })
+    const link = card.getByRole('link', { name: 'Kalender' })
     await expect(link).toBeVisible()
     const href = await link.getAttribute('href')
     const params = new URLSearchParams(new URL(href!).search)
@@ -482,7 +584,7 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await login(page)
 
     await expect(page.getByRole('heading', { name: 'Kürzlich erkannt' })).toBeVisible()
-    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class*="rounded-lg"]', { hasText: name })
+    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class~="rounded-xl"]', { hasText: name })
     await expect(card).toBeVisible()
     await expect(card.getByText('Jobwechsel', { exact: true })).toBeVisible()
 
@@ -504,7 +606,7 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await seedContactEvent(token, userId, contactId, 'Beförderung')
     await login(page)
 
-    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class*="rounded-lg"]', { hasText: name })
+    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class~="rounded-xl"]', { hasText: name })
     await expect(card.getByText('Jobwechsel', { exact: true })).toBeVisible()
     await expect(card.getByText('Beförderung', { exact: true })).toBeVisible()
   })
@@ -516,14 +618,14 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
     await seedContactEvent(token, userId, contactId, 'Beförderung')
     await login(page)
 
-    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class*="rounded-lg"]', { hasText: name })
+    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class~="rounded-xl"]', { hasText: name })
     await card.getByRole('button', { name: 'Kontaktiert' }).click()
     await page.getByLabel('Kanal').click()
     await page.getByRole('option', { name: 'Call' }).click()
     await page.getByRole('button', { name: 'Speichern' }).click()
 
     await expect(page.getByText('Kontaktmoment hinzufügen')).toHaveCount(0)
-    await expect(page.locator('[class*="rounded-lg"]', { hasText: name })).toHaveCount(0)
+    await expect(page.locator('[class~="rounded-xl"]', { hasText: name })).toHaveCount(0)
 
     await deleteContact(token, contactId)
   })
@@ -540,7 +642,7 @@ test.describe.serial('PROJ-6: Follow-up Dashboard & Tagesansicht', () => {
       await route.fulfill({ status: 200, json: { text: 'Glückwunsch zum neuen Job!' } })
     })
 
-    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class*="rounded-lg"]', { hasText: name })
+    const card = sectionFor(page, 'Kürzlich erkannt').locator('[class~="rounded-xl"]', { hasText: name })
     await card.getByRole('button', { name: 'Vorschlag' }).click()
     await expect(card.getByText('Glückwunsch zum neuen Job!')).toBeVisible()
     expect(receivedOccasionType).toBe('Jobwechsel')

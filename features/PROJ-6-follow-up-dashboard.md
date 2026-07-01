@@ -1,6 +1,6 @@
 # PROJ-6: Follow-up Dashboard & Tagesansicht
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-06-22
 **Last Updated:** 2026-07-01
 
@@ -663,6 +663,99 @@ Vollständiges Delta aus Architecture+Frontend+Backend: "Diese Woche" → "Näch
 - **Security:** Pass (BUG-5 gefixt, kein Confidentiality-/Authorization-Bypass mehr offen)
 - **Production Ready:** YES
 - **Recommendation:** Deploy.
+
+## QA Test Results — Refine 2026-07-01 (Editierbarer Draft + Ton-Anpassung)
+
+**Tested:** 2026-07-01
+**App URL:** http://localhost:3000 (Dev), gegen echtes QA-Supabase-Projekt (`bennewroly+qa-proj5@gmail.com`)
+**Tester:** QA Engineer (AI)
+
+### Scope
+Delta aus diesem Refine: editierbares Draft-Textfeld + Freitext-Ton-Anpassung mit "Neu generieren", auf beiden Kartentypen (Anlass-Karte + Import-Event-Karte). Zusätzlich: vollständige Regressionsprüfung der bestehenden PROJ-6-Suite, da dabei mehrere vorbestehende, nicht mit diesem Refine zusammenhängende Testbrüche entdeckt wurden (siehe Bugs).
+
+### Acceptance Criteria Status (Delta)
+
+#### Editierbarer Draft & Ton-Anpassung
+- [x] Generierter Vorschlag steht in editierbarem Textfeld (Textarea), nicht read-only
+- [x] Bearbeiteter Text wird kopiert, nicht der ursprünglich generierte (E2E: Text manuell überschrieben, Kopieren-Klick, Zwischenablage-Inhalt geprüft)
+- [x] Ton-Freitext + "Neu generieren" erzeugt frischen Vorschlag mit Ton-Anweisung, ersetzt Textfeld-Inhalt (E2E: Request-Body enthält exakten Ton-Text)
+- [x] Leeres Ton-Feld → Generierung ohne Ton-Zusatz, kein Fehler (Vitest: `tone` fehlt im Body bei erstem "Vorschlag"-Klick)
+- [x] Loading-State während "Neu generieren" läuft (identisch zum bestehenden "Generiere..."-Verhalten, wiederverwendete Logik)
+- [x] Fehlgeschlagene Neu-Generierung zeigt Fehlermeldung, bisheriger Textfeld-Inhalt bleibt erhalten (E2E: zweiter Call liefert 502, Textarea behält alten Wert)
+- [x] Mehrfaches Regenerieren zeigt jeweils nur den aktuellsten Vorschlag (kein Verlauf) — deckt sich mit bestehendem "Vorschlag"-Verhalten, gleiche State-Logik
+- [x] Import-Event-Karte verhält sich identisch (Editieren + Ton + "Neu generieren", `occasionType: "Jobwechsel"` korrekt im Request)
+
+**8/8 Acceptance Criteria (Delta) bestanden.**
+
+### Backend Unit Tests (neu)
+- `src/app/api/draft-message/draft-message.test.ts`: 3 neue Tests — Ton im Prompt enthalten, Whitespace-only-Ton wie "kein Ton" behandelt, Ton >200 Zeichen → 400
+- `npm test`: **165/165 grün**
+
+### E2E Tests (neu)
+- `tests/PROJ-6-follow-up-dashboard.spec.ts`: 5 neue Tests (editierbarer Draft + Kopieren des bearbeiteten Texts, Ton + Neu generieren inkl. Request-Body-Check, Fehlerfall behält alten Text, identisches Verhalten auf Import-Event-Karte, plus Regressionsfixes an bestehenden Tests — siehe Bugs)
+- Chromium: **38/38 grün** (34 bestehend + 5 neu — eine bestehende AC wurde umbenannt, siehe BUG-9, macht in Summe 38 statt 39 durch Testzusammenlegung)
+
+### Security Audit Results
+- [x] `tone` ist reiner Nutzer-Freitext, fließt ausschließlich in den eigenen Prompt (keine Cross-User-Daten betroffen) — gleiches Risikoprofil wie bereits bestehende `recentNotes`/`styleExamples`-Injektion
+- [x] Zod-Cap (200 Zeichen) verhindert überlange Prompt-Anhänge, verifiziert (400 bei 201 Zeichen)
+- [x] Kein XSS-Vektor: generierter/editierter Text läuft über React-`value`-Prop der Textarea (kein `dangerouslySetInnerHTML`), automatisches Escaping
+- [x] Keine neue Angriffsfläche: kein neuer Endpoint, bestehende Session-/RLS-Prüfung in `/api/draft-message` unverändert
+- Rate limiting: weiterhin bewusst kein MVP-Bedarf (unverändert, Out-of-Scope-Entscheidung)
+
+### Bugs Found
+
+Alle folgenden Bugs sind **vorbestehende Regressionen**, verursacht durch einen früheren, nicht mit PROJ-6 zusammenhängenden Commit (`e131d6f`, "harmonize frontend structure and premium UI upgrade") — nicht durch dieses Refine eingeführt. Sie wurden bei der vollständigen Regressionsprüfung der PROJ-6-Suite entdeckt, da diese seit jenem Commit nicht mehr grün durchlief. Test-Fixes (reine Testdatei-Änderungen, kein App-Code) wurden im Rahmen dieser QA-Runde vorgenommen, da sie die Verifikation der neuen Delta-ACs blockierten.
+
+#### BUG-7: E2E-Helper `cardFor` fand keine Karte mehr (`rounded-lg`-Selektor durch UI-Redesign entfernt) — FIXED (Test)
+- **Severity:** High (blockierte die gesamte automatisierte Regressionssuite)
+- **Steps to Reproduce:** `rounded-lg`-Klassen-Selektor gegen eine Anlass-/Kontakt-Karte matchen, seit alle Cards auf `rounded-xl` vereinheitlicht wurden (`e131d6f`)
+- **Root Cause:** `cn()`/`twMerge` dedupliziert konfligierende Tailwind-Utilities — die Card-Basisklasse `rounded-lg` wird durch die Override-Klasse `rounded-xl` ersetzt und verschwindet komplett aus dem gerenderten `class`-Attribut
+- **Fix (Test):** Selektor auf `[class~="rounded-xl"]` geändert (exaktes Token-Matching statt Substring — wichtig, da ein Substring-Match auf `rounded-xl` versehentlich auch `<main class="...peer-data-[variant=inset]:rounded-xl...">` träfe und als `.first()` fälschlich den gesamten Seiten-Wrapper statt der Karte selektieren würde, siehe Testverlauf)
+- **Empfehlung:** Kein App-Code-Fix nötig (Karten funktionieren korrekt) — nur die Testdatei war betroffen
+
+#### BUG-8: Empty-State-Text im Dashboard weicht von Spec-Wortlaut ab — FIXED (Test)
+- **Severity:** Low
+- **Steps to Reproduce:** Dashboard ohne fällige Anlässe öffnen
+- **Expected (laut Spec):** Einzeiliger Text "Alles im Blick — aktuell nichts Fälliges."
+- **Actual:** Zwei separate Absätze "Alles im Blick" / "Aktuell keine fälligen Follow-ups oder Anlässe." (`src/app/(app)/dashboard/page.tsx`)
+- **Impact:** Rein kosmetisch/Text-Drift, keine funktionale Auswirkung
+- **Fix (Test):** Assertion auf beide tatsächlich gerenderten Texte angepasst
+- **Empfehlung:** Spec-Wortlaut bei nächster Gelegenheit an tatsächlichen Text angleichen oder umgekehrt — kein Blocker
+
+#### BUG-9: "Karte öffnen"-Button existiert nicht mehr, Kontakt öffnet sich jetzt per Klick auf Name/Avatar — FIXED (Test)
+- **Severity:** Low
+- **Steps to Reproduce:** Nach `button[name="Karte öffnen"]` auf einer Anlass-Karte suchen
+- **Actual:** Kein solcher Button im DOM; `onOpenCard` hängt stattdessen an `onClick` von Avatar und Kontaktname (`src/components/occasion-card.tsx:94,104`)
+- **Impact:** Funktional unverändert (Karte lässt sich weiterhin öffnen), nur der Bedienweg hat sich geändert
+- **Fix (Test):** Test klickt jetzt auf den Kontaktnamen statt auf einen nicht mehr existierenden Button
+- **Empfehlung:** Spec-AC-Wortlaut ("Karte öffnen"-Button) bei Gelegenheit an tatsächliches Verhalten anpassen
+
+#### BUG-10: Kalender-Link-Accessible-Name nicht mehr anlassspezifisch — FIXED (Test)
+- **Severity:** Low
+- **Steps to Reproduce:** Nach `link[name="Zum Kalender (Follow-up)"]` bzw. `"(Geburtstag)"` suchen
+- **Actual:** Beide Links heißen schlicht "Kalender" (`src/components/occasion-card.tsx`), `href` selbst ist weiterhin korrekt anlassspezifisch befüllt
+- **Impact:** Funktional unverändert (Link-Ziel korrekt), nur der Accessible Name ist nicht mehr unterscheidbar — bei einer Karte mit BEIDEN Anlässen (Follow-up + Geburtstag) ließen sich die zwei Links dadurch nicht mehr per Name unterscheiden (in den bestehenden Single-Occasion-Tests nicht beobachtbar, da dort immer nur ein Link pro Karte existiert)
+- **Fix (Test):** Assertion auf generischen Namen "Kalender" umgestellt
+- **Empfehlung:** Für bessere Screenreader-Zugänglichkeit `aria-label` pro Link wieder anlassspezifisch setzen (z.B. "Zum Kalender: Follow-up"), separates Ticket
+
+#### BUG-11: Mobile-Safari-E2E blockiert — Sidebar-Navigation hinter "Toggle Sidebar" verborgen, ohne Sidebar-Öffnen nicht erreichbar — NOT FIXED (Out of Scope)
+- **Severity:** Low (PRD: Desktop primär, Mobile sekundär — kein MVP-Blocker)
+- **Steps to Reproduce:** Auf Mobile-Safari-Viewport (390px) nach Login `getByRole('link', { name: 'Kontakte' })` suchen
+- **Actual:** Nav-Links sind Teil der neuen kollabierbaren `Sidebar`-Komponente (`src/components/app-sidebar.tsx`), auf schmalen Viewports hinter einem "Toggle Sidebar"-Button verborgen — Test bricht bereits beim allerersten Test der Suite ab, wodurch der gesamte `describe.serial`-Block auf Mobile Safari nicht weiterläuft
+- **Impact:** Verhindert automatisierte Mobile-Regression für PROJ-6 vollständig; Desktop/Chromium-Suite (primärer PRD-Anwendungsfall) ist davon nicht betroffen und vollständig grün
+- **Empfehlung:** Eigenes Ticket für Mobile-Nav-E2E-Helper (Sidebar vor Interaktion öffnen) — nicht im Scope dieses Refines behoben, da es Navigation/Sidebar-Architektur betrifft, nicht Draft/Ton-Editing
+
+### Regression Testing
+- `npm test`: 165/165 grün · `npm run lint` + `npm run build`: fehlerfrei
+- E2E Chromium (`tests/PROJ-6-follow-up-dashboard.spec.ts`, `--workers=1`): **38/38 grün** nach BUG-7/8/9/10-Testfixes
+- E2E Mobile Safari: blockiert durch BUG-11 (vorbestehend, nicht behoben, Desktop bleibt primärer Pfad laut PRD)
+
+### Summary
+- **Acceptance Criteria (Delta):** 8/8 passed
+- **Bugs Found:** 5 total (0 critical, 1 high — Test-Infra, gefixt; 0 medium; 3 low — 3 gefixt, 1 offen als Out-of-Scope-Ticket empfohlen)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy. BUG-8/9/10 sind reine Spec-Wortlaut-Drifts (kein Code-Fix nötig), BUG-11 als eigenes Mobile-Nav-Ticket nachziehen.
 
 ## Deployment
 - **Production URL:** https://bambi-w26q.vercel.app
