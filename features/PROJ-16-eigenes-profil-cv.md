@@ -1,6 +1,6 @@
 # PROJ-16: Eigenes Profil (CV) + CV-Upload mit KI-Parsing
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-06-30
 **Last Updated:** 2026-07-01
 
