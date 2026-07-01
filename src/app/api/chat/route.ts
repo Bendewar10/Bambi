@@ -87,6 +87,7 @@ export async function POST(request: Request) {
       messages: [...(history ?? []).reverse(), { role: 'user' as const, content }],
       tools,
       stopWhen: stepCountIs(5),
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
     })
 
     const { data: assistantMessage, error: assistantError } = await supabase

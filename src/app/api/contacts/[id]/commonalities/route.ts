@@ -103,6 +103,7 @@ Identifiziere konkrete Gemeinsamkeiten: gleiche Arbeitgeber, Branchen, Städte, 
       model: anthropic('claude-sonnet-4-6'),
       prompt,
       maxOutputTokens: 200,
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
     })
 
     const result = text.trim()

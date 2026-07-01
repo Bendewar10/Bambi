@@ -115,6 +115,7 @@ export async function POST(request: Request) {
       model: anthropic('claude-sonnet-4-6'),
       prompt,
       maxOutputTokens: 120,
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
     })
     return NextResponse.json({ text: text.trim().slice(0, MAX_DRAFT_LENGTH) })
   } catch {

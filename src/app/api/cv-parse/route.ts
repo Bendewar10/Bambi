@@ -67,6 +67,7 @@ export async function POST(request: Request) {
     const { object } = await generateObject({
       model: anthropic('claude-sonnet-4-6'),
       schema: cvSchema,
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
       messages: [
         {
           role: 'user',

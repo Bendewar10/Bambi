@@ -75,6 +75,7 @@ Schreib auf Deutsch, per Du, 2-4 Sätze, die sich konkret auf diese Zahlen bezie
       model: anthropic('claude-sonnet-4-6'),
       prompt,
       maxOutputTokens: 220,
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
     })
     return NextResponse.json({ text: text.trim().slice(0, MAX_INSIGHT_LENGTH) })
   } catch (err) {

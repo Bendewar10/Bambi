@@ -59,6 +59,7 @@ export async function POST(request: Request) {
       schema: responseSchema,
       system: systemWithHint,
       messages: messages.length > 0 ? messages : [{ role: 'user', content: 'Start' }],
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
     })
 
     return NextResponse.json(object)

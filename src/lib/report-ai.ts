@@ -51,6 +51,7 @@ export async function generateReportSections(metrics: ReportMetrics): Promise<Re
     schema: reportSectionsSchema,
     prompt: buildPrompt(metrics),
     maxOutputTokens: 700,
+    providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
   })
   return object
 }
