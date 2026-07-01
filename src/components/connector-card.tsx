@@ -50,7 +50,10 @@ export function ConnectorCard({ connector, tokenStatus, onDisconnected }: Connec
   const isComingSoon = connector.availability === 'coming_soon'
 
   return (
-    <Card className={isComingSoon ? 'opacity-60' : ''}>
+    <Card
+      data-testid={`connector-card-${connector.id}`}
+      className={isComingSoon ? 'opacity-60' : ''}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
