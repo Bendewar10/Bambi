@@ -313,4 +313,27 @@ Keine neuen npm-Pakete nötig. Google OAuth läuft über Standard-HTTP (`fetch`)
 - **Recommendation:** Deploy (Migration anwenden, Google OAuth Credentials konfigurieren)
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-07-01
+**Production URL:** https://bambi-w26q.vercel.app/einstellungen/konnektoren
+**Migration:** `connector_tokens` applied to Supabase (srxatexcffjebolqttaq)
+
+### Vercel Env Vars gesetzt
+- `NEXT_PUBLIC_APP_URL` = https://bambi-w26q.vercel.app ✓
+- `CONNECTOR_ENCRYPTION_KEY` = gesetzt (Encrypted) ✓
+- `GOOGLE_CLIENT_ID` = **noch nicht gesetzt** — Google Cloud Console erforderlich
+- `GOOGLE_CLIENT_SECRET` = **noch nicht gesetzt** — Google Cloud Console erforderlich
+
+### Google OAuth Setup (manuell erforderlich)
+1. Gehe zu [console.cloud.google.com](https://console.cloud.google.com)
+2. Neues Projekt oder bestehendes wählen
+3. APIs & Services → Credentials → "Create OAuth 2.0 Client ID"
+4. Application type: **Web application**
+5. Authorized redirect URIs: `https://bambi-w26q.vercel.app/api/connectors/google/callback`
+   (Lokal: `http://localhost:3000/api/connectors/google/callback`)
+6. Enable APIs: **Google Calendar API** + **Gmail API** unter APIs & Services → Library
+7. OAuth Consent Screen: Scopes `calendar.readonly` + `gmail.readonly` hinzufügen
+8. `GOOGLE_CLIENT_ID` und `GOOGLE_CLIENT_SECRET` in Vercel Dashboard hinzufügen → redeploy
+
+### Note: Google OAuth Verification
+`gmail.readonly` ist ein **Sensitive Scope** — Google verlangt App-Review für Production (max. 100 Test-User bis zur Freigabe). Während Testing-Phase: Test-User in OAuth Consent Screen manuell hinzufügen.

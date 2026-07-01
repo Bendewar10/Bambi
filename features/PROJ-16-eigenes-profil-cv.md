@@ -1,8 +1,8 @@
 # PROJ-16: Eigenes Profil (CV) + CV-Upload mit KI-Parsing
 
-## Status: Approved
+## Status: In Progress
 **Created:** 2026-06-30
-**Last Updated:** 2026-06-30
+**Last Updated:** 2026-07-01
 
 ## Dependencies
 - PROJ-3 (Kontakt anlegen & verwalten) — liefert das Kontaktmodell, das ein späteres Folgefeature (PROJ-17, noch nicht spezifiziert) gegen dieses Profil abgleichen wird. Kein technischer Hard-Dependency für PROJ-16 selbst.
@@ -13,6 +13,8 @@
 - Als Berater möchte ich meinen Lebenslauf als PDF hochladen können, damit ich nicht jeden Eintrag manuell eintippen muss
 - Als Berater möchte ich die aus dem PDF erkannten Daten vor dem Speichern sehen und korrigieren können, damit Fehler aus der automatischen Erkennung nicht ungeprüft übernommen werden
 - Als Berater möchte ich auch ohne CV-Upload einzelne Stationen (Studium, Job) manuell nachtragen können, damit ich mein Profil jederzeit aktuell halten kann, auch lange nach dem letzten Upload
+- Als Berater möchte ich eine automatisch generierte Kurzbeschreibung meines Profils sehen, die aus meinen CV-Daten und Projekten erstellt wird, damit ich auf einen Blick weiß was das Tool über mich weiß und die KI-Funktionen (Gemeinsamkeiten, Chat) besseren Kontext über mich haben
+- Als Berater möchte ich meine Karriereziele in einem geführten KI-Gespräch festhalten können, damit die KI-Funktionen des Tools auf meine konkreten nächsten Schritte ausgerichtet sind und z. B. passende Kontakte für mein Ziel hervorhebt
 
 ## Out of Scope
 - Gemeinsamkeiten-Matching zwischen eigenem Profil und Kontakten — eigenes Folgefeature (PROJ-17), baut auf diesem Datenmodell auf, aber diese Spec liefert nur die Datenbasis
@@ -22,6 +24,9 @@
 - Mehrfacher gleichzeitiger CV-Upload / Versionsverwaltung mehrerer CVs — nur der zuletzt hochgeladene CV-Pfad wird referenziert, ältere Uploads werden nicht als Historie verwaltet
 - Automatisches Überschreiben bestehender Einträge durch einen erneuten CV-Upload — jeder Upload erzeugt neue Vorschau-Einträge, die der Nutzer einzeln bestätigt; bestehende Einträge werden nicht automatisch gelöscht/ersetzt
 - Strukturierte Felder für Skills/Sprachen mit Niveau-Angaben (z. B. "Englisch C1") — für MVP einfache Text-Listen ohne Sub-Struktur
+- Ziele als strukturierte Dropdown-Felder (z. B. fester Wert "PE Exit" als Enum) — Goals werden als Freitext-Zusammenfassung aus dem AI-Gespräch gespeichert, keine fest vordefinierte Kategorisierung
+- Automatische Bio-Aktualisierung bei jeder CV-Datenänderung — Nutzer löst Bio-Generierung manuell per Button aus, kein Hintergrund-Trigger
+- Ziele als Push-Notification/Email-Nudge — Nudge erscheint als In-App-Banner auf `/profil/lebenslauf`, kein E-Mail-Reminder
 
 ## Acceptance Criteria
 
@@ -42,6 +47,22 @@
 - [ ] Angenommen der Nutzer hat Skills/Sprachen über CV-Upload oder manuell hinterlegt, wenn er die Profilseite erneut öffnet, dann sieht er die zuletzt gespeicherten Werte
 - [ ] Angenommen Nutzer A ist eingeloggt, wenn er versucht, auf Profil-Daten oder CV-Dateien von Nutzer B zuzugreifen, dann liefert die Datenbank/das Storage keine Daten zurück (RLS)
 
+**Auto-Bio**
+- [ ] Angenommen der Nutzer hat mindestens einen Bildungs- oder Werdegang-Eintrag, wenn er `/profil/lebenslauf` öffnet, dann sieht er eine generierte Kurzbeschreibung seines Profils (max. 3 Sätze) oberhalb der Sektionen
+- [ ] Angenommen eine Bio existiert, wenn der Nutzer auf "Bio neu generieren" klickt, dann wird eine neue Bio aus den aktuellen CV-Daten + Projekten erzeugt und die alte überschrieben
+- [ ] Angenommen der Nutzer hat noch keine CV-Einträge, dann ist der Bio-Abschnitt nicht sichtbar (kein leerer Platzhalter)
+- [ ] Angenommen der Nutzer bestätigt CV-Einträge nach einem Upload, dann wird die Bio automatisch neu generiert und angezeigt
+
+**Career Goals via AI-Gespräch**
+- [ ] Angenommen der Nutzer öffnet `/profil/lebenslauf`, dann sieht er einen "Ziele festlegen"-Button (bzw. "Ziele aktualisieren" wenn bereits Goals vorhanden)
+- [ ] Angenommen der Nutzer klickt "Ziele festlegen", dann öffnet sich ein Chat-Dialog in dem die KI die erste gezielte Frage stellt (nächster Move: Exit/Partner-Track/Sabbatical/Ausland/anderes)
+- [ ] Angenommen der Nutzer beantwortet die Fragen, dann stellt die KI maximal 3 gezielte Folgefragen (Zeithorizont, Branchen/Ziele, offenes Freitextfeld) bevor sie eine Zusammenfassung erstellt
+- [ ] Angenommen die KI hat genug Kontext, dann präsentiert sie eine Zusammenfassung der Ziele zur Bestätigung durch den Nutzer ("So habe ich deine Ziele verstanden: [...]")
+- [ ] Angenommen der Nutzer bestätigt die Zusammenfassung, dann werden die Goals als Text in `user_profile.goals_text` gespeichert und `goals_updated_at` gesetzt
+- [ ] Angenommen der Nutzer bricht den Dialog ab, dann bleiben bestehende Goals unverändert
+- [ ] Angenommen Goals sind vorhanden, dann werden sie als Text-Abschnitt auf `/profil/lebenslauf` unterhalb der Bio angezeigt mit Datum der letzten Aktualisierung
+- [ ] Angenommen `goals_updated_at` ist älter als 90 Tage, dann zeigt `/profil/lebenslauf` einen In-App-Nudge-Banner ("Deine Ziele sind X Monate alt — noch aktuell?") mit direktem Link zum Aktualisieren-Dialog
+
 ## Edge Cases
 - Enddatum eines Bildungs-/Werdegang-Eintrags liegt vor dem Startdatum → Validierungsfehler
 - Laufende Ausbildung/Anstellung (kein Enddatum) → erlaubt, Enddatum bleibt optional
@@ -50,12 +71,24 @@
 - Doppelter Klick auf "Hochladen"/"Speichern" während Request läuft → Button disabled (Loading-State), kein doppelter Insert/Upload
 - Nutzer lädt einen zweiten CV hoch, nachdem bereits Einträge existieren → neue Vorschau wird unabhängig von bestehenden Einträgen erzeugt, nichts wird automatisch gelöscht oder überschrieben (siehe Out of Scope)
 - Sehr großes PDF (z. B. mehrseitiger CV mit eingebetteten Bildern) nahe am Größenlimit → Upload wird serverseitig zeitlich begrenzt (Timeout), bei Überschreitung Fehlermeldung statt endlosem Laden
+- Bio-Generierung schlägt fehl (API-Fehler) → Fehlermeldung, bestehende Bio bleibt unverändert, kein Datenverlust
+- Nutzer hat CV-Daten aber keine Projekte (oder umgekehrt) → Bio wird aus verfügbaren Daten generiert, kein Fehler
+- Goals-Chat-Dialog: Nutzer gibt sehr kurze/ausweichende Antworten → KI fragt maximal 1-2 Mal nach, erstellt dann eine Zusammenfassung aus dem was vorhanden ist (kein Endlos-Loop)
+- Goals-Dialog: AI-Call schlägt fehl → Fehlermeldung im Dialog, bestehende Goals bleiben unverändert
 
 ## Technical Requirements
 - Security: RLS auf `user_profile`, `user_education`, `user_employment` analog zu bestehenden Tabellen (`auth.uid() = user_id`); Storage-Bucket `cv-uploads` privat mit Owner-only-Policies, kein öffentlicher Zugriff auf hochgeladene PDFs
 - Validierung: Institution/Arbeitgeber Pflichtfelder (max 200 Zeichen je analog zu bestehenden Namensfeldern), übrige Felder optional, Enddatum ≥ Startdatum falls beide gesetzt, Beschreibung max 500 Zeichen
 - PDF-Upload: nur `application/pdf`, Größenlimit (Empfehlung 10 MB, analog typischer CV-Dateigrößen)
 - KI-Parsing liefert ausschließlich einen Vorschlag — kein automatisches Schreiben in die Datenbank ohne explizite Nutzerbestätigung
+
+**Erweiterungen (Auto-Bio + Career Goals):**
+- `user_profile` bekommt 4 neue Spalten: `bio text`, `bio_updated_at timestamptz`, `goals_text text`, `goals_updated_at timestamptz` — neue DB-Migration erforderlich
+- Neue API-Route `/api/generate-bio`: Auth-Check, lädt `user_education` + `user_employment` + `user_profile` (Skills/Sprachen) + `projects` (PROJ-12) für den User, ruft Claude via `generateText` auf, speichert generierte Bio in `user_profile` (upsert), gibt Bio zurück — gleiches Muster wie `/api/cv-parse`
+- Neue API-Route `/api/goals-chat`: Multi-Turn-Conversation mit spezialisiertem System-Prompt (Goal-Extraction, nicht allgemeiner Assistent); nimmt `messages[]` entgegen, gibt `{message, done, goalsSummary?}` zurück; wenn `done=true` enthält Response die finale Zusammenfassung zur Bestätigung — kein direktes Speichern ohne Nutzerbestätigung
+- Neues Frontend-Pattern: `goals-chat-dialog.tsx` — verwaltet lokalen `messages`-State, ruft `/api/goals-chat` nach jeder Nutzerantwort auf, zeigt Bestätigungs-Step wenn `done=true`, speichert `goals_text` per Supabase-Client-Call nach Bestätigung
+- Bio-Section auf `/profil/lebenslauf`: wird nach CV-Bestätigung (nach `cv-review-dialog`) automatisch getriggert; "Bio neu generieren"-Button ruft `/api/generate-bio` auf; Bio wird lokal im Component-State aktualisiert ohne Page-Reload
+- AI-Kontext: `bio` + `goals_text` werden als Teil des System-Prompts in `/api/chat` (PROJ-11) und `/api/draft-message` (PROJ-6) mitgegeben wenn vorhanden — bestehende Routen müssen um einen User-Profile-Fetch erweitert werden
 
 ## Open Questions
 _Keine offenen Fragen — vollständig im Rahmen einer vorgelagerten Plan-Phase mit dem Nutzer abgestimmt (siehe Decision Log)._
@@ -73,6 +106,12 @@ _Keine offenen Fragen — vollständig im Rahmen einer vorgelagerten Plan-Phase 
 | Skills/Sprachen als einfache Listen ohne Niveau-Struktur | Reduziert Scope für MVP, Niveau-Angaben (z. B. "Englisch C1") sind nicht für die geplante Matching-Funktion (PROJ-17) erforderlich | 2026-06-30 |
 | Re-Upload überschreibt bestehende Einträge nicht automatisch | Verhindert versehentlichen Datenverlust bei wiederholtem CV-Upload; Nutzer behält volle Kontrolle über jeden einzelnen Eintrag | 2026-06-30 |
 | PROJ-17 (Gemeinsamkeiten-Matching) und PROJ-18 (passives Lernen) bewusst als eigene Folge-Specs ausgegliedert | Single-Responsibility-Prinzip des Repos — unabhängig testbar/deploybar; Matching braucht ohnehin echte Profildaten aus PROJ-16 als Voraussetzung | 2026-06-30 |
+| Auto-Bio als eigenständige generierte Section im Profil (nicht nur stilles AI-Kontext-Artefakt) | Nutzer soll sehen was die KI über ihn weiß — Transparenz und Kontroll-Feedback; Anzeige im Profil schafft Vertrauen in KI-Funktionen wie Gemeinsamkeiten | 2026-07-01 |
+| Goals als konversationeller AI-Dialog statt Formular | Berater-Zielgruppe ist zeitarm; geführtes Gespräch (AI fragt, Nutzer antwortet kurz) < kognitive Last eines leeren Formulars; AI kann Folgefragen kontextabhängig stellen | 2026-07-01 |
+| Goals als Freitext-Zusammenfassung gespeichert (nicht strukturierte Enum-Felder) | AI-Conversation produziert natürlichsprachige Zusammenfassung — diese direkt als Kontext an andere AI-Routen weiterzugeben ist effektiver als normalisierte Felder; Freitext enthält mehr Nuancen | 2026-07-01 |
+| Goals-Chat als eigenständige API-Route `/api/goals-chat`, nicht als Erweiterung von PROJ-11 `/api/chat` | Spezialisierter System-Prompt (strukturierte Goal-Extraktion, endliche Konversation), anderes Output-Schema (`done` + `goalsSummary`); Trennung verhindert Scope-Creep im allgemeinen Chat-Endpunkt | 2026-07-01 |
+| 90-Tage-Nudge als In-App-Banner, kein E-Mail/Push | Minimalste Implementierung; E-Mail-Kanal existiert (PROJ-9), aber ein separater Reminder-Job für Goals wäre Overhead; Banner ist ausreichend für einen Solo-Nutzer der täglich die App öffnet | 2026-07-01 |
+| Bio + Goals als AI-Kontext in `/api/chat` (PROJ-11) und `/api/draft-message` (PROJ-6) einbinden | Das ist der primäre Mehrwert — reichere Gemeinsamkeiten, passendere Nachrichtenvorschläge; ohne diesen Schritt sind Bio/Goals Anzeigefeatures ohne echten Nutzen | 2026-07-01 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
