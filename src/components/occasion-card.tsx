@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ContactOccasion } from '@/lib/occasions'
 import { buildCalendarLink } from '@/lib/external-links'
@@ -40,6 +42,7 @@ function getInitials(contact: Contact) {
 export function OccasionCard({ occasion, onLogInteraction, onOpenCard }: OccasionCardProps) {
   const { contact, badges, followupDate, birthdayDate } = occasion
   const [draftText, setDraftText] = useState<string | null>(null)
+  const [tone, setTone] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [copyError, setCopyError] = useState<string | null>(null)
@@ -66,7 +69,11 @@ export function OccasionCard({ occasion, onLogInteraction, onOpenCard }: Occasio
       const res = await fetch('/api/draft-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contactId: contact.id, occasionType: primaryType }),
+        body: JSON.stringify({
+          contactId: contact.id,
+          occasionType: primaryType,
+          tone: tone.trim() || undefined,
+        }),
       })
       if (!res.ok) {
         setDraftError('Vorschlag konnte nicht generiert werden. Bitte erneut versuchen.')
@@ -161,7 +168,29 @@ export function OccasionCard({ occasion, onLogInteraction, onOpenCard }: Occasio
 
         {draftText && (
           <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
-            <p className="text-muted-foreground">{draftText}</p>
+            <Textarea
+              value={draftText}
+              onChange={(e) => setDraftText(e.target.value)}
+              className="min-h-[70px] bg-background text-sm"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                placeholder="Ton anpassen, z.B. lockerer / auf Englisch / kürzer"
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                className="h-8 flex-1 min-w-[180px] text-sm"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleGenerateDraft}
+                disabled={isGenerating}
+                className="gap-1.5"
+              >
+                <Sparkles className="size-3.5" />
+                {isGenerating ? 'Generiere...' : 'Neu generieren'}
+              </Button>
+            </div>
             <Button size="sm" variant="outline" onClick={handleCopyDraft} className="gap-1.5">
               {copied ? <><Check className="size-3.5" />Kopiert!</> : 'Kopieren'}
             </Button>

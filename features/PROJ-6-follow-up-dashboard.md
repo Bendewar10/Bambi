@@ -1,8 +1,10 @@
 # PROJ-6: Follow-up Dashboard & Tagesansicht
 
-## Status: Deployed
+## Status: In Progress
 **Created:** 2026-06-22
-**Last Updated:** 2026-06-28
+**Last Updated:** 2026-07-01
+
+> Refinement 2026-07-01 (#2 Editierbarer Draft + Ton): Generierte Nachrichtenvorschläge werden ab jetzt in einem **editierbaren Textfeld** angezeigt (statt read-only), sowohl auf der Anlass-Karte (`occasion-card`) als auch auf der Import-Event-Karte (`import-event-card`). Zusätzlich gibt es ein **Freitext-Ton-Feld** ("Ton anpassen, z.B. 'lockerer' / 'auf Englisch' / 'kürzer'") + "Neu generieren"-Button — die Anweisung wird als optionaler `tone`-Parameter an die bestehende `/api/draft-message`-Route übergeben und in den Prompt injiziert. Editierter Text wird **nicht persistiert** (konsistent mit "kein Draft-Caching"), "Kopieren" nutzt den aktuellen (ggf. editierten) Textfeld-Inhalt. Status zurück auf "In Progress" für die Bau-Phase dieses Refines. Vorherige Refine-Notizen bleiben als Kontext erhalten.
 
 > Refinement 2026-06-28: "Diese Woche" wird zu einer chronologisch sortierten "Nächste 14 Tage"-Sektion erweitert (7→14 Tage). Neue Sektion "Kürzlich erkannt" zeigt von PROJ-10 persistierte Jobwechsel-/Beförderungs-Events. Frontend dafür ist implementiert (siehe "Implementation Notes (Frontend Refine 2026-06-28)" unten), Backend (`contact_events`-Tabelle + RLS + `/api/draft-message`-Erweiterung) noch offen. Vorherige Refine-Notiz bleibt als Kontext erhalten: WhatsApp-Button durch Copy-Button ersetzt, Schreibstil-Lernen für AI-Vorschlag ergänzt (2026-06-24).
 
@@ -67,6 +69,8 @@
 - Als Nutzer möchte ich einen Anlass mit einem Klick in meinen Kalender eintragen können, damit ich ihn nicht vergesse, falls ich jetzt nicht reagiere
 - **Neu (Refine 2026-06-28):** Als Nutzer möchte ich eine 14-Tage-Vorschau in chronologischer Reihenfolge sehen, damit ich vorausplanen kann, ohne erst durch "Diese Woche" und die volle Liste zu suchen
 - **Neu (Refine 2026-06-28):** Als Nutzer möchte ich auf dem Dashboard sehen, wenn ein LinkedIn-Import einen Jobwechsel oder eine Beförderung bei einem Kontakt erkannt hat, damit ich diesen Anlass nicht verpasse, nur weil ich ihn beim Import übersehen habe
+- **Neu (Refine 2026-07-01):** Als Nutzer möchte ich einen generierten Vorschlag direkt im Textfeld bearbeiten können, bevor ich ihn kopiere, damit ich ihn ohne Umweg über eine andere App an meinen Ton und den konkreten Kontakt anpassen kann
+- **Neu (Refine 2026-07-01):** Als Nutzer möchte ich per Freitext eine Ton-Anweisung geben ("lockerer", "auf Englisch", "kürzer und formeller") und neu generieren lassen, damit der Vorschlag zum jeweiligen Kontakt passt (Client vs. Alumni-Kumpel), ohne dass ich alles selbst umschreiben muss
 
 ## Out of Scope
 - Geburtstags-Import aus externem Kalender (Google Calendar OAuth) — bewusst nicht, nur manuelles `birthday`-Feld am Kontakt (Entscheidung im Interview, Konsistenz mit PRD-Non-Goal "Kalender-Sync erst nach MVP")
@@ -75,7 +79,10 @@
 - Eigenes Feld für den exakten gesendeten Nachrichtentext — Stil-Lernen nutzt das bestehende Notizfeld aus PROJ-5, kein Zusatzfeld, um Quick-Add-Ziel aus PRD nicht zu gefährden
 - Echte Calendar-Sync (Lesen bestehender Termine, Abgleich mit Kontakten) — nur einseitiger Add-Event-Link, kein OAuth
 - Scoring/Ranking von Kontakten durch KI ("wer ist am wichtigsten") — KI wird nur für Nachrichten-Drafting genutzt, Reihenfolge/Sektionen sind reine Datums-Logik
-- Caching/Speichern generierter Nachrichtenvorschläge — wird bei jedem Klick neu generiert, kein Verlauf
+- Caching/Speichern generierter Nachrichtenvorschläge — wird bei jedem Klick neu generiert, kein Verlauf; **gilt auch für editierten Text (Refine 2026-07-01): der Textfeld-Inhalt lebt nur im lokalen Karten-State, wird nicht in die DB geschrieben und ist nach Reload/Kartenwechsel wieder weg**
+- **Neu (Refine 2026-07-01):** Vordefinierte Ton-Presets/Buttons (z.B. feste "Förmlicher"/"Lockerer"-Buttons) — bewusst nicht, stattdessen ein freies Text-Feld für maximale Flexibilität (Sprache, Länge, Stil in einem); kein Preset-Katalog zu pflegen (Entscheidung im Refine-Interview)
+- **Neu (Refine 2026-07-01):** Ton-Anweisung als dauerhaft gespeicherte Nutzer-Präferenz ("immer locker") — Ton gilt nur pro Regenerierung, keine Persistenz eines Standard-Tons am Nutzer/Kontakt (kein neues Feld, kein Scope-Aufblähen)
+- **Neu (Refine 2026-07-01):** Ton-Anpassung des bereits editierten Textes ("nimm meine Bearbeitung und mach sie lockerer") — "Neu generieren" erzeugt einen frischen Vorschlag aus Kontakt-Kontext + Ton-Anweisung und überschreibt den Textfeld-Inhalt, es wird nicht auf den manuell editierten Zwischenstand aufgesetzt
 - Rate-Limiting für KI-Aufrufe — kein MVP-Bedarf bei erwarteter Nutzungsfrequenz eines persönlichen Netzwerks
 - Eigene Sektion für "länger nicht gemeldet" (z.B. Kontakte ohne Follow-up-Intervall) — Dashboard zeigt nur Kontakte mit aktivem `next_followup_at` oder `birthday`, alles andere bleibt in `/contacts`
 - Mobile Push-Benachrichtigungen — kein PWA-Aufwand laut PRD-Constraint
@@ -120,9 +127,19 @@
 - [ ] Angenommen der Nutzer hat keine Notiz, die die Mindestlänge erfüllt, wenn ein Vorschlag generiert wird, dann läuft die Generierung wie bisher ohne Stil-Beispiele (kein Fehler, kein Blocker)
 
 ### Kopieren-Button
-- [ ] Angenommen ein Vorschlag wurde generiert, wenn der Nutzer auf "Kopieren" klickt, dann wird der Vorschlagstext in die Zwischenablage kopiert und ein kurzes visuelles Feedback angezeigt (z.B. "Kopiert!")
+- [ ] **Geändert (Refine 2026-07-01):** Angenommen ein Vorschlag wurde generiert, wenn der Nutzer auf "Kopieren" klickt, dann wird der **aktuelle Textfeld-Inhalt** (inkl. eventueller manueller Bearbeitungen) in die Zwischenablage kopiert und ein kurzes visuelles Feedback angezeigt (z.B. "Kopiert!")
 - [ ] Angenommen noch kein Vorschlag generiert wurde, wenn der Nutzer die Karte sieht, dann ist der Kopieren-Button nicht nutzbar (kein Text zum Kopieren) — Vorschlag muss zuerst generiert werden
 - [ ] Angenommen die Zwischenablage ist im Browser nicht verfügbar/erlaubt, wenn der Nutzer auf "Kopieren" klickt, dann wird eine Fehlermeldung angezeigt, die Karte bleibt ansonsten funktionsfähig
+
+### Editierbarer Draft & Ton-Anpassung (Refine 2026-07-01)
+- [ ] Angenommen ein Vorschlag wurde generiert, wenn er angezeigt wird, dann steht er in einem **editierbaren Textfeld** (Textarea), nicht als read-only Text — der Nutzer kann den Text direkt bearbeiten
+- [ ] Angenommen der Nutzer bearbeitet den Text im Feld, wenn er danach "Kopieren" klickt, dann wird der bearbeitete Stand kopiert (nicht der ursprünglich generierte)
+- [ ] Angenommen ein Vorschlag wurde generiert, wenn der Nutzer eine Ton-Anweisung ins Freitext-Feld eingibt (z.B. "lockerer, auf Englisch") und auf "Neu generieren" klickt, dann wird ein frischer Vorschlag mit dieser Ton-Anweisung generiert und ersetzt den Textfeld-Inhalt
+- [ ] Angenommen das Ton-Feld ist leer, wenn der Nutzer den ersten Vorschlag ("Vorschlag") oder "Neu generieren" auslöst, dann wird ohne Ton-Zusatz generiert (bisheriges Verhalten, kein Fehler)
+- [ ] Angenommen "Neu generieren" läuft, wenn der Nutzer wartet, dann zeigt der Button einen Loading-State (identisch zum bestehenden "Vorschlag"-Verhalten) und das Textfeld/der Kopieren-Button bleiben bis zur Antwort im letzten Stand
+- [ ] Angenommen die Neu-Generierung schlägt fehl (Netzwerk/Provider-Fehler), wenn das passiert, dann wird eine Fehlermeldung angezeigt und der bisherige Textfeld-Inhalt bleibt erhalten (keine Löschung durch einen fehlgeschlagenen Regenerierungs-Versuch)
+- [ ] Angenommen der Nutzer regeneriert mit Ton mehrfach hintereinander, wenn er das tut, dann wird jeweils der aktuellste Vorschlag angezeigt (keine Historie, alter Text wird ersetzt) — gleiches "kein Caching"-Prinzip wie beim ursprünglichen "Vorschlag"
+- [ ] Angenommen die Karte ist eine Import-Event-Karte (Jobwechsel/Beförderung), wenn ein Vorschlag generiert wird, dann verhält sich Editieren + Ton-Anpassung identisch zur Anlass-Karte (gleiche Komponente-Logik, gleiche Route mit `occasionType` = "Jobwechsel"/"Beförderung" + optionalem `tone`)
 
 ### Kalender-Link
 - [ ] Angenommen eine Dashboard-Karte mit Follow-up-Anlass wird angezeigt, wenn der Nutzer auf "Zum Kalender hinzufügen" klickt, dann öffnet sich ein Google-Calendar-Add-Event-Link mit Titel "Follow-up: [Name]" und Datum = `next_followup_at`
@@ -146,6 +163,10 @@
 - **Neu (Refine 2026-06-28):** Kontakt hat sowohl ein offenes Import-Event als auch einen Follow-up/Geburtstags-Anlass im 14-Tage-Fenster → erscheint zweimal (einmal in "Kürzlich erkannt", einmal in "Heute & überfällig"/"Nächste 14 Tage"), keine Zusammenführung der Sektionen
 - **Neu:** Derselbe Feldwechsel (z.B. employer) wird in zwei aufeinanderfolgenden Imports erkannt, ohne dass das erste Event dismissed wurde → zweites Event wird trotzdem zusätzlich angelegt (kein Dedupe), Kontakt zeigt dann ggf. das Badge "Jobwechsel" zweimal in der Detailansicht des Events — Dedupe ist kein MVP-Bedarf (geringe Praxisrelevanz, Nutzer importiert selten mehrfach ohne dazwischen zu reagieren)
 - **Neu:** Kontakt mit offenem Import-Event wird gelöscht (PROJ-3 Löschen) → zugehörige `contact_events`-Zeilen werden per `ON DELETE CASCADE` mitgelöscht, kein verwaister Eintrag
+- **Neu (Refine 2026-07-01):** Nutzer bearbeitet den Textfeld-Inhalt, klickt dann "Neu generieren" (mit oder ohne Ton) → die manuelle Bearbeitung geht verloren, der frische Vorschlag überschreibt das Feld (bewusst, siehe Out of Scope — Regenerierung setzt nicht auf den editierten Zwischenstand auf)
+- **Neu (Refine 2026-07-01):** Nutzer gibt eine sehr lange/aufwändige Ton-Anweisung ein (z.B. "schreib drei Absätze") → der generierte Text wird weiterhin serverseitig auf die bestehende Maximallänge (300 Zeichen) begrenzt; die Ton-Anweisung beeinflusst Stil/Sprache, nicht die harte Längengrenze
+- **Neu (Refine 2026-07-01):** Ton-Feld enthält nur Leerzeichen → wird serverseitig wie "kein Ton" behandelt (getrimmt), normale Generierung ohne Ton-Zusatz
+- **Neu (Refine 2026-07-01):** Nutzer versucht "Neu generieren", ohne vorher je einen Vorschlag generiert zu haben → Ton-Feld + "Neu generieren" erscheinen erst nach dem ersten "Vorschlag" (kein Regenerieren ins Leere)
 
 ## Technical Requirements
 - Security: Der AI-Provider-Key darf niemals client-seitig exponiert werden → benötigt eine serverseitige API-Route (erstes Feature in diesem Projekt, das eine eigene Route statt direktem Supabase-Client-Zugriff braucht). Route muss die Supabase-Session des Nutzers verifizieren, bevor sie Kontakt-/Interaktionsdaten an den AI-Provider sendet (keine fremden Nutzerdaten dürfen in den Prompt gelangen)
@@ -156,12 +177,19 @@
 - Clipboard: native Browser-Clipboard-API, kein neues Package
 - **Neu (Refine 2026-06-28):** Neue Tabelle `contact_events` (von PROJ-10 beim Import-Bestätigen befüllt, von PROJ-6 nur gelesen/dismissed): mind. `id`, `contact_id` (FK → `contacts`, `ON DELETE CASCADE`), `user_id` (für RLS, gleiches Muster wie `contacts`), `type` (`Jobwechsel`/`Beförderung`), `detected_at` (timestamp, = Import-Zeitpunkt), `dismissed_at` (nullable timestamp). RLS-Policy analog zu `contacts`/`interactions`: nur eigene Zeilen (`user_id = auth.uid()`)
 - **Neu:** Dashboard-Query für "Kürzlich erkannt" filtert `dismissed_at IS NULL`, gruppiert client-seitig pro `contact_id` (mehrere offene Events eines Kontakts → eine Karte, mehrere Badges)
+- **Neu (Refine 2026-07-01):** `/api/draft-message` bekommt einen **optionalen** `tone`-Parameter (String). Zod: optional, wird serverseitig getrimmt und auf eine sinnvolle Maximallänge begrenzt (z.B. 200 Zeichen), leer/whitespace → wie nicht gesetzt behandelt. Ist `tone` gesetzt, wird die Anweisung als zusätzliche Prompt-Instruktion angehängt (für alle vier `occasionType`-Werte). Kein neuer Endpoint
+- **Neu (Refine 2026-07-01):** Security — `tone` ist reiner Nutzer-Freitext, der in den eigenen Prompt fließt (der Nutzer weist nur sein eigenes Draft an). Kein Zugriff auf fremde Daten: die Route lädt weiterhin ausschließlich RLS-gefilterte eigene Kontakt-/Interaktionsdaten; die Output-Längengrenze (300 Zeichen) bleibt als Guardrail bestehen, unabhängig vom Ton-Text
+- **Neu (Refine 2026-07-01):** Editierbarkeit ist reiner Client-State (lokaler Textarea-`value` pro Karte), kein neuer Server-Roundtrip, keine Persistenz — gleiches Muster wie der bisherige lokale `draftText`-State
 
 ## Open Questions
 - [ ] Welcher AI-Provider/Modell genau (z.B. über Vercel AI Gateway) — technische Entscheidung, wird in `/architecture` getroffen
 - [ ] Exakter Prompt-Wortlaut für Follow-up- vs. Geburtstags-Anlass — Feinschliff während `/frontend` oder `/backend`, keine Produktentscheidung
 - [x] Genaues Schema/Migration für `contact_events` → Migration `create_contact_events` angewendet, siehe Backend Implementation Notes (2026-06-28)
 - [x] Soll "Kürzlich erkannt" auch einen "Vorschlag"-AI-Draft-Button bekommen? → Ja, ruft dieselbe bestehende AI-Route auf (Konsistenz, kein Sonderfall), siehe Tech Decisions (2026-06-28)
+- [x] Ton-Anpassung als Presets oder Freitext? → Freitext-Feld, Nutzerentscheidung im Refine-Interview (2026-07-01)
+- [x] Gilt Editier-/Ton-Funktion für beide Kartentypen? → Ja, Anlass-Karte + Import-Event-Karte identisch (2026-07-01)
+- [ ] Exakter Prompt-Wortlaut für die Ton-Injektion (wie wird die freie Anweisung eingebettet, damit sie den Kontakt-Kontext nicht überschreibt) — Feinschliff während `/backend`, keine Produktentscheidung
+- [ ] Braucht das Ton-Feld sichtbare Beispiel-Hinweise (Placeholder "z.B. lockerer, auf Englisch, kürzer") oder reicht ein leeres Feld — UI-Feinschliff in `/frontend`
 
 ## Decision Log
 
@@ -184,6 +212,10 @@
 | "Kontaktiert" auf einem Import-Event nutzt dieselbe Interaction-Logging-Aktion wie Follow-up/Geburtstag und markiert das Event dabei als dismissed | Konsistenz mit bestehendem Muster, kein zweiter Aktions-Typ nötig; Nutzerentscheidung im Refine-Interview | 2026-06-28 |
 | Import-Events bleiben sichtbar bis manuell über "Kontaktiert" abgehakt, kein automatisches Zeitfenster-Ausblenden | Nutzerentscheidung im Refine-Interview — ein erkannter Jobwechsel soll nicht stillschweigend verschwinden, nur weil ein fixes Zeitfenster abgelaufen ist | 2026-06-28 |
 | (Reverst Entscheidung von PROJ-10, 2026-06-28) Erkannte Jobwechsel/Beförderungen werden jetzt doch persistiert, in neuer Tabelle `contact_events` statt nur als flüchtiges Vorschau-Ergebnis | Nutzerwunsch: Erkenntnis aus einem Import soll auch nach Schließen des Import-Dialogs auf dem Dashboard sichtbar bleiben — das ging mit der ursprünglichen "nicht speichern"-Entscheidung nicht | 2026-06-28 |
+| Generierter Vorschlag steht in einem editierbaren Textfeld statt read-only Text, "Kopieren" nimmt den editierten Stand | Nutzerwunsch (#2): zeitarmer Berater will Ton/Details für den konkreten Kontakt anpassen, ohne den Umweg über eine andere App — Bearbeiten direkt in der Karte spart den Copy→woanders-editieren→erneut-copy-Zyklus | 2026-07-01 |
+| Ton-Anpassung als Freitext-Feld statt fester Preset-Buttons | Nutzerentscheidung im Refine-Interview: Freitext deckt Sprache/Länge/Stil in einem ab ("auf Englisch", "kürzer und formeller") und ist flexibler als ein fixer Preset-Katalog, den man pflegen müsste | 2026-07-01 |
+| Editierter Text wird nicht persistiert (nur lokaler Karten-State), "Neu generieren" überschreibt manuelle Bearbeitung | Konsistent mit bestehender "kein Draft-Caching"-Entscheidung; Persistenz + Aufsetzen auf editierten Zwischenstand hätten Tabelle/Spalte + komplexere Merge-Logik gebraucht, ohne klaren MVP-Nutzen | 2026-07-01 |
+| Editieren + Ton-Anpassung gelten für beide Kartentypen (Anlass-Karte UND Import-Event-Karte) | Konsistente Draft-UX über das ganze Dashboard, kein Sonderfall nur für eine Kartenart; beide rufen bereits dieselbe `/api/draft-message`-Route | 2026-07-01 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -199,6 +231,9 @@
 | Import-Event-Karte als eigene, neue Komponente statt Wiederverwendung der bestehenden Anlass-Karte | Unterschiedliche Aktionen/Badges (kein Kalender-Link, andere Badge-Typen) — eine gemeinsame Komponente für zwei unterschiedliche Karten-Formen hätte mehr Spezialfall-Logik erzeugt als zwei einfache Komponenten | 2026-06-28 |
 | Bestehende `/api/draft-message`-Route bekommt zwei zusätzliche, gültige Anlass-Typ-Werte ("Jobwechsel"/"Beförderung") statt einer zweiten Route | Gleiche Sicherheits-/Session-Prüfung, gleiche Kontakt-Ladelogik wird für alle vier Anlass-Typen wiederverwendet — nur der Prompt-Wortlaut unterscheidet sich (Detail für `/backend`) | 2026-06-28 |
 | "Kürzlich erkannt" wird zwischen "Nächste 14 Tage" und der vollen Kontaktliste-Verlinkung positioniert, eigene Sektion, kein Vermischen mit den Badges der anderen Karten | Import-Events haben kein Datum in der Zukunft, auf das sich eine gemeinsame chronologische Sortierung stützen könnte — eigene Sektion vermeidet eine künstliche Sortierreihenfolge | 2026-06-28 |
+| Optionaler `tone`-Parameter an bestehender `/api/draft-message`-Route statt neuer Route/Endpoint | Gleiche Session-/RLS-Prüfung, gleiche Kontakt-Ladelogik und Stil-Lernen werden wiederverwendet — nur eine zusätzliche, angehängte Prompt-Instruktion; eine zweite fast identische Route wäre Duplikat | 2026-07-01 |
+| Draft-Anzeige wechselt von `<p>`-Text auf shadcn `Textarea` (bereits installiert oder via `npx shadcn add textarea`), Editierbarkeit über lokalen `value`-State | Kleinstmögliche UI-Änderung, kein neues State-Muster — der bestehende lokale `draftText`-State wird zum bearbeitbaren Textarea-Wert; kein Server-Roundtrip fürs Editieren | 2026-07-01 |
+| "Neu generieren" mit Ton erzeugt frischen Draft aus Kontakt-Kontext + Ton-Anweisung, statt den (evtl. editierten) aktuellen Text an die KI zu schicken | Vermeidet, Nutzer-Freitext ungefiltert als Haupt-Prompt-Inhalt zu senden; Kontakt-Kontext + Ton als getrennte, kontrollierte Prompt-Bausteine sind vorhersehbarer und halten die bestehende Datenleck-Absicherung (nur eigene Kontaktfelder) intakt | 2026-07-01 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -283,6 +318,48 @@ Jede Zeile ist fest mit einem Kontakt verknüpft — wird der Kontakt gelöscht,
 
 ### Dependencies (Packages)
 Keine neuen Packages — neue Tabelle nutzt dasselbe Supabase-Setup wie alle anderen, UI nutzt weiterhin bereits installierte shadcn/ui-Komponenten.
+
+## Tech Design — Refine 2026-07-01 (Editierbarer Draft + Ton-Anpassung)
+
+### Component Structure
+
+```
+Draft-Bereich (identisch auf BEIDEN Kartentypen: occasion-card + import-event-card)
+├── vor Generierung: nur "Vorschlag"-Button (unverändert)
+└── nach Generierung:
+    ├── Editierbares Textfeld (Textarea) — enthält den generierten Vorschlag, Nutzer kann direkt tippen/ändern
+    ├── Ton-Zeile
+    │   ├── Freitext-Feld ("Ton anpassen, z.B. lockerer / auf Englisch / kürzer")
+    │   └── "Neu generieren"-Button → schickt Kontakt + Ton-Anweisung an die bestehende Route, Ergebnis ersetzt Textfeld-Inhalt (Loading-/Fehler-State)
+    └── "Kopieren"-Button → kopiert den AKTUELLEN Textfeld-Inhalt (inkl. Bearbeitungen)
+```
+
+Beide Karten nutzen exakt dasselbe Verhalten. Die Anlass-Karte schickt Anlass-Typ "Follow-up"/"Geburtstag", die Import-Event-Karte "Jobwechsel"/"Beförderung" — der Rest (Textfeld, Ton-Feld, Kopieren) ist identisch.
+
+### Data Model (plain language)
+
+Nichts wird gespeichert. Der bearbeitbare Text und die Ton-Anweisung leben nur im Anzeigezustand der jeweiligen Karte, solange die Seite offen ist. Nach einem Reload oder Kartenwechsel sind beide wieder leer — genau wie der bisherige, nicht gespeicherte Vorschlag. Keine neue Tabelle, keine neue Spalte.
+
+Der Nachrichtendienst (die bestehende Vorschlags-Route) bekommt eine zusätzliche, **optionale** Angabe mit auf den Weg: die freie Ton-Anweisung des Nutzers. Ist sie leer, verhält sich alles wie bisher. Ist sie gesetzt, fließt sie als zusätzlicher Stil-Hinweis in die Erzeugung ein — der eigentliche Kontakt-Kontext (Notizen, Name, Anlass) bleibt unverändert die Basis.
+
+### Tech Decisions (justified)
+
+- **Textfeld statt Nur-Text-Anzeige:** Der Vorschlag steht jetzt in einem bearbeitbaren Feld, damit der Nutzer ihn ohne Umweg über eine andere App anpassen kann. Das ist die kleinstmögliche Änderung — der bisher schon vorhandene Anzeigetext wird einfach zu einem Feld, das man auch beschreiben kann.
+- **Freies Ton-Feld statt fester Knöpfe:** Ein einzelnes Text-Feld deckt Sprache, Länge und Stil in einem ab ("auf Englisch, kürzer, formeller"), ohne dass eine Liste vorgegebener Ton-Knöpfe gepflegt werden muss.
+- **Kein neuer Server-Zugang, nur eine Zusatz-Angabe:** Die bestehende Vorschlags-Route wird um die optionale Ton-Anweisung erweitert. Alle Sicherheits- und Login-Prüfungen sowie das Laden der eigenen Kontaktdaten bleiben unverändert — es kommt nur ein weiterer Stil-Hinweis hinzu.
+- **"Neu generieren" erzeugt frisch aus Kontakt + Ton, nicht aus dem bearbeiteten Text:** Der freie Nutzer-Text wird bewusst nur als Stil-Anweisung mitgegeben, nicht als Haupt-Inhalt an die KI geschickt. So bleibt vorhersehbar, was erzeugt wird, und die bestehende Absicherung "nur eigene Kontaktdaten landen im Prompt" bleibt intakt.
+- **Keine Speicherung:** Konsistent mit der schon getroffenen Entscheidung, Vorschläge nicht zu speichern. Bearbeitungen und Ton gelten pro Sitzung, kein Verlauf, kein zusätzlicher Datenspeicher.
+
+### Dependencies (Packages)
+Voraussichtlich keine neuen — falls die `Textarea`-Komponente von shadcn/ui noch nicht installiert ist, wird sie über das bestehende shadcn-Setup nachgezogen (kein Fremd-Package, gleiche Bibliothek wie alle anderen UI-Bausteine).
+
+## Implementation Notes (Frontend Refine 2026-07-01)
+- `Textarea` (shadcn/ui) war bereits installiert (`src/components/ui/textarea.tsx`), keine neue Installation nötig
+- `src/components/occasion-card.tsx` + `src/components/import-event-card.tsx` (identische Änderung in beiden, konsistent mit bestehender bewusster Duplikation dieser beiden Karten): read-only `<p>{draftText}</p>` ersetzt durch editierbares `Textarea` (`value={draftText}`, `onChange` aktualisiert lokalen State direkt); neue Zeile mit `Input` (Ton-Freitext, Placeholder "Ton anpassen, z.B. lockerer / auf Englisch / kürzer") + "Neu generieren"-Button (ruft dieselbe `handleGenerateDraft`-Funktion wie der ursprüngliche "Vorschlag"-Button); "Kopieren" unverändert, liest weiterhin `draftText` aus dem State — da der Textarea-`onChange` diesen State direkt aktualisiert, kopiert der Button automatisch den editierten Stand
+- `handleGenerateDraft` sendet jetzt zusätzlich `tone: tone.trim() || undefined` im Request-Body — bei leerem Ton-Feld wird `undefined` gesendet (Backend behandelt das wie "kein Ton", siehe noch offene Route-Erweiterung)
+- Ein einziger `tone`-State pro Karte, kein getrennter State für "erste Generierung" vs. "Regenerierung" — beide Buttons ("Vorschlag" initial, "Neu generieren" danach) rufen dieselbe Funktion auf, Ton ist beim ersten Klick naturgemäß leer
+- **Noch offen für `/backend`:** `/api/draft-message`-Route validiert `tone` aktuell nicht (Zod-Schema kennt das Feld noch nicht) — Frontend sendet es bereits, Route ignoriert es bis zur Backend-Erweiterung (kein Fehler, da Zod unbekannte Felder standardmäßig durchlässt, aber der Ton fließt noch nicht in den Prompt ein)
+- `npm run lint` + `npm run build` laufen fehlerfrei durch
 
 ## QA Test Results
 
