@@ -30,7 +30,7 @@ Personal Network OS für **MBB-/Strategieberater** — eine persönliche Beziehu
 | P1 (MBB) | Gemeinsamkeiten-Feld bei Kontakten (KI-Matching Profil ↔ Kontakt) | Roadmap |
 | P2 (MBB) | Passives KI-Lernen aus Cases/Interaktionen (automatische Profil-Vorschläge) | Roadmap |
 | P1 | Konnektoren-Hub (OAuth Integration Settings — Google Calendar + Gmail) | Planned (spec done) |
-| P1 | LinkedIn Foto-Enrichment (auto Profilbild-Scraping via Apify: CSV-Import + Monats-Cron) | Planned (spec done) |
+| P1 | LinkedIn Foto-Enrichment (auto Profilbild-Scraping via Apify: CSV-Import + Monats-Cron) | Deployed |
 
 ## Success Metrics
 - Tägliche Nutzung

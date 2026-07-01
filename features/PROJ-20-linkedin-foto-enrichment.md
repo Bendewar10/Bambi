@@ -259,4 +259,14 @@ Keine PROJ-20-Bugs.
 - **Recommendation:** Deploy. Vorbestehende Test-Failures separat aufräumen.
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-07-01
+**Production URL:** https://bambi-w26q.vercel.app
+**Tag:** v1.18.0-PROJ-20
+
+- `vercel --prod` erfolgreich (READY), Commits nach `origin/main` gepusht (`46c4203`).
+- Env `APIFY_TOKEN` in Vercel (production/preview/development) gesetzt; `CRON_SECRET` bereits vorhanden.
+- Migration `photo_attempted_at` + Index bereits in Supabase-Prod angewandt.
+- Cron `/api/cron/enrich-photos` (`0 4 * * *`, interner 1.-des-Monats-Gate) via `vercel.json` registriert.
+- Post-Deploy-Smoke: Home 307 (Auth-Redirect), `/api/enrich-photos` unauth → Middleware-Redirect (geschützt), `/api/cron/enrich-photos` ohne Secret → 401.
+- Bereits live befüllt: Yisa Wu + Lennart Heinacher mit Foto (Demo/Verifikation).
