@@ -50,7 +50,7 @@ function today() {
 const contactSchema = z.object({
   first_name: z.string().trim().min(1, 'Vorname ist erforderlich').max(100, 'Max. 100 Zeichen'),
   last_name: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
-  category: z.enum(['business', 'investor', 'community', 'friend', 'acquaintance', 'random']).optional(),
+  category: z.enum(['colleague', 'alumni', 'extern', 'private', 'other']).optional(),
   strength: z.enum(['none', '1', '2', '3']).optional(),
   employer: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
   job_title: z.string().trim().max(100, 'Max. 100 Zeichen').optional(),
@@ -270,11 +270,11 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSaved }: Cont
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Kategorie</FormLabel>
+                  <FormLabel>Kontakttyp</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Kategorie wählen" />
+                        <SelectValue placeholder="Kontakttyp wählen" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

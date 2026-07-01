@@ -136,7 +136,7 @@ export function buildChatTools(
         'Sucht/filtert Kontakte des Nutzers. Nutze query für Namens-/Arbeitgeber-Suche, overdueOnly für überfällige Kontakte, missingFollowupOnly für Kontakte ohne Follow-up-Termin, category/strength zum Filtern. Gibt eine Liste mit id, Name und Kerndaten zurück.',
       inputSchema: z.object({
         query: z.string().optional().describe('Such-Text für Vor-/Nachname oder Arbeitgeber'),
-        category: z.enum(['business', 'investor', 'community', 'friend', 'acquaintance', 'random']).optional(),
+        category: z.enum(['colleague', 'alumni', 'extern', 'private', 'other']).optional(),
         strength: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
         overdueOnly: z.boolean().optional(),
         missingFollowupOnly: z.boolean().optional(),
@@ -339,7 +339,7 @@ export function buildChatTools(
         email: z.string().optional(),
         phone: z.string().optional(),
         city: z.string().optional(),
-        category: z.enum(['business', 'investor', 'community', 'friend', 'acquaintance', 'random']).optional(),
+        category: z.enum(['colleague', 'alumni', 'extern', 'private', 'other']).optional(),
         strength: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
       }),
       execute: async (input) => {

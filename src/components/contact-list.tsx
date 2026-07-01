@@ -125,10 +125,10 @@ export function ContactList() {
         />
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Kategorie" />
+            <SelectValue placeholder="Kontakttyp" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Alle Kategorien</SelectItem>
+            <SelectItem value={ALL}>Alle Typen</SelectItem>
             {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
