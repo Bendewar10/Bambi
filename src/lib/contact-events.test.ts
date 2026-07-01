@@ -13,6 +13,7 @@ function makeContact(id: string): Contact {
     job_title: null,
     email: null,
     linkedin_url: null,
+    photo_url: null,
     context: null,
     notes: null,
     city: null,

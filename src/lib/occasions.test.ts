@@ -15,6 +15,7 @@ function makeContact(overrides: Partial<Contact>): Contact {
     job_title: null,
     email: null,
     linkedin_url: null,
+    photo_url: null,
     context: null,
     notes: null,
     city: null,

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ContactOccasion } from '@/lib/occasions'
 import { buildCalendarLink } from '@/lib/external-links'
 import { Contact, getFullName } from '@/lib/contacts'
@@ -85,6 +85,7 @@ export function OccasionCard({ occasion, onLogInteraction, onOpenCard }: Occasio
     <Card className="rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md">
       <CardHeader className="flex flex-row items-start gap-3 space-y-0 p-4">
         <Avatar className="h-10 w-10 shrink-0 cursor-pointer" onClick={onOpenCard}>
+          {contact.photo_url && <AvatarImage src={contact.photo_url} alt={getFullName(contact)} />}
           <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
             {getInitials(contact)}
           </AvatarFallback>

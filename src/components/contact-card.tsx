@@ -4,7 +4,7 @@ import { Contact, CATEGORY_LABELS, STRENGTH_LABELS, getFullName } from '@/lib/co
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +47,7 @@ export function ContactCard({ contact, onEdit, onDelete, onShowHistory }: Contac
     >
       <CardHeader className="flex flex-row items-start gap-3 space-y-0 p-4">
         <Avatar className="h-10 w-10 shrink-0">
+          {contact.photo_url && <AvatarImage src={contact.photo_url} alt={getFullName(contact)} />}
           <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
             {getInitials(contact)}
           </AvatarFallback>
